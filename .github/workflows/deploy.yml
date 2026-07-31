@@ -1,0 +1,48 @@
+name: DineSync AI Production CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      - name: Install & Test Backend
+        run: |
+          cd backend
+          npm ci
+          npm test
+
+      - name: Install & Test Frontend
+        run: |
+          cd frontend
+          npm ci
+          npm test
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Backend Docker Image
+        run: docker build ./backend -t dinesync-backend:latest
+
+      - name: Build Frontend Docker Image
+        run: docker build ./frontend -t dinesync-frontend:latest
+
+      - name: Build AI Service Docker Image
+        run: docker build ./ai-service -t dinesync-ai-service:latest

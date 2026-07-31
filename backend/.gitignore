@@ -1,0 +1,12 @@
+node_modules
+.env
+.env.*
+!.env.example
+Dockerfile*
+npm-debug.log
+logs
+*.log
+.DS_Store
+dist
+coverage
+
