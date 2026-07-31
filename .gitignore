@@ -9,12 +9,6 @@
 *.cert
 *.crt
 
-# Docker & Infrastructure Configs
-docker-compose*.yml
-Dockerfile*
-.dockerignore
-nginx.conf
-ecosystem.config.js
 
 # Dependencies & Package Managers
 node_modules/

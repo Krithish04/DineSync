@@ -3,8 +3,6 @@ dist
 .env
 .env.*
 !.env.example
-Dockerfile*
-nginx.conf
 .DS_Store
 *.log
 
