@@ -4,7 +4,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
 export default function CustomerForm({
-  branches = [],
   initialData = null,
   onSubmit,
   onCancel,
@@ -18,7 +17,6 @@ export default function CustomerForm({
     dateOfBirth: '',
     gender: '',
     address: '',
-    preferredBranch: '',
     dietaryPreference: 'Non Veg',
     referredByCode: '',
     marketingConsent: false,
@@ -36,9 +34,8 @@ export default function CustomerForm({
         dateOfBirth: initialData.dateOfBirth ? new Date(initialData.dateOfBirth).toISOString().slice(0, 10) : '',
         gender: initialData.gender || '',
         address: initialData.address || '',
-        preferredBranch: initialData.preferredBranch?._id || initialData.preferredBranch || '',
         dietaryPreference: initialData.dietaryPreference || 'Non Veg',
-        referredByCode: '', // referralCode is read-only for existing users
+        referredByCode: '',
         marketingConsent: !!initialData.marketingConsent,
         notes: initialData.notes || '',
       });
@@ -122,7 +119,7 @@ export default function CustomerForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-1.5">
           <Label htmlFor="gender">Gender</Label>
           <select
@@ -152,24 +149,6 @@ export default function CustomerForm({
             <option value="Veg">Veg</option>
             <option value="Vegan">Vegan</option>
             <option value="Jain">Jain</option>
-          </select>
-        </div>
-
-        <div className="space-y-1.5">
-          <Label htmlFor="preferredBranch">Preferred Branch</Label>
-          <select
-            id="preferredBranch"
-            name="preferredBranch"
-            value={form.preferredBranch}
-            onChange={handleChange}
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none"
-          >
-            <option value="">Select branch...</option>
-            {branches.map((b) => (
-              <option key={b._id} value={b._id}>
-                {b.name}
-              </option>
-            ))}
           </select>
         </div>
       </div>

@@ -29,12 +29,6 @@ const employeeSchema = new Schema(
       required: true,
       index: true,
     },
-    branch: {
-      type: Schema.Types.ObjectId,
-      ref: 'Branch',
-      required: true,
-      index: true,
-    },
     firstName: {
       type: String,
       required: [true, 'First name is required'],

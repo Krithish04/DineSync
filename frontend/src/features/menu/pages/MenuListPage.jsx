@@ -25,8 +25,7 @@ import Loader from '@/components/common/Loader';
 import ImageUpload from '@/components/common/ImageUpload';
 import useAuthStore from '@/features/auth/store/auth.store';
 import * as menuItemApi from '@/features/menu/api/menuItem.api';
-import * as categoryApi from '@/features/category/api/category.api';
-import * as branchApi from '@/features/branch/api/branch.api';
+
 
 // Dietary Option configuration
 const DIETARY_TYPES = [
@@ -110,12 +109,8 @@ export default function MenuListPage() {
   const loadDependencies = useCallback(async () => {
     if (!restaurantId) return;
     try {
-      const [categoriesData, branchesData] = await Promise.all([
-        categoryApi.listCategories(restaurantId, { limit: 100 }),
-        branchApi.listBranches(restaurantId, { limit: 100 }),
-      ]);
+      const categoriesData = await categoryApi.listCategories(restaurantId, { limit: 100 });
       setCategories(categoriesData.items || []);
-      setBranches(branchesData.items || []);
     } catch {
       // Fail silently for setup lists, fallback is empty array
     }

@@ -9,13 +9,10 @@ import Loader from '@/components/common/Loader';
 import ShiftCalendar from '../components/ShiftCalendar';
 import useAuthStore from '@/features/auth/store/auth.store';
 import * as employeeApi from '../api/employee.api';
-import * as branchApi from '@/features/branch/api/branch.api';
 
 export default function ShiftManagementPage() {
   const restaurantId = useAuthStore((s) => s.restaurant?._id);
 
-  const [branches, setBranches] = useState([]);
-  const [selectedBranch, setSelectedBranch] = useState('');
   const [shifts, setShifts] = useState([]);
   const [allEmployees, setAllEmployees] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -31,21 +28,13 @@ export default function ShiftManagementPage() {
   const [assignShift, setAssignShift] = useState(null);
   const [selectedEmployees, setSelectedEmployees] = useState([]);
 
-  const loadBranches = useCallback(async () => {
-    try {
-      const res = await branchApi.listBranches(restaurantId, { limit: 100 });
-      setBranches(res.items || []);
-      if (res.items?.length > 0) setSelectedBranch(res.items[0]._id);
-    } catch { /* non-fatal */ }
-  }, [restaurantId]);
-
   const loadShifts = useCallback(async () => {
-    if (!selectedBranch) return;
+    if (!restaurantId) return;
     setIsLoading(true);
     try {
       const [shiftRes, empRes] = await Promise.all([
-        employeeApi.listShifts(restaurantId, selectedBranch),
-        employeeApi.listEmployees(restaurantId, { branch: selectedBranch }),
+        employeeApi.listShifts(restaurantId),
+        employeeApi.listEmployees(restaurantId),
       ]);
       setShifts(shiftRes || []);
       setAllEmployees(empRes || []);
@@ -54,10 +43,9 @@ export default function ShiftManagementPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [restaurantId, selectedBranch]);
+  }, [restaurantId]);
 
-  useEffect(() => { if (restaurantId) loadBranches(); }, [restaurantId, loadBranches]);
-  useEffect(() => { if (selectedBranch) loadShifts(); }, [selectedBranch, loadShifts]);
+  useEffect(() => { if (restaurantId) loadShifts(); }, [restaurantId, loadShifts]);
 
   const handleCreateShift = async (e) => {
     e.preventDefault();
@@ -65,7 +53,7 @@ export default function ShiftManagementPage() {
     setIsSaving(true);
     setError('');
     try {
-      await employeeApi.createShift(restaurantId, selectedBranch, { ...form, breakDuration: parseInt(form.breakDuration, 10) });
+      await employeeApi.createShift(restaurantId, { ...form, breakDuration: parseInt(form.breakDuration, 10) });
       setSuccess('Shift created successfully.');
       setShowForm(false);
       setForm({ shiftName: '', startTime: '09:00', endTime: '17:00', breakDuration: 30 });
@@ -107,15 +95,12 @@ export default function ShiftManagementPage() {
   };
 
   return (
-    <RestaurantLayout title="Restaurant Management" description="Create weekly shifts and assign staff rosters by branch.">
+    <RestaurantLayout title="Restaurant Management" description="Create weekly shifts and assign staff rosters.">
       <div className="space-y-6">
         {/* Controls */}
-        <div className="flex flex-wrap items-center gap-4 border-b border-border/40 pb-4">
-          <select value={selectedBranch} onChange={(e) => setSelectedBranch(e.target.value)}
-            className="h-9 rounded border border-input bg-background px-3 text-xs font-semibold focus:outline-none min-w-[160px]">
-            {branches.map((b) => <option key={b._id} value={b._id}>{b.name}</option>)}
-          </select>
-          <Button size="xs" onClick={() => setShowForm((v) => !v)} className="h-8 ml-auto">
+        <div className="flex flex-wrap items-center justify-between border-b border-border/40 pb-4">
+          <h2 className="text-xl font-bold tracking-tight">Shifts & Schedules</h2>
+          <Button size="xs" onClick={() => setShowForm((v) => !v)} className="h-8">
             <Plus className="h-4 w-4 mr-1" /> Create Shift
           </Button>
         </div>
@@ -169,7 +154,7 @@ export default function ShiftManagementPage() {
             <div className="p-4 border-b bg-muted/20 font-bold text-sm">Assign Roster: {assignShift.shiftName}</div>
             <div className="p-4 space-y-3 max-h-[380px] overflow-y-auto">
               {allEmployees.length === 0 ? (
-                <p className="text-xs text-muted-foreground italic text-center">No employees in this branch.</p>
+                <p className="text-xs text-muted-foreground italic text-center">No employees available.</p>
               ) : allEmployees.map((emp) => (
                 <label key={emp._id} className="flex items-center gap-3 p-2 rounded border border-border hover:bg-muted/5 cursor-pointer">
                   <input type="checkbox" checked={selectedEmployees.includes(emp._id)}

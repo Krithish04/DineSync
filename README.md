@@ -88,69 +88,26 @@ graph TD
 
 ---
 
-## ⚡ Quick Start Guide
-
-### Prerequisites
-* **Node.js**: `v18.0.0` or higher
-* **Python**: `v3.10` or higher
-* **MongoDB**: Local MongoDB instance or MongoDB Atlas Connection URI
-
 ---
 
-### 1️⃣ Backend Setup (Node.js API)
+## 🔑 Quick Test Credentials & Database Seeding
+
+Run the automated seed script to generate a pre-configured demo restaurant and accounts across all roles:
 
 ```bash
 cd backend
-
-# Copy environment configuration
-cp .env.example .env
-
-# Install dependencies
-npm install
-
-# Start development server (Port 5000)
-npm run dev
+npm run seed
 ```
 
----
+### Seeded Credentials (Password for all: `Demo@1234`)
 
-### 2️⃣ Frontend Setup (React App)
-
-```bash
-cd frontend
-
-# Copy environment configuration
-cp .env.example .env
-
-# Install dependencies
-npm install
-
-# Start Vite dev server (Port 5173)
-npm run dev
-```
-
----
-
-### 3️⃣ AI Microservice Setup (FastAPI)
-
-```bash
-cd ai-service
-
-# Create and activate virtual environment
-# Linux/macOS:
-python -m venv .venv && source .venv/bin/activate
-# Windows (PowerShell):
-# python -m venv .venv; .venv\Scripts\Activate.ps1
-
-# Install Python requirements
-pip install -r requirements.txt
-
-# Copy environment configuration
-cp .env.example .env
-
-# Run FastAPI server (Port 8000)
-python run.py
-```
+| Role | Portal / Login Page | Email | Access Scope |
+| :--- | :--- | :--- | :--- |
+| **Owner** | Restaurant Team (`/login/restaurant`) | `owner@demo.dinesync.ai` | Full Restaurant Admin, Billing, Settings, Reports, Employee Payroll |
+| **Manager** | Restaurant Team (`/login/restaurant`) | `manager@demo.dinesync.ai` | Operations, Orders, Menu, Tables, Feedback Management, Employee Roster |
+| **Staff** | Restaurant Team (`/login/restaurant`) | `staff@demo.dinesync.ai` | Active Seating, POS Order Creation, Serviced Ticket Updates |
+| **Chef** | Kitchen Staff (`/login/kitchen`) | `chef@demo.dinesync.ai` | Touch KDS Kitchen Display Console |
+| **Super Admin** | Platform Admin (`/login/admin`) | `admin@dinesync.ai` | SaaS Platform Administration *(Direct URL)* |
 
 ---
 

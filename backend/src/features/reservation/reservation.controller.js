@@ -63,8 +63,7 @@ const updateReservationStatus = asyncHandler(async (req, res) => {
 });
 
 const getDashboardStats = asyncHandler(async (req, res) => {
-  const branchId = req.query.branch || null;
-  const stats = await reservationService.getDashboardStats(req.params.restaurantId, branchId);
+  const stats = await reservationService.getDashboardStats(req.params.restaurantId);
   return new ApiResponse(200, { stats }, 'Dashboard stats fetched successfully').send(res);
 });
 

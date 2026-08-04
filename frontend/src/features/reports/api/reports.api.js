@@ -14,11 +14,6 @@ export const getSalesSummary = async (restaurantId, params = {}) => {
   return data.data;
 };
 
-export const getSalesByBranch = async (restaurantId, params = {}) => {
-  const { data } = await api.get(`${reportsUrl(restaurantId)}/sales/by-branch`, { params });
-  return data.data.sales;
-};
-
 export const getSalesByCategory = async (restaurantId, params = {}) => {
   const { data } = await api.get(`${reportsUrl(restaurantId)}/sales/by-category`, { params });
   return data.data.sales;

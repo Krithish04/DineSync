@@ -8,6 +8,7 @@ const {
   shiftSchema,
   leaveSchema,
   leaveApprovalSchema,
+  createEmployeeUserSchema,
 } = require('./employee.validation');
 const { protect, authorize, enforceTenantIsolation } = require('../../middlewares/auth.middleware');
 const { ROLES } = require('../../constants/roles.constant');
@@ -26,6 +27,13 @@ router
   .get(employeeController.listEmployees);
 
 router.get('/stats', employeeController.getEmployeeStats);
+
+router.post(
+  '/:employeeId/create-account',
+  canManage,
+  validateBody(createEmployeeUserSchema),
+  employeeController.createEmployeeUser
+);
 
 router
   .route('/:employeeId')
@@ -53,7 +61,7 @@ router.patch('/shifts/:shiftId/assign', canManage, employeeController.assignEmpl
 
 // Payroll Foundation
 router.post('/payroll/generate', canManage, employeeController.generateMonthlyPayroll);
-router.get('/payroll/all', employeeController.listPayroll);
+router.get('/payroll/all', canManage, employeeController.listPayroll);
 router.patch('/payroll/:payrollId/pay', canManage, employeeController.paySalary);
 
 module.exports = router;

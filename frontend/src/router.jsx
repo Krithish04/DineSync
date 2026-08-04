@@ -14,7 +14,10 @@ const lazyLoad = (importFn) => {
   );
 };
 
-const LoginPage = lazyLoad(() => import('@/features/auth/pages/LoginPage'));
+const LoginChooserPage = lazyLoad(() => import('@/features/auth/pages/LoginChooserPage'));
+const RestaurantLoginPage = lazyLoad(() => import('@/features/auth/pages/RestaurantLoginPage'));
+const KitchenLoginPage = lazyLoad(() => import('@/features/auth/pages/KitchenLoginPage'));
+const AdminLoginPage = lazyLoad(() => import('@/features/auth/pages/AdminLoginPage'));
 const RegisterPage = lazyLoad(() => import('@/features/auth/pages/RegisterPage'));
 const VerifyOtpPage = lazyLoad(() => import('@/features/auth/pages/VerifyOtpPage'));
 const ForgotPasswordPage = lazyLoad(() => import('@/features/auth/pages/ForgotPasswordPage'));
@@ -24,8 +27,6 @@ const RestaurantProfilePage = lazyLoad(() => import('@/features/restaurant/pages
 const RestaurantSettingsPage = lazyLoad(() => import('@/features/restaurant/pages/RestaurantSettingsPage'));
 const GstSettingsPage = lazyLoad(() => import('@/features/restaurant/pages/GstSettingsPage'));
 const OpeningHoursPage = lazyLoad(() => import('@/features/restaurant/pages/OpeningHoursPage'));
-const BranchListPage = lazyLoad(() => import('@/features/branch/pages/BranchListPage'));
-const BranchFormPage = lazyLoad(() => import('@/features/branch/pages/BranchFormPage'));
 const CategoryListPage = lazyLoad(() => import('@/features/category/pages/CategoryListPage'));
 const MenuListPage = lazyLoad(() => import('@/features/menu/pages/MenuListPage'));
 const TableListPage = lazyLoad(() => import('@/features/table/pages/TableListPage'));
@@ -40,6 +41,7 @@ const ActiveOrdersPage = lazyLoad(() => import('@/features/order/pages/ActiveOrd
 const OrderDetailsPage = lazyLoad(() => import('@/features/order/pages/OrderDetailsPage'));
 const OrderHistoryPage = lazyLoad(() => import('@/features/order/pages/OrderHistoryPage'));
 const KitchenDashboardPage = lazyLoad(() => import('@/features/kitchen/pages/KitchenDashboardPage'));
+const KdsPage = lazyLoad(() => import('@/features/kitchen/pages/KdsPage'));
 const InventoryDashboardPage = lazyLoad(() => import('@/features/inventory/pages/InventoryDashboardPage'));
 const IngredientListPage = lazyLoad(() => import('@/features/inventory/pages/IngredientListPage'));
 const SupplierListPage = lazyLoad(() => import('@/features/inventory/pages/SupplierListPage'));
@@ -49,6 +51,8 @@ const CustomerDashboardPage = lazyLoad(() => import('@/features/customer/pages/C
 const CustomerListPage = lazyLoad(() => import('@/features/customer/pages/CustomerListPage'));
 const CustomerProfilePage = lazyLoad(() => import('@/features/customer/pages/CustomerProfilePage'));
 const LoyaltyDashboardPage = lazyLoad(() => import('@/features/customer/pages/LoyaltyDashboardPage'));
+const FeedbackManagementPage = lazyLoad(() => import('@/features/customer/pages/FeedbackManagementPage'));
+const FeedbackInsightsPage = lazyLoad(() => import('@/features/customer/pages/FeedbackInsightsPage'));
 const BillingDashboardPage = lazyLoad(() => import('@/features/billing/pages/BillingDashboardPage'));
 const InvoiceListPage = lazyLoad(() => import('@/features/billing/pages/InvoiceListPage'));
 const InvoiceDetailsPage = lazyLoad(() => import('@/features/billing/pages/InvoiceDetailsPage'));
@@ -100,7 +104,19 @@ const router = createBrowserRouter([
   },
   {
     path: '/login',
-    element: <LoginPage />,
+    element: <LoginChooserPage />,
+  },
+  {
+    path: '/login/restaurant',
+    element: <RestaurantLoginPage />,
+  },
+  {
+    path: '/login/kitchen',
+    element: <KitchenLoginPage />,
+  },
+  {
+    path: '/login/admin',
+    element: <AdminLoginPage />,
   },
   {
     path: '/register',
@@ -121,6 +137,15 @@ const router = createBrowserRouter([
   {
     path: '/unauthorized',
     element: <Unauthorized />,
+  },
+  {
+    element: <ProtectedRoute allowedRoles={['chef', 'manager', 'owner', 'super_admin']} />,
+    children: [
+      {
+        path: '/kds',
+        element: <KdsPage />,
+      },
+    ],
   },
   {
     element: <ProtectedRoute />,
@@ -149,18 +174,6 @@ const router = createBrowserRouter([
       {
         path: '/restaurant/opening-hours',
         element: <OpeningHoursPage />,
-      },
-      {
-        path: '/restaurant/branches',
-        element: <BranchListPage />,
-      },
-      {
-        path: '/restaurant/branches/new',
-        element: <BranchFormPage />,
-      },
-      {
-        path: '/restaurant/branches/:branchId/edit',
-        element: <BranchFormPage />,
       },
       {
         path: '/restaurant/categories',
@@ -261,6 +274,14 @@ const router = createBrowserRouter([
       {
         path: '/restaurant/customers/loyalty',
         element: <LoyaltyDashboardPage />,
+      },
+      {
+        path: '/restaurant/feedback/manage',
+        element: <FeedbackManagementPage />,
+      },
+      {
+        path: '/restaurant/feedback/insights',
+        element: <FeedbackInsightsPage />,
       },
       {
         path: '/restaurant/billing/dashboard',

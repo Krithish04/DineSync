@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Plus, Filter, AlertCircle, Sparkles } from 'lucide-react';
+import { Search, Plus, Sparkles } from 'lucide-react';
 import RestaurantLayout from '@/features/restaurant/components/RestaurantLayout';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -11,7 +11,6 @@ import CartPanel from '../components/CartPanel';
 import useAuthStore from '@/features/auth/store/auth.store';
 import * as menuItemApi from '@/features/menu/api/menuItem.api';
 import * as categoryApi from '@/features/category/api/category.api';
-import * as branchApi from '@/features/branch/api/branch.api';
 import * as orderApi from '../api/order.api';
 
 // Modifier selector overlay dialog
@@ -27,7 +26,6 @@ function ModifiersModal({ item, onAdd, onCancel }) {
   };
 
   const handleConfirm = () => {
-    // Convert selectedModifiers map to schema list
     const modifiersList = Object.entries(selectedModifiers).map(([groupName, { optionName, price }]) => ({
       groupName,
       optionName,
@@ -97,7 +95,6 @@ export default function NewOrderPage() {
 
   const [categories, setCategories] = useState([]);
   const [menuItems, setMenuItems] = useState([]);
-  const [branches, setBranches] = useState([]);
   const [cart, setCart] = useState([]);
   
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -111,18 +108,16 @@ export default function NewOrderPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  // Load Categories & Menu Items & Branches
+  // Load Categories & Menu Items
   const loadPOSData = useCallback(async () => {
     setIsLoadingMenu(true);
     try {
-      const [catResult, menuResult, branchResult] = await Promise.all([
+      const [catResult, menuResult] = await Promise.all([
         categoryApi.listCategories(restaurantId, { limit: 100 }),
         menuItemApi.listMenuItems(restaurantId, { limit: 150 }),
-        branchApi.listBranches(restaurantId, { limit: 100 }),
       ]);
       setCategories(catResult.items || []);
       setMenuItems(menuResult.items || []);
-      setBranches(branchResult.items || []);
     } catch {
       // Non-fatal
     } finally {
@@ -157,7 +152,6 @@ export default function NewOrderPage() {
 
   const handleAdd = (item, modifiers, specialInstructions) => {
     setCart((prev) => {
-      // Check if duplicate exists (same item + same modifiers)
       const existingIdx = prev.findIndex((cartItem) => {
         if (cartItem.menuItemId !== item._id) return false;
         if (cartItem.modifiers.length !== modifiers.length) return false;
@@ -331,6 +325,11 @@ export default function NewOrderPage() {
 
         {/* Right Side: Cart Panel */}
         <div className="lg:col-span-1 h-[680px]">
+          {error && (
+            <div className="mb-3 rounded border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+              {error}
+            </div>
+          )}
           {success && (
             <div className="mb-3 rounded border border-primary/30 bg-primary/10 px-3 py-2 text-xs text-primary">
               {success}
@@ -341,7 +340,6 @@ export default function NewOrderPage() {
             cartItems={cart}
             onUpdateQty={handleUpdateQty}
             onRemoveItem={handleRemoveItem}
-            branches={branches}
             onSubmit={handlePlaceOrder}
             isPlacing={isPlacing}
           />

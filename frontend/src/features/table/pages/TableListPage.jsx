@@ -11,7 +11,6 @@ import QrCodeModal from '../components/QrCodeModal';
 import useAuthStore from '@/features/auth/store/auth.store';
 import useSocketStore from '@/store/socket.store';
 import * as tableApi from '../api/table.api';
-import * as branchApi from '@/features/branch/api/branch.api';
 
 export default function TableListPage() {
   const restaurantId = useAuthStore((state) => state.restaurant?._id);
@@ -22,7 +21,6 @@ export default function TableListPage() {
   const navigate = useNavigate();
 
   const [tables, setTables] = useState([]);
-  const [branches, setBranches] = useState([]);
   const [pagination, setPagination] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -31,10 +29,9 @@ export default function TableListPage() {
   // Search & Filters state
   const [search, setSearch] = useState('');
   const [searchDebounced, setSearchDebounced] = useState('');
-  const [selectedBranchFilter, setSelectedBranchFilter] = useState('all');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState('all');
   const [page, setPage] = useState(1);
-  const limit = 12; // 3 or 4 columns of cards
+  const limit = 12;
 
   // QR Modal state
   const [selectedQrTable, setSelectedQrTable] = useState(null);
@@ -55,17 +52,6 @@ export default function TableListPage() {
     return () => clearTimeout(handler);
   }, [search]);
 
-  // Load branches (for filtering)
-  const loadBranches = useCallback(async () => {
-    if (!restaurantId) return;
-    try {
-      const res = await branchApi.listBranches(restaurantId, { limit: 100 });
-      setBranches(res.items || []);
-    } catch {
-      // Non-fatal
-    }
-  }, [restaurantId]);
-
   // Load tables
   const loadTables = useCallback(async () => {
     setIsLoading(true);
@@ -77,7 +63,6 @@ export default function TableListPage() {
         search: searchDebounced,
       };
 
-      if (selectedBranchFilter !== 'all') params.branch = selectedBranchFilter;
       if (selectedStatusFilter !== 'all') params.status = selectedStatusFilter;
 
       const res = await tableApi.listTables(restaurantId, params);
@@ -88,14 +73,13 @@ export default function TableListPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [restaurantId, page, searchDebounced, selectedBranchFilter, selectedStatusFilter]);
+  }, [restaurantId, page, searchDebounced, selectedStatusFilter]);
 
   useEffect(() => {
     if (restaurantId) {
-      loadBranches();
       loadTables();
     }
-  }, [restaurantId, loadBranches, loadTables]);
+  }, [restaurantId, loadTables]);
 
   // Real-time Socket.IO listener for table claims, releases, and status changes
   useEffect(() => {
@@ -175,7 +159,7 @@ export default function TableListPage() {
           )}
 
           {/* Search, Filter bar */}
-          <div className="mb-6 grid gap-4 grid-cols-1 sm:grid-cols-3">
+          <div className="mb-6 grid gap-4 grid-cols-1 sm:grid-cols-2">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -184,25 +168,6 @@ export default function TableListPage() {
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-9 text-sm"
               />
-            </div>
-
-            <div className="relative">
-              <select
-                value={selectedBranchFilter}
-                onChange={(e) => {
-                  setSelectedBranchFilter(e.target.value);
-                  setPage(1);
-                }}
-                className="flex h-10 w-full appearance-none rounded-md border border-input bg-background px-3 py-2 pr-9 text-sm text-foreground shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              >
-                <option value="all">All Branches</option>
-                {branches.map((b) => (
-                  <option key={b._id} value={b._id}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
-              <Filter className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             </div>
 
             <div className="relative">
@@ -232,7 +197,7 @@ export default function TableListPage() {
             <div className="flex flex-col items-center gap-3 py-12 text-center border border-dashed rounded-lg bg-muted/10">
               <Grid className="h-8 w-8 text-muted-foreground" />
               <p className="text-sm text-muted-foreground">
-                {searchDebounced || selectedBranchFilter !== 'all' || selectedStatusFilter !== 'all'
+                {searchDebounced || selectedStatusFilter !== 'all'
                   ? 'No tables match your search filters.'
                   : 'No dining tables configured yet.'}
               </p>

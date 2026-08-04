@@ -1,7 +1,6 @@
 const mongoose = require('mongoose');
 const Reservation = require('./reservation.model');
 const Table = require('../table/table.model');
-const Branch = require('../branch/branch.model');
 const ApiError = require('../../utils/ApiError');
 
 // Helper to convert HH:mm string to minutes from midnight
@@ -20,11 +19,10 @@ const checkOverlap = (start1, duration1, start2, duration2) => {
 /**
  * Validates a reservation candidate against business rules:
  * 1. Guest count <= table capacity.
- * 2. Booking falls within branch operating hours.
- * 3. Table is not already reserved during the requested slot (overlapping start/end).
+ * 2. Table is not already reserved during the requested slot (overlapping start/end).
  */
 const validateReservationBusinessRules = async (restaurantId, payload, reservationId = null) => {
-  const { branch: branchId, table: tableId, numberOfGuests, reservationDate, reservationTime, duration = 90 } = payload;
+  const { table: tableId, numberOfGuests, reservationDate, reservationTime, duration = 90 } = payload;
 
   // 1. Validate Table exists, is active, and matches capacity
   const table = await Table.findOne({ _id: tableId, restaurant: restaurantId, isDeleted: false });
@@ -38,42 +36,9 @@ const validateReservationBusinessRules = async (restaurantId, payload, reservati
     throw ApiError.badRequest(`Table capacity is ${table.capacity} guests, but booking is for ${numberOfGuests} guests.`);
   }
 
-  // 2. Validate Branch exists and falls within operating hours
-  const branch = await Branch.findOne({ _id: branchId, restaurant: restaurantId });
-  if (!branch) {
-    throw ApiError.notFound('Selected branch not found.');
-  }
-  if (branch.status === 'inactive') {
-    throw ApiError.badRequest('Selected branch is currently inactive.');
-  }
-
-  // Find weekday weekdayName (e.g. 'monday')
-  const dateObj = new Date(reservationDate);
-  const dayIndex = dateObj.getDay(); // 0 = Sunday, 1 = Monday...
-  const daysOfWeek = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-  const weekdayName = daysOfWeek[dayIndex];
-
-  const daySchedule = branch.operatingHours.find((h) => h.day === weekdayName);
-  if (!daySchedule || !daySchedule.isOpen) {
-    throw ApiError.badRequest(`Branch is closed on ${weekdayName}s.`);
-  }
-
-  // Time slots checks
   const bookStart = timeToMinutes(reservationTime);
-  const bookEnd = bookStart + duration;
 
-  const inSlot = daySchedule.slots.some((slot) => {
-    const slotStart = timeToMinutes(slot.open);
-    const slotEnd = timeToMinutes(slot.close);
-    return bookStart >= slotStart && bookEnd <= slotEnd;
-  });
-
-  if (!inSlot) {
-    const slotRanges = daySchedule.slots.map((s) => `${s.open} to ${s.close}`).join(', ');
-    throw ApiError.badRequest(`Selected reservation time falls outside operating hours on ${weekdayName} (${slotRanges}).`);
-  }
-
-  // 3. Double Booking Check (Overlap Check)
+  // 2. Double Booking Check (Overlap Check)
   const activeBookings = await Reservation.find({
     table: tableId,
     reservationDate: reservationDate,
@@ -115,14 +80,10 @@ const createReservation = async (restaurantId, payload, userId = null) => {
 };
 
 /**
- * Lists reservations. Supports searching, filtering by branch/status/date, and pagination.
+ * Lists reservations. Supports searching, filtering by status/date, and pagination.
  */
-const listReservations = async (restaurantId, { page = 1, limit = 20, branch, status, date, search = '' }) => {
+const listReservations = async (restaurantId, { page = 1, limit = 20, status, date, search = '' }) => {
   const query = { restaurant: restaurantId, isDeleted: false };
-
-  if (branch) {
-    query.branch = branch;
-  }
 
   if (status) {
     query.reservationStatus = status;
@@ -147,7 +108,6 @@ const listReservations = async (restaurantId, { page = 1, limit = 20, branch, st
       .sort({ reservationDate: 1, reservationTime: 1 })
       .skip(skip)
       .limit(limit)
-      .populate('branch', 'name code')
       .populate('table', 'tableNumber tableName capacity'),
     Reservation.countDocuments(query),
   ]);
@@ -171,9 +131,7 @@ const getReservation = async (restaurantId, reservationId) => {
     _id: reservationId,
     restaurant: restaurantId,
     isDeleted: false,
-  })
-    .populate('branch', 'name code')
-    .populate('table', 'tableNumber tableName capacity');
+  }).populate('table', 'tableNumber tableName capacity');
 
   if (!reservation) {
     throw ApiError.notFound('Reservation not found.');
@@ -198,7 +156,6 @@ const updateReservation = async (restaurantId, reservationId, updates) => {
 
   // Merge updates onto current values to run validations
   const merged = {
-    branch: updates.branch || reservation.branch.toString(),
     table: updates.table || reservation.table.toString(),
     numberOfGuests: updates.numberOfGuests !== undefined ? updates.numberOfGuests : reservation.numberOfGuests,
     reservationDate: updates.reservationDate || reservation.reservationDate,
@@ -206,13 +163,12 @@ const updateReservation = async (restaurantId, reservationId, updates) => {
     duration: updates.duration !== undefined ? updates.duration : reservation.duration,
   };
 
-  // Re-run capacity/operating hours/overlap checks
+  // Re-run capacity/overlap checks
   await validateReservationBusinessRules(restaurantId, merged, reservationId);
 
   // If table is changing, check statuses
   const oldTableId = reservation.table.toString();
   const newTableId = merged.table;
-  const currentStatus = updates.reservationStatus || reservation.reservationStatus;
 
   Object.assign(reservation, updates);
   await reservation.save();
@@ -241,7 +197,6 @@ const updateReservation = async (restaurantId, reservationId, updates) => {
     }
   }
 
-  await reservation.populate('branch', 'name code');
   await reservation.populate('table', 'tableNumber tableName capacity');
 
   return reservation;
@@ -299,7 +254,6 @@ const updateReservationStatus = async (restaurantId, reservationId, newStatus) =
     await Table.updateOne({ _id: reservation.table }, { status: 'Reserved' });
   }
 
-  await reservation.populate('branch', 'name code');
   await reservation.populate('table', 'tableNumber tableName capacity');
 
   return reservation;
@@ -308,16 +262,11 @@ const updateReservationStatus = async (restaurantId, reservationId, newStatus) =
 /**
  * Fetches dashboard statistics counts.
  */
-const getDashboardStats = async (restaurantId, branchId = null) => {
+const getDashboardStats = async (restaurantId) => {
   const todayStr = new Date().toISOString().slice(0, 10);
 
   const reservationQuery = { restaurant: restaurantId, isDeleted: false };
   const tableQuery = { restaurant: restaurantId, isDeleted: false };
-
-  if (branchId) {
-    reservationQuery.branch = branchId;
-    tableQuery.branch = branchId;
-  }
 
   // Count reservations
   const [
@@ -330,7 +279,7 @@ const getDashboardStats = async (restaurantId, branchId = null) => {
   ] = await Promise.all([
     // Today's Bookings
     Reservation.countDocuments({ ...reservationQuery, reservationDate: todayStr }),
-    // Upcoming Bookings (Future dates, plus today's bookings in Pending/Confirmed status)
+    // Upcoming Bookings
     Reservation.countDocuments({
       ...reservationQuery,
       $or: [
@@ -338,9 +287,9 @@ const getDashboardStats = async (restaurantId, branchId = null) => {
         { reservationDate: todayStr, reservationStatus: { $in: ['Pending', 'Confirmed'] } },
       ],
     }),
-    // Completed Bookings (All time)
+    // Completed Bookings
     Reservation.countDocuments({ ...reservationQuery, reservationStatus: 'Completed' }),
-    // Cancelled Bookings (All time)
+    // Cancelled Bookings
     Reservation.countDocuments({ ...reservationQuery, reservationStatus: 'Cancelled' }),
     // Tables Available count
     Table.countDocuments({ ...tableQuery, status: 'Available', isActive: true }),

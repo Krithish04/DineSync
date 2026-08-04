@@ -10,12 +10,6 @@ const shiftSchema = new Schema(
       required: true,
       index: true,
     },
-    branch: {
-      type: Schema.Types.ObjectId,
-      ref: 'Branch',
-      required: true,
-      index: true,
-    },
     shiftName: {
       type: String,
       required: [true, 'Shift name is required'],

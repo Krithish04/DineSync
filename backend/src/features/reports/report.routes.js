@@ -15,7 +15,6 @@ router.get('/executive', reportController.getExecutiveDashboard);
 
 // Sales
 router.get('/sales/summary', reportController.getSalesSummary);
-router.get('/sales/by-branch', reportController.getSalesByBranch);
 router.get('/sales/by-category', reportController.getSalesByCategory);
 router.get('/sales/by-item', reportController.getSalesByItem);
 router.get('/sales/hourly', reportController.getHourlySales);

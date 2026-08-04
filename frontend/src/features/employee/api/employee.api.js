@@ -7,6 +7,11 @@ export const createEmployee = async (restaurantId, payload) => {
   return data.data.employee;
 };
 
+export const createEmployeeAccount = async (restaurantId, employeeId, payload) => {
+  const { data } = await api.post(`${employeesUrl(restaurantId)}/${employeeId}/create-account`, payload);
+  return data.data;
+};
+
 export const listEmployees = async (restaurantId, params = {}) => {
   const { data } = await api.get(employeesUrl(restaurantId), { params });
   return data.data.employees;
@@ -57,13 +62,13 @@ export const approveLeave = async (restaurantId, leaveId, status) => {
   return data.data.leave;
 };
 
-export const createShift = async (restaurantId, branchId, payload) => {
-  const { data } = await api.post(`${employeesUrl(restaurantId)}/shifts/all`, payload, { params: { branchId } });
+export const createShift = async (restaurantId, payload) => {
+  const { data } = await api.post(`${employeesUrl(restaurantId)}/shifts/all`, payload);
   return data.data.shift;
 };
 
-export const listShifts = async (restaurantId, branchId) => {
-  const { data } = await api.get(`${employeesUrl(restaurantId)}/shifts/all`, { params: { branchId } });
+export const listShifts = async (restaurantId) => {
+  const { data } = await api.get(`${employeesUrl(restaurantId)}/shifts/all`);
   return data.data.shifts;
 };
 

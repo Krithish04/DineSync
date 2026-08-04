@@ -175,10 +175,19 @@ const resendOtp = async ({ email, restaurantSlug, purpose }) => {
  * Blocks login for unverified accounts.
  */
 const login = async ({ email, password, restaurantSlug }) => {
-  const restaurant = await resolveRestaurantBySlug(restaurantSlug);
-  const query = { email, restaurant: restaurant ? restaurant._id : null };
+  let user;
+  let restaurant = null;
 
-  const user = await User.findOne(query).select('+password');
+  if (restaurantSlug) {
+    restaurant = await resolveRestaurantBySlug(restaurantSlug);
+    user = await User.findOne({ email, restaurant: restaurant ? restaurant._id : null }).select('+password');
+  } else {
+    user = await User.findOne({ email }).select('+password');
+    if (user && user.restaurant) {
+      restaurant = await Restaurant.findById(user.restaurant);
+    }
+  }
+
   if (!user) {
     throw ApiError.unauthorized('Invalid email or password.');
   }

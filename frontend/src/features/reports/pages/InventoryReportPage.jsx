@@ -8,7 +8,6 @@ import ChartWidget from '../components/ChartWidget';
 import ReportFilters from '../components/ReportFilters';
 import ExportToolbar from '../components/ExportToolbar';
 import * as reportsApi from '../api/reports.api';
-import * as branchApi from '@/features/branch/api/branch.api';
 
 const today = new Date();
 const defaultStart = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().slice(0, 10);
@@ -18,7 +17,6 @@ export default function InventoryReportPage() {
   const restaurantId = useAuthStore((s) => s.restaurant?._id);
 
   const [filters, setFilters] = useState({ startDate: defaultStart, endDate: defaultEnd });
-  const [branches, setBranches] = useState([]);
   const [summary, setSummary] = useState(null);
   const [purchases, setPurchases] = useState([]);
   const [consumption, setConsumption] = useState([]);
@@ -26,18 +24,11 @@ export default function InventoryReportPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const loadBranches = useCallback(async () => {
-    try {
-      const res = await branchApi.listBranches(restaurantId, { limit: 100 });
-      setBranches(res.items || []);
-    } catch { /* non-fatal */ }
-  }, [restaurantId]);
-
   const loadData = useCallback(async () => {
     if (!restaurantId) return;
     setIsLoading(true);
     setError('');
-    const params = { startDate: filters.startDate, endDate: filters.endDate, branch: filters.branch || undefined };
+    const params = { startDate: filters.startDate, endDate: filters.endDate };
     try {
       const [sumRes, purRes, conRes, wasteRes] = await Promise.all([
         reportsApi.getInventorySummary(restaurantId, params),
@@ -56,7 +47,6 @@ export default function InventoryReportPage() {
     }
   }, [restaurantId, filters]);
 
-  useEffect(() => { loadBranches(); }, [loadBranches]);
   useEffect(() => { loadData(); }, [loadData]);
 
   const purchaseChartData = purchases.map((p) => ({ date: p._id, spend: p.totalSpend, purchases: p.purchases }));
@@ -77,7 +67,7 @@ export default function InventoryReportPage() {
   return (
     <RestaurantLayout title="Inventory Reports" description="Stock levels, purchase trends, consumption, and waste analytics.">
       <div className="space-y-6 max-w-full">
-        <ReportFilters filters={filters} onChange={setFilters} branches={branches} />
+        <ReportFilters filters={filters} onChange={setFilters} />
 
         {isLoading && <Loader />}
         {error && <div className="bg-rose-50 border border-rose-200 text-rose-700 rounded-xl p-4 text-sm">{error}</div>}

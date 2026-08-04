@@ -102,15 +102,8 @@ export default function ReservationCard({
           </div>
         </div>
 
-        {/* Branch / Occasion */}
+        {/* Occasion */}
         <div className="flex flex-wrap items-center gap-1.5 text-xs">
-          {reservation.branch && (
-            <div className="flex items-center gap-1 text-muted-foreground mr-2">
-              <MapPin className="h-3.5 w-3.5 text-muted-foreground/60" />
-              <span className="truncate max-w-[120px]">{reservation.branch.name}</span>
-            </div>
-          )}
-
           {reservation.occasion && reservation.occasion !== 'Other' && (
             <span
               className={`inline-flex items-center gap-1 border rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${

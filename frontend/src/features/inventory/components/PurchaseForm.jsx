@@ -1,19 +1,17 @@
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, Calendar, FileText } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
 export default function PurchaseForm({
   restaurantId,
-  branches = [],
   suppliers = [],
-  ingredients = [], // All ingredients list to match
+  ingredients = [],
   onSubmit,
   onCancel,
   isSaving = false,
 }) {
-  const [branch, setBranch] = useState('');
   const [supplier, setSupplier] = useState('');
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [purchaseDate, setPurchaseDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -24,24 +22,12 @@ export default function PurchaseForm({
   ]);
   const [error, setError] = useState('');
 
-  // Pre-select first branch
-  useEffect(() => {
-    if (branches.length > 0 && !branch) {
-      setBranch(branches[0]._id);
-    }
-  }, [branches, branch]);
-
   // Pre-select supplier
   useEffect(() => {
     if (suppliers.length > 0 && !supplier) {
       setSupplier(suppliers[0]._id);
     }
   }, [suppliers, supplier]);
-
-  // Filter ingredients matching selected branch
-  const filteredIngredients = ingredients.filter(
-    (ing) => ing.branch?._id === branch || ing.branch === branch
-  );
 
   const handleAddItemRow = () => {
     setItems((prev) => [...prev, { ingredient: '', quantity: 1, unitPrice: 0 }]);
@@ -72,7 +58,6 @@ export default function PurchaseForm({
     e.preventDefault();
     setError('');
 
-    if (!branch) return setError('Branch is required.');
     if (!supplier) return setError('Supplier is required.');
     if (items.length === 0) return setError('Invoice must contain at least 1 item.');
 
@@ -90,7 +75,6 @@ export default function PurchaseForm({
     }
 
     onSubmit({
-      branch,
       supplier,
       invoiceNumber,
       purchaseDate,
@@ -108,28 +92,7 @@ export default function PurchaseForm({
       )}
 
       {/* Basic metadata grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-        <div className="space-y-1.5">
-          <Label htmlFor="branch">Delivery Branch *</Label>
-          <select
-            id="branch"
-            value={branch}
-            onChange={(e) => {
-              setBranch(e.target.value);
-              // Clear items when branch shifts to prevent cross-branch mismatch
-              setItems([{ ingredient: '', quantity: 1, unitPrice: 0 }]);
-            }}
-            className="flex h-10 w-full appearance-none rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none"
-            required
-          >
-            {branches.map((b) => (
-              <option key={b._id} value={b._id}>
-                {b.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
         <div className="space-y-1.5">
           <Label htmlFor="supplier">Supplier Contact *</Label>
           <select
@@ -210,7 +173,7 @@ export default function PurchaseForm({
                       required
                     >
                       <option value="" disabled>Select ingredient...</option>
-                      {filteredIngredients.map((ing) => (
+                      {ingredients.map((ing) => (
                         <option key={ing._id} value={ing._id}>
                           {ing.ingredientName} ({ing.unit})
                         </option>

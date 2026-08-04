@@ -25,12 +25,6 @@ const tableSchema = new Schema(
       required: true,
       index: true,
     },
-    branch: {
-      type: Schema.Types.ObjectId,
-      ref: 'Branch',
-      required: [true, 'Branch ID is required'],
-      index: true,
-    },
     tableNumber: {
       type: String,
       required: [true, 'Table number is required'],
@@ -83,8 +77,8 @@ const tableSchema = new Schema(
   { timestamps: true }
 );
 
-// Unique table number within active tables of a specific branch
-tableSchema.index({ branch: 1, tableNumber: 1, isDeleted: 1 }, { unique: true });
+// Unique table number within active tables of a specific restaurant
+tableSchema.index({ restaurant: 1, tableNumber: 1, isDeleted: 1 }, { unique: true });
 
 const TableModel = mongoose.model('Table', tableSchema);
 TableModel.TABLE_TYPES = TABLE_TYPES;

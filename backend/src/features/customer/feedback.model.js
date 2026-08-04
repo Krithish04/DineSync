@@ -13,8 +13,7 @@ const feedbackSchema = new Schema(
     branch: {
       type: Schema.Types.ObjectId,
       ref: 'Branch',
-      required: true,
-      index: true,
+      default: null,
     },
     customer: {
       type: Schema.Types.ObjectId,
@@ -73,6 +72,16 @@ const feedbackSchema = new Schema(
     sentimentScore: {
       type: Number,
       default: 8.5,
+    },
+    resolved: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    managerResponse: {
+      type: String,
+      trim: true,
+      default: '',
     },
   },
   { timestamps: true }

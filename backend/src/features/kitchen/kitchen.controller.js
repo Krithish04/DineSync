@@ -3,14 +3,12 @@ const ApiResponse = require('../../utils/ApiResponse');
 const kitchenService = require('./kitchen.service');
 
 const listTickets = asyncHandler(async (req, res) => {
-  const branch = req.query.branch || undefined;
   const station = req.query.station || undefined;
   const status = req.query.status || undefined;
   const priority = req.query.priority || undefined;
   const search = req.query.search || '';
 
   const tickets = await kitchenService.listTickets(req.params.restaurantId, {
-    branch,
     station,
     status,
     priority,
@@ -40,8 +38,7 @@ const updateTicketItemStatus = asyncHandler(async (req, res) => {
 });
 
 const getKitchenStats = asyncHandler(async (req, res) => {
-  const branchId = req.query.branch || null;
-  const stats = await kitchenService.getKitchenStats(req.params.restaurantId, branchId);
+  const stats = await kitchenService.getKitchenStats(req.params.restaurantId);
   return new ApiResponse(200, { stats }, 'Kitchen stats fetched successfully').send(res);
 });
 

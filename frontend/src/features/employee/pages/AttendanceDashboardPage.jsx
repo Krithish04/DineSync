@@ -1,50 +1,38 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Clock, Coffee, LogIn, LogOut, Search } from 'lucide-react';
 import RestaurantLayout from '@/features/restaurant/components/RestaurantLayout';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import Loader from '@/components/common/Loader';
 import useAuthStore from '@/features/auth/store/auth.store';
 import * as employeeApi from '../api/employee.api';
-import * as branchApi from '@/features/branch/api/branch.api';
 
 export default function AttendanceDashboardPage() {
   const restaurantId = useAuthStore((s) => s.restaurant?._id);
 
-  const [branches, setBranches] = useState([]);
-  const [selectedBranch, setSelectedBranch] = useState('');
   const [employees, setEmployees] = useState([]);
   const [search, setSearch] = useState('');
   const [isLoading, setIsLoading] = useState(true);
-  const [activeOps, setActiveOps] = useState({}); // empId -> loading state
+  const [activeOps, setActiveOps] = useState({});
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  const loadBranches = useCallback(async () => {
-    try {
-      const res = await branchApi.listBranches(restaurantId, { limit: 100 });
-      setBranches(res.items || []);
-      if (res.items?.length > 0) setSelectedBranch(res.items[0]._id);
-    } catch { /* non-fatal */ }
-  }, [restaurantId]);
-
   const loadEmployees = useCallback(async () => {
-    if (!selectedBranch) return;
+    if (!restaurantId) return;
     setIsLoading(true);
     setError('');
     try {
-      const res = await employeeApi.listEmployees(restaurantId, { branch: selectedBranch, status: 'Active' });
+      const res = await employeeApi.listEmployees(restaurantId, { status: 'Active' });
       setEmployees(res || []);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load staff list.');
     } finally {
       setIsLoading(false);
     }
-  }, [restaurantId, selectedBranch]);
+  }, [restaurantId]);
 
-  useEffect(() => { if (restaurantId) loadBranches(); }, [restaurantId, loadBranches]);
-  useEffect(() => { if (selectedBranch) loadEmployees(); }, [selectedBranch, loadEmployees]);
+  useEffect(() => { if (restaurantId) loadEmployees(); }, [restaurantId, loadEmployees]);
 
   const setOp = (empId, val) => setActiveOps((prev) => ({ ...prev, [empId]: val }));
 
@@ -52,7 +40,7 @@ export default function AttendanceDashboardPage() {
     setOp(emp._id, 'clockin');
     setError(''); setSuccess('');
     try {
-      await employeeApi.clockIn(restaurantId, { employeeId: emp._id, branchId: selectedBranch });
+      await employeeApi.clockIn(restaurantId, { employeeId: emp._id });
       setSuccess(`${emp.firstName} ${emp.lastName} clocked in successfully.`);
       setTimeout(() => setSuccess(''), 2000);
     } catch (err) {
@@ -100,10 +88,6 @@ export default function AttendanceDashboardPage() {
       <div className="space-y-6">
         {/* Controls */}
         <div className="flex flex-wrap gap-4 border-b border-border/40 pb-4">
-          <select value={selectedBranch} onChange={(e) => setSelectedBranch(e.target.value)}
-            className="h-9 rounded border border-input bg-background px-3 text-xs font-semibold focus:outline-none min-w-[160px]">
-            {branches.map((b) => <option key={b._id} value={b._id}>{b.name}</option>)}
-          </select>
           <div className="relative flex-1 min-w-[200px]">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input placeholder="Search staff..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 h-9 text-xs" />
@@ -114,11 +98,10 @@ export default function AttendanceDashboardPage() {
         {success && <div className="rounded border border-primary/30 bg-primary/10 px-3 py-2 text-sm text-primary">{success}</div>}
 
         {isLoading ? <Loader label="Loading active staff roster..." /> : filtered.length === 0 ? (
-          <div className="text-center py-12 text-sm text-muted-foreground italic border border-dashed rounded">No active staff found for this branch.</div>
+          <div className="text-center py-12 text-sm text-muted-foreground italic border border-dashed rounded">No active staff found.</div>
         ) : (
           <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
             {filtered.map((emp) => {
-              const isLoading = !!activeOps[emp._id];
               return (
                 <Card key={emp._id} className="border border-border/80 shadow-sm">
                   <CardContent className="p-4 space-y-4">

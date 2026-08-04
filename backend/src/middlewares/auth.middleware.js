@@ -77,4 +77,34 @@ const enforceTenantIsolation = (req, res, next) => {
   next();
 };
 
-module.exports = { protect, authorize, enforceTenantIsolation };
+/**
+ * Authorizes menu catalog modification.
+ * Standard roles: SUPER_ADMIN, OWNER, MANAGER.
+ * STAFF role: Allowed if tenant settings.staffCanEditMenu is true.
+ */
+const authorizeMenuEdit = asyncHandler(async (req, res, next) => {
+  if (!req.user) {
+    throw ApiError.unauthorized('Authentication required.');
+  }
+
+  const allowedRoles = [ROLES.SUPER_ADMIN, ROLES.OWNER, ROLES.MANAGER];
+  if (allowedRoles.includes(req.user.role)) {
+    return next();
+  }
+
+  if (req.user.role === ROLES.STAFF) {
+    const RestaurantModel = require('../features/tenant/tenant.model');
+    const tenantId = req.tenantId || req.user.restaurant;
+    if (tenantId) {
+      const restaurant = await RestaurantModel.findById(tenantId).select('settings');
+      if (restaurant?.settings?.staffCanEditMenu) {
+        return next();
+      }
+    }
+    throw ApiError.forbidden('Staff menu editing is not enabled for this restaurant.');
+  }
+
+  throw ApiError.forbidden('You do not have permission to modify menu catalog.');
+});
+
+module.exports = { protect, authorize, enforceTenantIsolation, authorizeMenuEdit };

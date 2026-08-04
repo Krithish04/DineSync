@@ -3,26 +3,22 @@ const ApiResponse = require('../../utils/ApiResponse');
 const aiService = require('./ai.service');
 
 const getAiDashboardOverview = asyncHandler(async (req, res) => {
-  const branchId = req.query.branch || null;
-  const data = await aiService.getAiDashboardOverview(req.params.restaurantId, branchId);
+  const data = await aiService.getAiDashboardOverview(req.params.restaurantId);
   return new ApiResponse(200, data, 'AI Dashboard overview metrics fetched successfully').send(res);
 });
 
 const getSalesForecast = asyncHandler(async (req, res) => {
-  const branchId = req.query.branch || null;
-  const data = await aiService.getSalesForecast(req.params.restaurantId, branchId);
+  const data = await aiService.getSalesForecast(req.params.restaurantId);
   return new ApiResponse(200, data, 'Sales forecast predictions fetched successfully').send(res);
 });
 
 const getDemandForecast = asyncHandler(async (req, res) => {
-  const branchId = req.query.branch || null;
-  const data = await aiService.getDemandForecast(req.params.restaurantId, branchId);
+  const data = await aiService.getDemandForecast(req.params.restaurantId);
   return new ApiResponse(200, data, 'Demand forecast predictions fetched successfully').send(res);
 });
 
 const getInventoryForecast = asyncHandler(async (req, res) => {
-  const branchId = req.query.branch || null;
-  const data = await aiService.getInventoryForecast(req.params.restaurantId, branchId);
+  const data = await aiService.getInventoryForecast(req.params.restaurantId);
   return new ApiResponse(200, data, 'Inventory forecast predictions fetched successfully').send(res);
 });
 

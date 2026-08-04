@@ -24,7 +24,6 @@ dinesync-ai/
 | # | Module | Key Capabilities | Backend Feature Dir | Frontend Route Prefix |
 |---|---|---|---|---|
 | 1 | Auth & Tenant | Multi-tenant auth, OTP verify, password reset | `backend/src/features/auth`, `tenant` | `/login`, `/register`, `/restaurant/*` |
-| 2 | Branch Management | Multi-location restaurant branches | `backend/src/features/branch` | `/restaurant/branches` |
 | 3 | Menu Management | Categories, items, modifiers, spice/dietary tags | `backend/src/features/category`, `menu` | `/restaurant/categories`, `/menu` |
 | 4 | Table Management | Seating layout, statuses, dynamic QR ordering | `backend/src/features/table` | `/restaurant/tables` |
 | 5 | Reservation Mgmt | Seating caps, overlap check, grid/calendar view | `backend/src/features/reservation` | `/restaurant/reservations/*` |

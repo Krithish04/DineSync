@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { ShoppingCart, Trash2, Plus, Minus, CreditCard, Tag } from 'lucide-react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { ShoppingCart, Trash2, Plus, Minus, CreditCard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -7,15 +7,13 @@ import * as tableApi from '@/features/table/api/table.api';
 
 export default function CartPanel({
   restaurantId,
-  cartItems = [], // Array of { menuItemId, name, price, gst, quantity, modifiers: [{ groupName, optionName, price }], specialInstructions }
+  cartItems = [],
   onUpdateQty,
   onRemoveItem,
-  branches = [],
   onSubmit,
   isPlacing = false,
 }) {
   const [orderType, setOrderType] = useState('Dine-In');
-  const [selectedBranch, setSelectedBranch] = useState('');
   const [selectedTable, setSelectedTable] = useState('');
   const [discountInput, setDiscountInput] = useState('');
   const [notes, setNotes] = useState('');
@@ -24,22 +22,12 @@ export default function CartPanel({
   const [isLoadingTables, setIsLoadingTables] = useState(false);
   const [error, setError] = useState('');
 
-  // Preselect branch initially if available
-  useEffect(() => {
-    if (branches.length > 0 && !selectedBranch) {
-      setSelectedBranch(branches[0]._id);
-    }
-  }, [branches, selectedBranch]);
-
-  // Load tables for selected branch
-  const loadBranchTables = useCallback(async (branchId) => {
-    if (!branchId) {
-      setTables([]);
-      return;
-    }
+  // Load available tables
+  const loadTables = useCallback(async () => {
+    if (!restaurantId) return;
     setIsLoadingTables(true);
     try {
-      const res = await tableApi.listTables(restaurantId, { branch: branchId, limit: 100, status: 'Available' });
+      const res = await tableApi.listTables(restaurantId, { limit: 100, status: 'Available' });
       setTables(res.items || []);
     } catch {
       setTables([]);
@@ -49,10 +37,8 @@ export default function CartPanel({
   }, [restaurantId]);
 
   useEffect(() => {
-    if (selectedBranch) {
-      loadBranchTables(selectedBranch);
-    }
-  }, [selectedBranch, loadBranchTables]);
+    loadTables();
+  }, [loadTables]);
 
   // Compute live cart totals
   const billing = useMemo(() => {
@@ -87,14 +73,12 @@ export default function CartPanel({
     e.preventDefault();
     setError('');
 
-    if (!selectedBranch) return setError('Please select a branch.');
     if (['Dine-In', 'QR Order'].includes(orderType) && !selectedTable) {
       return setError('Please select a seating table.');
     }
     if (cartItems.length === 0) return setError('Your cart is empty.');
 
     const payload = {
-      branch: selectedBranch,
       table: ['Dine-In', 'QR Order'].includes(orderType) ? selectedTable : null,
       orderType,
       items: cartItems.map((item) => ({
@@ -190,24 +174,9 @@ export default function CartPanel({
 
       {/* Cart settings & Calculations */}
       <div className="border-t border-border p-4 bg-muted/10 space-y-4">
-        {/* Branch, type selectors */}
+        {/* Type selector */}
         <div className="grid grid-cols-2 gap-3 text-xs">
-          <div className="space-y-1">
-            <Label className="text-[10px] uppercase font-bold text-muted-foreground">Location</Label>
-            <select
-              value={selectedBranch}
-              onChange={(e) => setSelectedBranch(e.target.value)}
-              className="w-full h-8 px-2 border border-input rounded bg-background"
-            >
-              {branches.map((b) => (
-                <option key={b._id} value={b._id}>
-                  {b.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="space-y-1">
+          <div className="space-y-1 col-span-2 sm:col-span-1">
             <Label className="text-[10px] uppercase font-bold text-muted-foreground">Order Type</Label>
             <select
               value={orderType}
@@ -222,7 +191,7 @@ export default function CartPanel({
           </div>
 
           {['Dine-In', 'QR Order'].includes(orderType) && (
-            <div className="space-y-1 col-span-2">
+            <div className="space-y-1 col-span-2 sm:col-span-1">
               <Label className="text-[10px] uppercase font-bold text-muted-foreground">Seating Table *</Label>
               <select
                 value={selectedTable}
@@ -305,6 +274,3 @@ export default function CartPanel({
     </div>
   );
 }
-
-// Add simple useMemo import since we used it in totals calculation
-import { useMemo } from 'react';

@@ -28,6 +28,13 @@ const useAuthStore = create(
           user: state.user ? { ...state.user, ...updates } : state.user,
         })),
 
+      updateRestaurantSettings: (newSettings) =>
+        set((state) => ({
+          restaurant: state.restaurant
+            ? { ...state.restaurant, settings: { ...(state.restaurant.settings || {}), ...newSettings } }
+            : state.restaurant,
+        })),
+
       clearSession: () =>
         set({
           user: null,

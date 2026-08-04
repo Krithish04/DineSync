@@ -12,11 +12,10 @@ const generateInvoice = asyncHandler(async (req, res) => {
 });
 
 const listInvoices = asyncHandler(async (req, res) => {
-  const branch = req.query.branch || undefined;
   const status = req.query.status || undefined;
   const search = req.query.search || '';
 
-  const invoices = await billingService.listInvoices(req.params.restaurantId, { branch, status, search });
+  const invoices = await billingService.listInvoices(req.params.restaurantId, { status, search });
   return new ApiResponse(200, { invoices }, 'Invoices logs fetched successfully').send(res);
 });
 
@@ -40,8 +39,7 @@ const refundInvoice = asyncHandler(async (req, res) => {
 });
 
 const getBillingStats = asyncHandler(async (req, res) => {
-  const branchId = req.query.branch || undefined;
-  const stats = await billingService.getBillingStats(req.params.restaurantId, branchId);
+  const stats = await billingService.getBillingStats(req.params.restaurantId);
   return new ApiResponse(200, { stats }, 'Billing stats fetched successfully').send(res);
 });
 

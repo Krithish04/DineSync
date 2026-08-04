@@ -35,16 +35,18 @@ import * as authApi from '@/features/auth/api/auth.api';
 const NAV_GROUPS = [
   {
     group: 'Operations',
-    roles: ['manager', 'owner', 'super_admin', 'staff'],
+    roles: ['manager', 'owner', 'super_admin', 'staff', 'chef'],
     items: [
       { to: '/restaurant/categories', label: 'Categories', icon: FolderTree, roles: ['manager', 'owner', 'super_admin'] },
       { to: '/restaurant/menu', label: 'Menu Catalog', icon: Utensils, roles: ['manager', 'owner', 'super_admin'] },
       { to: '/restaurant/tables', label: 'Tables & Layout', icon: TableIcon, roles: ['manager', 'owner', 'super_admin', 'staff'] },
       { to: '/restaurant/reservations/dashboard', label: 'Reservations', icon: Calendar, roles: ['manager', 'owner', 'super_admin', 'staff'] },
       { to: '/restaurant/orders/dashboard', label: 'Orders & POS', icon: ShoppingBag, roles: ['manager', 'owner', 'super_admin', 'staff'] },
-      { to: '/restaurant/kitchen', label: 'Kitchen (KDS)', icon: ChefHat, roles: ['manager', 'owner', 'super_admin', 'staff'] },
+      { to: '/restaurant/kitchen', label: 'Kitchen (KDS)', icon: ChefHat, roles: ['manager', 'owner', 'super_admin', 'chef'] },
       { to: '/restaurant/inventory/dashboard', label: 'Inventory & Stock', icon: Package, roles: ['manager', 'owner', 'super_admin'] },
+      { to: '/restaurant/inventory/suppliers', label: 'Suppliers & Vendors', icon: Building2, roles: ['manager', 'owner', 'super_admin'] },
       { to: '/restaurant/customers/dashboard', label: 'Customers & CRM', icon: Users, roles: ['manager', 'owner', 'super_admin'] },
+      { to: '/restaurant/feedback/manage', label: 'Customer Feedback', icon: Bell, roles: ['manager', 'owner', 'super_admin'] },
     ],
   },
   {
@@ -55,15 +57,14 @@ const NAV_GROUPS = [
       { to: '/restaurant/settings', label: 'Settings', icon: Settings, roles: ['owner', 'super_admin'] },
       { to: '/restaurant/gst', label: 'GST Config', icon: FileCheck, roles: ['owner', 'super_admin'] },
       { to: '/restaurant/opening-hours', label: 'Opening Hours', icon: Clock, roles: ['owner', 'super_admin'] },
-      { to: '/restaurant/branches', label: 'Branches', icon: Building2, roles: ['owner', 'super_admin'] },
     ],
   },
   {
     group: 'Finance & Staff',
-    roles: ['owner', 'super_admin'],
+    roles: ['owner', 'super_admin', 'manager'],
     items: [
       { to: '/restaurant/billing/dashboard', label: 'Billing & Invoices', icon: CreditCard, roles: ['owner', 'super_admin'] },
-      { to: '/restaurant/employees/dashboard', label: 'Employees & Shift', icon: UserCheck, roles: ['owner', 'super_admin'] },
+      { to: '/restaurant/employees/dashboard', label: 'Employees & Shift', icon: UserCheck, roles: ['owner', 'super_admin', 'manager'] },
     ],
   },
   {
@@ -71,6 +72,7 @@ const NAV_GROUPS = [
     roles: ['owner', 'super_admin'],
     items: [
       { to: '/restaurant/reports/executive', label: 'Executive BI', icon: TrendingUp, roles: ['owner', 'super_admin'] },
+      { to: '/restaurant/feedback/insights', label: 'Feedback Insights', icon: TrendingUp, roles: ['owner', 'super_admin'] },
       { to: '/restaurant/ai/dashboard', label: 'AI Intelligence', icon: Sparkles, roles: ['owner', 'super_admin'] },
       { to: '/restaurant/notifications/alerts', label: 'Alert Center', icon: Bell, roles: ['owner', 'super_admin'] },
     ],
@@ -117,12 +119,23 @@ export default function RestaurantLayout({ title, description, children }) {
   } else if (role === 'staff') {
     portalBadge = 'Staff';
     badgeColor = 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20';
+  } else if (role === 'chef') {
+    portalBadge = 'Chef / Kitchen';
+    badgeColor = 'bg-amber-500/10 text-amber-600 border-amber-500/20';
   }
+
+  const staffCanEditMenu = Boolean(restaurant?.settings?.staffCanEditMenu);
 
   // Filter navigation groups by role
   const visibleGroups = NAV_GROUPS.map((group) => ({
     ...group,
-    items: group.items.filter((item) => item.roles.includes(role)),
+    items: group.items.filter((item) => {
+      if (item.roles.includes(role)) return true;
+      if (role === 'staff' && staffCanEditMenu && ['/restaurant/categories', '/restaurant/menu'].includes(item.to)) {
+        return true;
+      }
+      return false;
+    }),
   })).filter((group) => group.items.length > 0);
 
   return (

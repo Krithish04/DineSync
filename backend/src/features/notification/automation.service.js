@@ -17,7 +17,7 @@ const runReservationAutomations = async (restaurantId) => {
     restaurant: restaurantId,
     reservationDate: todayStr,
     reservationStatus: 'Confirmed',
-  }).populate('customer branch');
+  }).populate('customer');
 
   for (const booking of upcomingBookings) {
     if (booking.customer && booking.customer.email) {

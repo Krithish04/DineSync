@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Search, Plus, FileSpreadsheet, Pencil, Trash2, ArrowUpDown, ShieldAlert, BadgeAlert } from 'lucide-react';
+import { Search, Plus, FileSpreadsheet, Pencil, Trash2, ShieldAlert, BadgeAlert } from 'lucide-react';
 import RestaurantLayout from '@/features/restaurant/components/RestaurantLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -9,13 +9,11 @@ import Loader from '@/components/common/Loader';
 import StockAdjustmentModal from '../components/StockAdjustmentModal';
 import useAuthStore from '@/features/auth/store/auth.store';
 import * as inventoryApi from '../api/inventory.api';
-import * as branchApi from '@/features/branch/api/branch.api';
 
 // Create/Edit Ingredient Dialog
-function IngredientModal({ suppliers = [], branchId, initialData = null, onSubmit, onCancel, isSaving = false }) {
+function IngredientModal({ suppliers = [], initialData = null, onSubmit, onCancel, isSaving = false }) {
   const isEditMode = !!initialData;
   const [form, setForm] = useState({
-    branch: branchId,
     ingredientName: '',
     category: 'General',
     unit: 'kg',
@@ -35,7 +33,6 @@ function IngredientModal({ suppliers = [], branchId, initialData = null, onSubmi
   useEffect(() => {
     if (initialData) {
       setForm({
-        branch: initialData.branch?._id || initialData.branch || branchId,
         ingredientName: initialData.ingredientName || '',
         category: initialData.category || 'General',
         unit: initialData.unit || 'kg',
@@ -50,7 +47,7 @@ function IngredientModal({ suppliers = [], branchId, initialData = null, onSubmi
         barcode: initialData.barcode || '',
       });
     }
-  }, [initialData, branchId]);
+  }, [initialData]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -135,7 +132,7 @@ function IngredientModal({ suppliers = [], branchId, initialData = null, onSubmi
                 type="number"
                 min="0"
                 step="any"
-                disabled={isEditMode} // Edit mode must use manual adjustments
+                disabled={isEditMode}
                 value={form.currentStock}
                 onChange={handleChange}
                 placeholder="0.00"
@@ -248,9 +245,7 @@ export default function IngredientListPage() {
   const restaurantId = useAuthStore((state) => state.restaurant?._id);
 
   const [ingredients, setIngredients] = useState([]);
-  const [branches, setBranches] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
-  const [selectedBranch, setSelectedBranch] = useState('');
   
   const [search, setSearch] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -264,18 +259,11 @@ export default function IngredientListPage() {
   const [activeAdjustItem, setActiveAdjustItem] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Load basic configurations
-  const loadBaseDetails = useCallback(async () => {
+  // Load suppliers
+  const loadSuppliers = useCallback(async () => {
     try {
-      const [branchList, supplierList] = await Promise.all([
-        branchApi.listBranches(restaurantId, { limit: 100 }),
-        inventoryApi.listSuppliers(restaurantId),
-      ]);
-      setBranches(branchList.items || []);
+      const supplierList = await inventoryApi.listSuppliers(restaurantId);
       setSuppliers(supplierList || []);
-      if (branchList.items?.length > 0) {
-        setSelectedBranch(branchList.items[0]._id);
-      }
     } catch {
       // Non-fatal
     }
@@ -283,30 +271,25 @@ export default function IngredientListPage() {
 
   // Load ingredients list
   const loadIngredients = useCallback(async () => {
-    if (!selectedBranch) return;
+    if (!restaurantId) return;
     setIsLoading(true);
     setError('');
     try {
-      const res = await inventoryApi.listIngredients(restaurantId, { branch: selectedBranch });
+      const res = await inventoryApi.listIngredients(restaurantId);
       setIngredients(res || []);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load ingredients.');
     } finally {
       setIsLoading(false);
     }
-  }, [restaurantId, selectedBranch]);
+  }, [restaurantId]);
 
   useEffect(() => {
     if (restaurantId) {
-      loadBaseDetails();
-    }
-  }, [restaurantId, loadBaseDetails]);
-
-  useEffect(() => {
-    if (selectedBranch) {
+      loadSuppliers();
       loadIngredients();
     }
-  }, [selectedBranch, loadIngredients]);
+  }, [restaurantId, loadSuppliers, loadIngredients]);
 
   // Ingredient mutation callbacks
   const handleModalSubmit = async (formPayload) => {
@@ -378,7 +361,7 @@ export default function IngredientListPage() {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `ingredients_branch_${selectedBranch}.csv`);
+    link.setAttribute('download', 'ingredients.csv');
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -429,21 +412,6 @@ export default function IngredientListPage() {
 
           {/* Filtering bar */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-border/40 pb-4">
-            <div className="flex items-center gap-3">
-              <span className="text-xs font-semibold text-muted-foreground shrink-0">Branch:</span>
-              <select
-                value={selectedBranch}
-                onChange={(e) => setSelectedBranch(e.target.value)}
-                className="flex h-9 appearance-none rounded border border-input bg-background px-3 py-1 text-xs font-semibold focus:outline-none min-w-[160px]"
-              >
-                {branches.map((b) => (
-                  <option key={b._id} value={b._id}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
             <div className="relative w-full sm:max-w-xs">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -460,7 +428,7 @@ export default function IngredientListPage() {
             <Loader label="Mapping stock ledger..." />
           ) : filteredIngredients.length === 0 ? (
             <div className="text-center py-12 text-sm text-muted-foreground italic border border-dashed rounded bg-muted/5">
-              No ingredients created inside this branch yet.
+              No ingredients created yet.
             </div>
           ) : (
             <div className="overflow-x-auto border rounded-lg bg-card">
@@ -552,7 +520,6 @@ export default function IngredientListPage() {
       {/* Ingredient create/edit modal wrapper */}
       {isModalOpen && (
         <IngredientModal
-          branchId={selectedBranch}
           suppliers={suppliers}
           initialData={activeEditData}
           onSubmit={handleModalSubmit}

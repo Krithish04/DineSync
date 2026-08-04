@@ -1,14 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, Clock, CheckCircle2, XCircle, Grid, Play, Eye, Plus } from 'lucide-react';
+import { Calendar, Clock, CheckCircle2, XCircle, Eye, Plus } from 'lucide-react';
 import RestaurantLayout from '@/features/restaurant/components/RestaurantLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
 import Loader from '@/components/common/Loader';
 import useAuthStore from '@/features/auth/store/auth.store';
 import * as reservationApi from '../api/reservation.api';
-import * as branchApi from '@/features/branch/api/branch.api';
 
 export default function ReservationDashboardPage() {
   const restaurantId = useAuthStore((state) => state.restaurant?._id);
@@ -18,37 +16,21 @@ export default function ReservationDashboardPage() {
 
   const [stats, setStats] = useState(null);
   const [todayBookings, setTodayBookings] = useState([]);
-  const [branches, setBranches] = useState([]);
-  const [selectedBranch, setSelectedBranch] = useState('all');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
-
-  // Load branches
-  const loadBranches = useCallback(async () => {
-    try {
-      const res = await branchApi.listBranches(restaurantId, { limit: 100 });
-      setBranches(res.items || []);
-    } catch {
-      // Fail silently
-    }
-  }, [restaurantId]);
 
   // Load Stats & Today's reservations
   const loadDashboardData = useCallback(async () => {
     setIsLoading(true);
     setError('');
     try {
-      const params = {};
-      if (selectedBranch !== 'all') params.branch = selectedBranch;
-
       // Fetch Stats
-      const statsResult = await reservationApi.getDashboardStats(restaurantId, params);
+      const statsResult = await reservationApi.getDashboardStats(restaurantId);
       setStats(statsResult);
 
       // Fetch Today's Reservations
       const todayStr = new Date().toISOString().slice(0, 10);
       const bookingsResult = await reservationApi.listReservations(restaurantId, {
-        ...params,
         date: todayStr,
         limit: 5, // Top 5 bookings for today
       });
@@ -58,14 +40,13 @@ export default function ReservationDashboardPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [restaurantId, selectedBranch]);
+  }, [restaurantId]);
 
   useEffect(() => {
     if (restaurantId) {
-      loadBranches();
       loadDashboardData();
     }
-  }, [restaurantId, loadBranches, loadDashboardData]);
+  }, [restaurantId, loadDashboardData]);
 
   return (
     <RestaurantLayout
@@ -75,24 +56,7 @@ export default function ReservationDashboardPage() {
       <div className="space-y-8">
         {/* Dashboard Header Bar */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <Label htmlFor="branch-filter" className="text-sm font-semibold shrink-0">Filter Branch:</Label>
-            <div className="relative min-w-[200px]">
-              <select
-                id="branch-filter"
-                value={selectedBranch}
-                onChange={(e) => setSelectedBranch(e.target.value)}
-                className="flex h-9 w-full appearance-none rounded-md border border-input bg-background px-3 py-1 text-xs font-semibold focus:outline-none"
-              >
-                <option value="all">All Locations</option>
-                {branches.map((b) => (
-                  <option key={b._id} value={b._id}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
+          <h2 className="text-xl font-bold tracking-tight">Reservation Dashboard</h2>
 
           <div className="flex gap-2">
             <Button size="sm" variant="outline" onClick={() => navigate('/restaurant/reservations/list')}>

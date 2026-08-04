@@ -50,7 +50,6 @@ const createTicketsFromOrder = async (restaurantId, order) => {
       const ticket = await KitchenTicket.create({
         ticketNumber,
         restaurant: restaurantId,
-        branch: order.branch,
         order: order._id,
         table: order.table,
         orderType: order.orderType,
@@ -74,10 +73,9 @@ const createTicketsFromOrder = async (restaurantId, order) => {
 /**
  * Lists tickets with sorting by priority ('high' first) and creation date.
  */
-const listTickets = async (restaurantId, { branch, station, status, priority, search = '' }) => {
+const listTickets = async (restaurantId, { station, status, priority, search = '' }) => {
   const query = { restaurant: restaurantId };
 
-  if (branch) query.branch = branch;
   if (station) query.station = station;
   if (status) query.status = status;
   if (priority) query.status = priority;
@@ -93,15 +91,12 @@ const listTickets = async (restaurantId, { branch, station, status, priority, se
   const tickets = await KitchenTicket.find(query)
     .populate('table', 'tableNumber tableName')
     .sort({
-      // We can sort priority: high > medium > low using mongoose aggregation, or sort in JS.
-      // For simple sorting, sort by createdAt ascending (FIFO)
       createdAt: 1,
     });
 
   // Sort priority in JS
   const priorityWeight = { high: 3, medium: 2, low: 1 };
   tickets.sort((a, b) => {
-    // Determine highest item priority in ticket a
     const priorityA = Math.max(...a.items.map((i) => priorityWeight[i.priority] || 2));
     const priorityB = Math.max(...b.items.map((i) => priorityWeight[i.priority] || 2));
     return priorityB - priorityA; // high priority first
@@ -197,7 +192,7 @@ const updateTicketStatus = async (restaurantId, ticketId, newStatus) => {
     try {
       const inventoryService = require('../inventory/inventory.service');
       for (const item of ticket.items) {
-        await inventoryService.consumeStockForMenuItem(restaurantId, ticket.branch, item.menuItem, item.quantity);
+        await inventoryService.consumeStockForMenuItem(restaurantId, item.menuItem, item.quantity);
       }
     } catch (err) {
       // eslint-disable-next-line no-console
@@ -248,7 +243,7 @@ const updateTicketItemStatus = async (restaurantId, ticketId, itemId, newStatus)
   if (newStatus === 'Ready') {
     try {
       const inventoryService = require('../inventory/inventory.service');
-      await inventoryService.consumeStockForMenuItem(restaurantId, ticket.branch, item.menuItem, item.quantity);
+      await inventoryService.consumeStockForMenuItem(restaurantId, item.menuItem, item.quantity);
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error('[KDS] Failed to deduct stock during item readiness: ', err);
@@ -281,9 +276,8 @@ const updateTicketItemStatus = async (restaurantId, ticketId, itemId, newStatus)
 /**
  * Fetch KDS Dashboard statistics.
  */
-const getKitchenStats = async (restaurantId, branchId = null) => {
+const getKitchenStats = async (restaurantId) => {
   const query = { restaurant: restaurantId };
-  if (branchId) query.branch = branchId;
 
   const [pending, preparing, ready, delayed, readyItems] = await Promise.all([
     KitchenTicket.countDocuments({ ...query, status: 'Pending' }),

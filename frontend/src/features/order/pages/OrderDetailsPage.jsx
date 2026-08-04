@@ -38,7 +38,6 @@ export default function OrderDetailsPage() {
       // If active and bound to a table, load other orders for the same table to support merging!
       if (res.table && ['Pending', 'Accepted', 'Preparing', 'Ready', 'Served'].includes(res.orderStatus)) {
         const othersRes = await orderApi.listOrders(restaurantId, {
-          branch: res.branch?._id || res.branch,
           limit: 50,
         });
         const activeOthers = (othersRes.items || []).filter(

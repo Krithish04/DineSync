@@ -12,7 +12,6 @@ const createSupplierSchema = z.object({
 });
 
 const createIngredientSchema = z.object({
-  branch: z.string().regex(objectIdRegex, 'Invalid branch id'),
   ingredientName: z.string().trim().min(1, 'Ingredient name is required'),
   category: z.string().trim().optional().default('General'),
   unit: z.string().trim().min(1, 'Unit of measurement is required (e.g. kg, L, pcs)'),
@@ -38,7 +37,6 @@ const createRecipeSchema = z.object({
 });
 
 const createPurchaseSchema = z.object({
-  branch: z.string().regex(objectIdRegex, 'Invalid branch id'),
   supplier: z.string().regex(objectIdRegex, 'Invalid supplier id'),
   purchaseDate: z.string().optional().or(z.literal('')),
   invoiceNumber: z.string().trim().optional().or(z.literal('')),
@@ -53,7 +51,6 @@ const createPurchaseSchema = z.object({
 });
 
 const adjustStockSchema = z.object({
-  branch: z.string().regex(objectIdRegex, 'Invalid branch id'),
   ingredient: z.string().regex(objectIdRegex, 'Invalid ingredient id'),
   transactionType: z.enum(['Adjustment', 'Waste']),
   quantity: z.number(), // positive to add, negative to deduct

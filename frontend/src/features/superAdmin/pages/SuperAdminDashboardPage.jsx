@@ -61,7 +61,7 @@ export default function SuperAdminDashboardPage() {
               <ForecastCard
                 title="Total Platform Users"
                 value={overview.totalUsers}
-                subtitle={`${overview.totalBranches} branches active`}
+                subtitle="Active Staff Accounts"
                 icon={Users}
                 variant="purple"
               />

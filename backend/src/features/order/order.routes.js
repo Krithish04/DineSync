@@ -15,13 +15,15 @@ const { ROLES } = require('../../constants/roles.constant');
 const router = express.Router({ mergeParams: true });
 
 const canManage = authorize(ROLES.SUPER_ADMIN, ROLES.OWNER, ROLES.MANAGER);
+const canCreateOrder = authorize(ROLES.SUPER_ADMIN, ROLES.OWNER, ROLES.MANAGER, ROLES.STAFF);
+const canUpdateStatus = authorize(ROLES.SUPER_ADMIN, ROLES.OWNER, ROLES.MANAGER, ROLES.STAFF, ROLES.CHEF);
 
 // All routes require authentication and tenant-isolation
 router.use(protect, enforceTenantIsolation);
 
 router
   .route('/')
-  .post(canManage, validateBody(createOrderSchema), orderController.createOrder)
+  .post(canCreateOrder, validateBody(createOrderSchema), orderController.createOrder)
   .get(orderController.listOrders);
 
 router.post('/merge', canManage, validateBody(mergeOrdersSchema), orderController.mergeOrders);
@@ -34,7 +36,7 @@ router
 
 router
   .route('/:orderId/status')
-  .patch(canManage, validateBody(updateOrderStatusSchema), orderController.updateOrderStatus);
+  .patch(canUpdateStatus, validateBody(updateOrderStatusSchema), orderController.updateOrderStatus);
 
 router
   .route('/:orderId/payment')

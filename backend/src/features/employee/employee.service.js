@@ -26,9 +26,42 @@ const createEmployee = async (restaurantId, payload) => {
   return employee;
 };
 
-const listEmployees = async (restaurantId, { branch, department, status, search = '' }) => {
+const createEmployeeUser = async (restaurantId, employeeId, { password, role = 'staff' }) => {
+  const employee = await Employee.findOne({ _id: employeeId, restaurant: restaurantId });
+  if (!employee) throw ApiError.notFound('Employee profile not found.');
+
+  if (employee.user) {
+    throw ApiError.badRequest('Employee already has an active system user account.');
+  }
+
+  const existingUser = await User.findOne({ email: employee.email.toLowerCase(), restaurant: restaurantId });
+  if (existingUser) {
+    employee.user = existingUser._id;
+    await employee.save();
+    return { employee, user: existingUser.toSafeObject() };
+  }
+
+  const allowedRoles = ['staff', 'chef', 'manager'];
+  const userRole = allowedRoles.includes(role) ? role : 'staff';
+
+  const newUser = await User.create({
+    name: `${employee.firstName} ${employee.lastName}`.trim(),
+    email: employee.email.toLowerCase(),
+    phone: employee.phone || null,
+    password,
+    role: userRole,
+    restaurant: restaurantId,
+    isEmailVerified: true,
+  });
+
+  employee.user = newUser._id;
+  await employee.save();
+
+  return { employee, user: newUser.toSafeObject() };
+};
+
+const listEmployees = async (restaurantId, { department, status, search = '' }) => {
   const query = { restaurant: restaurantId };
-  if (branch) query.branch = branch;
   if (department) query.department = department;
   if (status) query.status = status;
 
@@ -48,11 +81,11 @@ const listEmployees = async (restaurantId, { branch, department, status, search 
     }
   }
 
-  return Employee.find(query).populate('branch', 'name').sort({ lastName: 1, firstName: 1 });
+  return Employee.find(query).sort({ lastName: 1, firstName: 1 });
 };
 
 const getEmployee = async (restaurantId, employeeId) => {
-  const employee = await Employee.findOne({ _id: employeeId, restaurant: restaurantId }).populate('branch', 'name');
+  const employee = await Employee.findOne({ _id: employeeId, restaurant: restaurantId });
   if (!employee) throw ApiError.notFound('Employee profile not found.');
 
   // Load supporting files
@@ -94,7 +127,7 @@ const deleteEmployee = async (restaurantId, employeeId) => {
 // ATTENDANCE ACTIVE TIMERS
 // ==========================================
 
-const clockIn = async (restaurantId, branchId, employeeId, payload) => {
+const clockIn = async (restaurantId, employeeId, payload) => {
   const dateStr = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
 
   // Check duplicate clock-in for the day
@@ -106,7 +139,6 @@ const clockIn = async (restaurantId, branchId, employeeId, payload) => {
   const attendance = await Attendance.create({
     employee: employeeId,
     restaurant: restaurantId,
-    branch: branchId,
     date: dateStr,
     checkIn: new Date(),
     status: payload.status || 'Present',
@@ -237,17 +269,16 @@ const approveLeave = async (restaurantId, leaveId, status, approverId) => {
 // SHIFT ROSTERING
 // ==========================================
 
-const createShift = async (restaurantId, branchId, payload) => {
+const createShift = async (restaurantId, payload) => {
   const shift = await Shift.create({
     ...payload,
     restaurant: restaurantId,
-    branch: branchId,
   });
   return shift;
 };
 
-const listShifts = async (restaurantId, branchId) => {
-  return Shift.find({ restaurant: restaurantId, branch: branchId }).populate(
+const listShifts = async (restaurantId) => {
+  return Shift.find({ restaurant: restaurantId }).populate(
     'assignedEmployees',
     'firstName lastName employeeCode department designation'
   );
@@ -334,9 +365,8 @@ const paySalary = async (restaurantId, payrollId) => {
 // REPORTS & DASHBOARDS
 // ==========================================
 
-const getEmployeeStats = async (restaurantId, branchId = null) => {
+const getEmployeeStats = async (restaurantId) => {
   const query = { restaurant: restaurantId };
-  if (branchId) query.branch = branchId;
 
   const employees = await Employee.find(query);
   const activeCount = employees.filter((e) => e.status === 'Active').length;
@@ -346,7 +376,6 @@ const getEmployeeStats = async (restaurantId, branchId = null) => {
   const todayCheckIns = await Attendance.find({
     restaurant: restaurantId,
     date: dateStr,
-    ...(branchId && { branch: branchId }),
   });
 
   const presentCount = todayCheckIns.length;
@@ -372,6 +401,7 @@ const getEmployeeStats = async (restaurantId, branchId = null) => {
 
 module.exports = {
   createEmployee,
+  createEmployeeUser,
   listEmployees,
   getEmployee,
   updateEmployee,

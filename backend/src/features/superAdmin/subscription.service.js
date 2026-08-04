@@ -7,9 +7,9 @@ const seedDefaultPlansIfEmpty = async () => {
   const count = await SubscriptionPlan.countDocuments();
   if (count === 0) {
     await SubscriptionPlan.create([
-      { code: 'starter', name: 'Starter Plan', priceMonthly: 1999, priceYearly: 19990, userLimit: 5, branchLimit: 1, storageLimitMb: 2048, aiFeatureAccess: 'Basic', reportsAccess: 'Basic' },
-      { code: 'pro', name: 'Professional Plan', priceMonthly: 4999, priceYearly: 49990, userLimit: 25, branchLimit: 5, storageLimitMb: 10240, aiFeatureAccess: 'Full', reportsAccess: 'Advanced' },
-      { code: 'enterprise', name: 'Enterprise Plan', priceMonthly: 9999, priceYearly: 99990, userLimit: -1, branchLimit: -1, storageLimitMb: 102400, aiFeatureAccess: 'Custom', reportsAccess: 'Full' },
+      { code: 'starter', name: 'Starter Plan', priceMonthly: 1999, priceYearly: 19990, userLimit: 5, storageLimitMb: 2048, aiFeatureAccess: 'Basic', reportsAccess: 'Basic' },
+      { code: 'pro', name: 'Professional Plan', priceMonthly: 4999, priceYearly: 49990, userLimit: 25, storageLimitMb: 10240, aiFeatureAccess: 'Full', reportsAccess: 'Advanced' },
+      { code: 'enterprise', name: 'Enterprise Plan', priceMonthly: 9999, priceYearly: 99990, userLimit: -1, storageLimitMb: 102400, aiFeatureAccess: 'Custom', reportsAccess: 'Full' },
     ]);
   }
 };

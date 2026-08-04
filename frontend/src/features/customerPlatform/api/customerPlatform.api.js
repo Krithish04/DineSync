@@ -51,3 +51,8 @@ export const submitFeedback = async (restaurantId, payload) => {
   const { data } = await api.post(`${publicUrl(restaurantId)}/feedback`, payload);
   return data.data;
 };
+
+export const requestAssistance = async (restaurantId, payload) => {
+  const { data } = await api.post(`${publicUrl(restaurantId)}/assist-request`, payload);
+  return data.data;
+};

@@ -11,7 +11,7 @@ const aiService = require('../ai/ai.service');
 // ==========================================
 // 1. RESOLVE QR CODE TARGET & CONTEXT
 // ==========================================
-const resolveQrCode = async (restaurantId, { branchId, tableId, type }) => {
+const resolveQrCode = async (restaurantId, { tableId, type }) => {
   let table = null;
 
   if (tableId) {
@@ -21,8 +21,7 @@ const resolveQrCode = async (restaurantId, { branchId, tableId, type }) => {
     }
 
     table = await Table.findOne(tableQuery)
-      .populate('restaurant', 'name logo currency')
-      .populate('branch', 'name code');
+      .populate('restaurant', 'name logo currency');
 
     if (table) {
       restaurantId = table.restaurant?._id || table.restaurant;
@@ -35,7 +34,6 @@ const resolveQrCode = async (restaurantId, { branchId, tableId, type }) => {
 
   return {
     restaurantId,
-    branchId: branchId || (table ? table.branch?._id : null),
     tableId: table ? table._id : null,
     tableNumber: table ? table.tableNumber : null,
     tableStatus: table ? table.status : 'Available',
@@ -45,7 +43,6 @@ const resolveQrCode = async (restaurantId, { branchId, tableId, type }) => {
       tableName: table.tableName,
       status: table.status,
     } : null,
-    branch: table?.branch || null,
     restaurant: table?.restaurant || null,
     type: type || (table ? 'table' : 'digital_menu'),
   };
@@ -54,7 +51,7 @@ const resolveQrCode = async (restaurantId, { branchId, tableId, type }) => {
 // ==========================================
 // 2. GET PUBLIC DIGITAL MENU & CATEGORIES
 // ==========================================
-const getPublicMenu = async (restaurantId, { branchId, categoryId, dietary, search, isPopular, isFeatured }) => {
+const getPublicMenu = async (restaurantId, { categoryId, dietary, search, isPopular, isFeatured }) => {
   const categoryQuery = { restaurant: restaurantId, isActive: true };
   const itemQuery = { restaurant: restaurantId, isAvailable: true, isDeleted: false };
 
@@ -87,7 +84,7 @@ const getPublicMenu = async (restaurantId, { branchId, categoryId, dietary, sear
 // 3. PUBLIC ORDER PLACEMENT
 // ==========================================
 const placeCustomerOrder = async (restaurantId, payload) => {
-  const { branchId, tableId, orderType, items, customerName, customerPhone, notes } = payload;
+  const { tableId, orderType, items, customerName, customerPhone, notes } = payload;
 
   if (!items || items.length === 0) {
     throw ApiError.badRequest('Order items are required.');
@@ -102,7 +99,6 @@ const placeCustomerOrder = async (restaurantId, payload) => {
         restaurant: restaurantId,
         fullName: customerName,
         phoneNumber: customerPhone,
-        preferredBranch: branchId || null,
       });
     }
   }
@@ -139,7 +135,6 @@ const placeCustomerOrder = async (restaurantId, payload) => {
 
   const order = await Order.create({
     restaurant: restaurantId,
-    branch: branchId,
     table: tableId || null,
     customer: customerDoc ? customerDoc._id : null,
     orderType: orderType || (tableId ? 'Dine-In' : 'Takeaway'),
@@ -168,7 +163,6 @@ const placeCustomerOrder = async (restaurantId, payload) => {
   socketConfig.broadcastEvent(restaurantId, 'order:created', order);
 
   return order.populate([
-    { path: 'branch', select: 'name code' },
     { path: 'table', select: 'tableNumber' },
     { path: 'customer', select: 'fullName phoneNumber loyaltyPoints membershipTier' },
   ]);
@@ -220,7 +214,6 @@ const releaseTableHost = async (restaurantId, { tableId }) => {
 // ==========================================
 const trackLiveOrder = async (restaurantId, orderId) => {
   const order = await Order.findOne({ _id: orderId, restaurant: restaurantId })
-    .populate('branch', 'name code')
     .populate('table', 'tableNumber')
     .populate('items.menuItem', 'name price imageCover');
 
@@ -284,6 +277,32 @@ const submitCustomerFeedback = async (restaurantId, { customerName, customerPhon
   return feedback;
 };
 
+// ==========================================
+// 7. CUSTOMER ASSISTANCE SIGNAL
+// ==========================================
+const requestAssistance = async (restaurantId, { tableId, note }) => {
+  let tableName = 'Table';
+
+  if (tableId) {
+    const table = await Table.findOne({ _id: tableId, restaurant: restaurantId });
+    if (table) {
+      tableName = table.tableName || `Table ${table.tableNumber}`;
+    }
+  }
+
+  const payload = {
+    tableId: tableId || null,
+    tableName,
+    note: note || 'Customer requested staff assistance.',
+    time: new Date(),
+  };
+
+  // Broadcast real-time assistance request to staff and manager dashboards
+  socketConfig.broadcastEvent(restaurantId, 'assistance:requested', payload);
+
+  return { message: 'Assistance request dispatched to restaurant staff.', data: payload };
+};
+
 module.exports = {
   resolveQrCode,
   getPublicMenu,
@@ -294,4 +313,5 @@ module.exports = {
   payCustomerOrder,
   cancelCustomerOrder,
   submitCustomerFeedback,
+  requestAssistance,
 };

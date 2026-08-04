@@ -56,12 +56,12 @@ const deleteSupplier = async (restaurantId, supplierId) => {
 
 const createIngredient = async (restaurantId, payload) => {
   const exists = await Ingredient.exists({
-    branch: payload.branch,
+    restaurant: restaurantId,
     ingredientName: payload.ingredientName,
     isDeleted: false,
   });
   if (exists) {
-    throw ApiError.badRequest(`Ingredient "${payload.ingredientName}" already exists inside this branch.`);
+    throw ApiError.badRequest(`Ingredient "${payload.ingredientName}" already exists.`);
   }
 
   return Ingredient.create({
@@ -70,9 +70,8 @@ const createIngredient = async (restaurantId, payload) => {
   });
 };
 
-const listIngredients = async (restaurantId, { branch, category, search = '' }) => {
+const listIngredients = async (restaurantId, { category, search = '' }) => {
   const query = { restaurant: restaurantId, isDeleted: false };
-  if (branch) query.branch = branch;
   if (category) query.category = category;
 
   if (search) {
@@ -178,7 +177,6 @@ const createPurchase = async (restaurantId, payload, userId = null) => {
 
     await StockTransaction.create({
       restaurant: restaurantId,
-      branch: payload.branch,
       ingredient: item.ingredient,
       transactionType: 'Purchase',
       quantity: item.quantity,
@@ -190,9 +188,8 @@ const createPurchase = async (restaurantId, payload, userId = null) => {
   return purchase.populate('supplier', 'supplierName');
 };
 
-const listPurchases = async (restaurantId, { branch, supplier }) => {
+const listPurchases = async (restaurantId, { supplier }) => {
   const query = { restaurant: restaurantId, isDeleted: false };
-  if (branch) query.branch = branch;
   if (supplier) query.supplier = supplier;
 
   return Purchase.find(query)
@@ -205,7 +202,7 @@ const listPurchases = async (restaurantId, { branch, supplier }) => {
 // ==========================================
 
 const adjustStock = async (restaurantId, payload, userId = null) => {
-  const { branch, ingredient: ingredientId, transactionType, quantity, reason } = payload;
+  const { ingredient: ingredientId, transactionType, quantity, reason } = payload;
 
   const ingredient = await Ingredient.findOne({ _id: ingredientId, restaurant: restaurantId, isDeleted: false });
   if (!ingredient) {
@@ -223,7 +220,6 @@ const adjustStock = async (restaurantId, payload, userId = null) => {
   // Log transaction
   const transaction = await StockTransaction.create({
     restaurant: restaurantId,
-    branch,
     ingredient: ingredientId,
     transactionType,
     quantity,
@@ -238,12 +234,12 @@ const adjustStock = async (restaurantId, payload, userId = null) => {
  * Automates inventory deductions when a kitchen ticket is completed/marked Ready.
  * Finds mapped Recipe and subtracts ingredient stock values.
  */
-const consumeStockForMenuItem = async (restaurantId, branchId, menuItemId, qtyPrepared) => {
+const consumeStockForMenuItem = async (restaurantId, menuItemId, qtyPrepared) => {
   const recipe = await Recipe.findOne({ restaurant: restaurantId, menuItem: menuItemId });
   if (!recipe || !recipe.ingredients || recipe.ingredients.length === 0) return;
 
   for (const mapping of recipe.ingredients) {
-    const ingredient = await Ingredient.findOne({ _id: mapping.ingredient, branch: branchId, isDeleted: false });
+    const ingredient = await Ingredient.findOne({ _id: mapping.ingredient, restaurant: restaurantId, isDeleted: false });
     if (ingredient) {
       const consumedQty = mapping.quantityNeeded * qtyPrepared;
       const newStock = Math.max(0, ingredient.currentStock - consumedQty);
@@ -254,7 +250,6 @@ const consumeStockForMenuItem = async (restaurantId, branchId, menuItemId, qtyPr
       // Log Consumption Audit Trail
       await StockTransaction.create({
         restaurant: restaurantId,
-        branch: branchId,
         ingredient: ingredient._id,
         transactionType: 'Consumption',
         quantity: -consumedQty,
@@ -264,9 +259,8 @@ const consumeStockForMenuItem = async (restaurantId, branchId, menuItemId, qtyPr
   }
 };
 
-const listStockTransactions = async (restaurantId, { branch, ingredient }) => {
+const listStockTransactions = async (restaurantId, { ingredient }) => {
   const query = { restaurant: restaurantId };
-  if (branch) query.branch = branch;
   if (ingredient) query.ingredient = ingredient;
 
   return StockTransaction.find(query)
@@ -279,13 +273,9 @@ const listStockTransactions = async (restaurantId, { branch, ingredient }) => {
 // KDS REPORTING & DASHBOARD METRICS
 // ==========================================
 
-const getInventoryStats = async (restaurantId, branchId = null) => {
+const getInventoryStats = async (restaurantId) => {
   const query = { restaurant: restaurantId, isDeleted: false };
   const purchaseQuery = { restaurant: restaurantId, isDeleted: false };
-  if (branchId) {
-    query.branch = branchId;
-    purchaseQuery.branch = branchId;
-  }
 
   // Monthly Purchases counter boundary
   const startOfMonth = new Date();

@@ -16,7 +16,6 @@ const orderItemInputSchema = z.object({
 });
 
 const createOrderSchema = z.object({
-  branch: z.string().regex(objectIdRegex, 'Invalid branch id'),
   table: z.string().regex(objectIdRegex, 'Invalid table id').optional().nullable(),
   reservation: z.string().regex(objectIdRegex, 'Invalid reservation id').optional().nullable(),
   customer: z.string().regex(objectIdRegex, 'Invalid customer id').optional().nullable(),

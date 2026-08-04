@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Sliders,
+  Utensils,
 } from 'lucide-react';
 import RestaurantLayout from '@/features/restaurant/components/RestaurantLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -32,10 +33,12 @@ const emptyForm = {
   minOrderAmount: 0,
   serviceChargePercent: 0,
   taxEnabled: true,
+  staffCanEditMenu: false,
 };
 
 export default function RestaurantSettingsPage() {
   const restaurantId = useAuthStore((state) => state.restaurant?._id);
+  const updateRestaurantSettings = useAuthStore((state) => state.updateRestaurantSettings);
 
   const [form, setForm] = useState(emptyForm);
   const [isLoading, setIsLoading] = useState(true);
@@ -49,12 +52,15 @@ export default function RestaurantSettingsPage() {
     try {
       const settings = await restaurantApi.getSettings(restaurantId);
       setForm({ ...emptyForm, ...settings });
+      if (updateRestaurantSettings && settings) {
+        updateRestaurantSettings(settings);
+      }
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load restaurant settings.');
     } finally {
       setIsLoading(false);
     }
-  }, [restaurantId]);
+  }, [restaurantId, updateRestaurantSettings]);
 
   useEffect(() => {
     if (restaurantId) loadSettings();
@@ -80,11 +86,14 @@ export default function RestaurantSettingsPage() {
     setSuccess('');
     setIsSaving(true);
     try {
-      await restaurantApi.updateSettings(restaurantId, {
+      const updatedSettings = await restaurantApi.updateSettings(restaurantId, {
         ...form,
         minOrderAmount: Number(form.minOrderAmount) || 0,
         serviceChargePercent: Number(form.serviceChargePercent) || 0,
       });
+      if (updateRestaurantSettings) {
+        updateRestaurantSettings(updatedSettings || form);
+      }
       setSuccess('Settings updated successfully.');
     } catch (err) {
       const apiErrors = err.response?.data?.errors;
@@ -288,6 +297,23 @@ export default function RestaurantSettingsPage() {
                   id="taxEnabled"
                   checked={form.taxEnabled}
                   onCheckedChange={(checked) => handleToggle('taxEnabled', checked)}
+                />
+              </div>
+
+              <div className="flex items-center justify-between pt-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-muted text-muted-foreground">
+                    <Utensils size={18} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Staff Menu Editing Permission</p>
+                    <p className="text-xs text-muted-foreground">Allow staff members to view and edit categories and menu items.</p>
+                  </div>
+                </div>
+                <Switch
+                  id="staffCanEditMenu"
+                  checked={form.staffCanEditMenu}
+                  onCheckedChange={(checked) => handleToggle('staffCanEditMenu', checked)}
                 />
               </div>
             </CardContent>

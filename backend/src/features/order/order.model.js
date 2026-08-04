@@ -98,12 +98,6 @@ const orderSchema = new Schema(
       required: true,
       index: true,
     },
-    branch: {
-      type: Schema.Types.ObjectId,
-      ref: 'Branch',
-      required: [true, 'Branch ID is required'],
-      index: true,
-    },
     table: {
       type: Schema.Types.ObjectId,
       ref: 'Table',
@@ -180,6 +174,14 @@ const orderSchema = new Schema(
     createdBy: {
       type: Schema.Types.ObjectId,
       ref: 'User',
+      default: null,
+    },
+    readyAt: {
+      type: Date,
+      default: null,
+    },
+    servedAt: {
+      type: Date,
       default: null,
     },
     isDeleted: {

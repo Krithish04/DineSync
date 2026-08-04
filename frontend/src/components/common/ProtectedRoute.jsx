@@ -15,6 +15,11 @@ export default function ProtectedRoute({ allowedRoles }) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
+  // Safeguard: Redirect chef role users to dedicated /kds console
+  if (user?.role === 'chef' && location.pathname !== '/kds') {
+    return <Navigate to="/kds" replace />;
+  }
+
   if (allowedRoles && allowedRoles.length > 0 && !allowedRoles.includes(user?.role)) {
     return <Navigate to="/unauthorized" replace />;
   }

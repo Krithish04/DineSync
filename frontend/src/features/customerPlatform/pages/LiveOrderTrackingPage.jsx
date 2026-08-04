@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Clock, CheckCircle, Receipt, Star, Utensils } from 'lucide-react';
+import { Clock, CheckCircle, Receipt, Star, Utensils, Bell } from 'lucide-react';
 import CustomerLayout from '../components/CustomerLayout';
 import OrderTimeline from '../components/OrderTimeline';
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,24 @@ export default function LiveOrderTrackingPage() {
   const [tracking, setTracking] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [isCallingStaff, setIsCallingStaff] = useState(false);
+  const [assistSuccess, setAssistSuccess] = useState('');
+
+  const handleCallStaff = async () => {
+    setIsCallingStaff(true);
+    setAssistSuccess('');
+    try {
+      await customerApi.requestAssistance(restaurantId, {
+        tableId: tracking?.order?.table?._id || tracking?.order?.table,
+        note: `Order #${tracking?.order?.orderNumber || orderId?.slice(-6)} requested assistance`,
+      });
+      setAssistSuccess('Staff notified! Someone will assist you shortly.');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to call staff.');
+    } finally {
+      setIsCallingStaff(false);
+    }
+  };
 
   const loadTracking = useCallback(async () => {
     if (!orderId) return;
@@ -110,11 +128,29 @@ export default function LiveOrderTrackingPage() {
               </div>
             </div>
 
-            {/* Post Meal Review Action */}
-            <Button onClick={() => navigate('/menu/feedback')} className="w-full gap-2 text-xs">
-              <Star size={16} />
-              <span>Leave Feedback & Rating</span>
-            </Button>
+            {/* Action Buttons: Assistance & Review */}
+            {assistSuccess && (
+              <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 rounded-xl p-3 text-xs text-center font-semibold">
+                ✓ {assistSuccess}
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-3">
+              <Button
+                variant="outline"
+                onClick={handleCallStaff}
+                disabled={isCallingStaff}
+                className="w-full gap-2 text-xs border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300 hover:bg-amber-500/20"
+              >
+                <Bell size={16} />
+                <span>{isCallingStaff ? 'Notifying...' : 'Call Staff / Help'}</span>
+              </Button>
+
+              <Button onClick={() => navigate('/menu/feedback')} className="w-full gap-2 text-xs">
+                <Star size={16} />
+                <span>Leave Feedback</span>
+              </Button>
+            </div>
           </>
         )}
       </div>

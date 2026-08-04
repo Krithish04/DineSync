@@ -252,9 +252,8 @@ const listLoyaltyTransactions = async (restaurantId, { customerId }) => {
 // ANALYTICS & REPORTS
 // ==========================================
 
-const getCustomerStats = async (restaurantId, branchId = null) => {
+const getCustomerStats = async (restaurantId) => {
   const query = { restaurant: restaurantId, isDeleted: false };
-  if (branchId) query.preferredBranch = branchId;
 
   const [allCustomers, monthlyNew] = await Promise.all([
     Customer.find(query),

@@ -29,12 +29,6 @@ const invoiceSchema = new Schema(
       ref: 'Customer',
       default: null,
     },
-    branch: {
-      type: Schema.Types.ObjectId,
-      ref: 'Branch',
-      required: true,
-      index: true,
-    },
     table: {
       type: Schema.Types.ObjectId,
       ref: 'Table',

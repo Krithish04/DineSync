@@ -31,7 +31,6 @@ export default function StockAdjustmentModal({
     }
 
     onSubmit({
-      branch: ingredient.branch?._id || ingredient.branch,
       ingredient: ingredient._id,
       transactionType: opType === 'subtract' && transactionType === 'Waste' ? 'Waste' : 'Adjustment',
       quantity: delta,

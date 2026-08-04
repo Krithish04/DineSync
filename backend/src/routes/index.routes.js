@@ -1,7 +1,6 @@
 const express = require('express');
 const authRoutes = require('../features/auth/auth.routes');
 const tenantRoutes = require('../features/tenant/tenant.routes');
-const branchRoutes = require('../features/branch/branch.routes');
 const categoryRoutes = require('../features/category/category.routes');
 const menuItemRoutes = require('../features/menu/menuItem.routes');
 const tableRoutes = require('../features/table/table.routes');
@@ -16,6 +15,7 @@ const reportRoutes = require('../features/reports/report.routes');
 const scheduledReportRoutes = require('../features/reports/scheduledReport.routes');
 const aiRoutes = require('../features/ai/ai.routes');
 const customerExperienceRoutes = require('../features/customerExperience/customerExperience.routes');
+const feedbackRoutes = require('../features/customer/feedback.routes');
 const notificationRoutes = require('../features/notification/notification.routes');
 const superAdminRoutes = require('../features/superAdmin/superAdmin.routes');
 
@@ -28,7 +28,6 @@ router.get('/health', (req, res) => {
 router.use('/auth', authRoutes);
 router.use('/super-admin', superAdminRoutes);
 router.use('/restaurants', tenantRoutes);
-router.use('/restaurants/:restaurantId/branches', branchRoutes);
 router.use('/restaurants/:restaurantId/categories', categoryRoutes);
 router.use('/restaurants/:restaurantId/menu-items', menuItemRoutes);
 router.use('/restaurants/:restaurantId/tables', tableRoutes);
@@ -37,6 +36,7 @@ router.use('/restaurants/:restaurantId/orders', orderRoutes);
 router.use('/restaurants/:restaurantId/kitchen', kitchenRoutes);
 router.use('/restaurants/:restaurantId/inventory', inventoryRoutes);
 router.use('/restaurants/:restaurantId/customers', customerRoutes);
+router.use('/restaurants/:restaurantId/feedback', feedbackRoutes);
 router.use('/restaurants/:restaurantId/billing', billingRoutes);
 router.use('/restaurants/:restaurantId/employees', employeeRoutes);
 router.use('/restaurants/:restaurantId/reports', reportRoutes);

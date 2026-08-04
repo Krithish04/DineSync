@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { DollarSign, ShoppingCart, Tag, Clock } from 'lucide-react';
+import { DollarSign, ShoppingCart, Tag } from 'lucide-react';
 import RestaurantLayout from '@/features/restaurant/components/RestaurantLayout';
 import Loader from '@/components/common/Loader';
 import useAuthStore from '@/features/auth/store/auth.store';
@@ -8,7 +8,6 @@ import ChartWidget from '../components/ChartWidget';
 import ReportFilters from '../components/ReportFilters';
 import ExportToolbar from '../components/ExportToolbar';
 import * as reportsApi from '../api/reports.api';
-import * as branchApi from '@/features/branch/api/branch.api';
 
 const today = new Date();
 const defaultStart = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().slice(0, 10);
@@ -18,20 +17,12 @@ export default function SalesReportPage() {
   const restaurantId = useAuthStore((s) => s.restaurant?._id);
 
   const [filters, setFilters] = useState({ startDate: defaultStart, endDate: defaultEnd, groupBy: 'day' });
-  const [branches, setBranches] = useState([]);
   const [summary, setSummary] = useState(null);
   const [byCategory, setByCategory] = useState([]);
   const [byItem, setByItem] = useState([]);
   const [hourly, setHourly] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
-
-  const loadBranches = useCallback(async () => {
-    try {
-      const res = await branchApi.listBranches(restaurantId, { limit: 100 });
-      setBranches(res.items || []);
-    } catch { /* non-fatal */ }
-  }, [restaurantId]);
 
   const loadData = useCallback(async () => {
     if (!restaurantId) return;
@@ -40,7 +31,6 @@ export default function SalesReportPage() {
     const params = {
       startDate: filters.startDate,
       endDate: filters.endDate,
-      branch: filters.branch || undefined,
       groupBy: filters.groupBy,
     };
     try {
@@ -61,7 +51,6 @@ export default function SalesReportPage() {
     }
   }, [restaurantId, filters]);
 
-  useEffect(() => { loadBranches(); }, [loadBranches]);
   useEffect(() => { loadData(); }, [loadData]);
 
   const timelineData = (summary?.timeline || []).map((r) => ({
@@ -93,7 +82,6 @@ export default function SalesReportPage() {
         <ReportFilters
           filters={filters}
           onChange={setFilters}
-          branches={branches}
           showGroupBy
         />
 

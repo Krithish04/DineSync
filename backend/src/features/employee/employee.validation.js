@@ -24,7 +24,6 @@ const employeeSchema = z.object({
     'Inventory',
     'Delivery',
   ]).default('Service'),
-  branch: z.string().regex(objectIdRegex, 'Invalid branch ID'),
   salaryType: z.enum(['Monthly', 'Hourly']).default('Monthly'),
   basicSalary: z.number().min(0, 'Basic salary cannot be negative'),
   status: z.enum(['Active', 'On Leave', 'Suspended', 'Resigned']).optional(),
@@ -58,6 +57,11 @@ const leaveApprovalSchema = z.object({
   status: z.enum(['Approved', 'Rejected']),
 });
 
+const createEmployeeUserSchema = z.object({
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+  role: z.enum(['staff', 'chef', 'manager']).default('staff'),
+});
+
 module.exports = {
   employeeSchema,
   updateEmployeeSchema,
@@ -65,4 +69,5 @@ module.exports = {
   shiftSchema,
   leaveSchema,
   leaveApprovalSchema,
+  createEmployeeUserSchema,
 };

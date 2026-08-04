@@ -3,7 +3,6 @@ const { z } = require('zod');
 const objectIdRegex = /^[0-9a-fA-F]{24}$/;
 
 const createTableSchema = z.object({
-  branch: z.string().regex(objectIdRegex, 'Invalid branch id'),
   tableNumber: z
     .string()
     .trim()

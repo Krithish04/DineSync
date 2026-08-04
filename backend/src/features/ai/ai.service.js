@@ -36,9 +36,8 @@ const postToAiService = async (endpoint, payload, fallbackFn) => {
 // ==========================================
 // 1. SALES FORECAST
 // ==========================================
-const getSalesForecast = async (restaurantId, branchId = null) => {
+const getSalesForecast = async (restaurantId) => {
   const match = { restaurant: restaurantId, invoiceStatus: 'Paid' };
-  if (branchId) match.branch = branchId;
 
   const invoices = await Invoice.find(match)
     .sort({ invoiceDate: -1 })
@@ -76,9 +75,8 @@ const getSalesForecast = async (restaurantId, branchId = null) => {
 // ==========================================
 // 2. DEMAND FORECAST
 // ==========================================
-const getDemandForecast = async (restaurantId, branchId = null) => {
+const getDemandForecast = async (restaurantId) => {
   const match = { restaurant: restaurantId, isDeleted: false };
-  if (branchId) match.branch = branchId;
 
   const recentOrders = await Order.find(match)
     .select('orderType orderStatus createdAt items')
@@ -112,9 +110,8 @@ const getDemandForecast = async (restaurantId, branchId = null) => {
 // ==========================================
 // 3. INVENTORY FORECAST
 // ==========================================
-const getInventoryForecast = async (restaurantId, branchId = null) => {
+const getInventoryForecast = async (restaurantId) => {
   const match = { restaurant: restaurantId, isDeleted: false };
-  if (branchId) match.branch = branchId;
 
   const ingredients = await Ingredient.find(match).lean();
 
@@ -289,7 +286,7 @@ const getSentimentAnalysis = async (restaurantId) => {
 // ==========================================
 // OVERVIEW AI DASHBOARD (COMBINED METRICS)
 // ==========================================
-const getAiDashboardOverview = async (restaurantId, branchId = null) => {
+const getAiDashboardOverview = async (restaurantId) => {
   const [
     sales,
     demand,
@@ -299,9 +296,9 @@ const getAiDashboardOverview = async (restaurantId, branchId = null) => {
     waitTime,
     sentiment,
   ] = await Promise.all([
-    getSalesForecast(restaurantId, branchId),
-    getDemandForecast(restaurantId, branchId),
-    getInventoryForecast(restaurantId, branchId),
+    getSalesForecast(restaurantId),
+    getDemandForecast(restaurantId),
+    getInventoryForecast(restaurantId),
     getSmartMenuRecommendations(restaurantId),
     getCustomerRecommendations(restaurantId),
     getWaitTimePrediction(restaurantId),

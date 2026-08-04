@@ -10,11 +10,10 @@ import Loader from '@/components/common/Loader';
 import RoleBadge from '../components/RoleBadge';
 import useAuthStore from '@/features/auth/store/auth.store';
 import * as employeeApi from '../api/employee.api';
-import * as branchApi from '@/features/branch/api/branch.api';
 
 const DEPARTMENTS = ['Management', 'Kitchen', 'Service', 'Cashier', 'Reception', 'Inventory', 'Delivery'];
 
-function EmployeeFormModal({ branches, initialData, onSubmit, onCancel, isSaving }) {
+function EmployeeFormModal({ initialData, onSubmit, onCancel, isSaving }) {
   const isEdit = !!initialData;
   const [form, setForm] = useState({
     firstName: initialData?.firstName || '',
@@ -30,7 +29,6 @@ function EmployeeFormModal({ branches, initialData, onSubmit, onCancel, isSaving
     employmentType: initialData?.employmentType || 'Full Time',
     designation: initialData?.designation || '',
     department: initialData?.department || 'Service',
-    branch: initialData?.branch?._id || initialData?.branch || (branches[0]?._id || ''),
     salaryType: initialData?.salaryType || 'Monthly',
     basicSalary: initialData?.basicSalary || 0,
     status: initialData?.status || 'Active',
@@ -51,7 +49,6 @@ function EmployeeFormModal({ branches, initialData, onSubmit, onCancel, isSaving
     if (!form.email.trim()) return setErr('Email is required.');
     if (!form.phone.trim()) return setErr('Phone is required.');
     if (!form.designation.trim()) return setErr('Designation is required.');
-    if (!form.branch) return setErr('Branch is required.');
     onSubmit(form);
   };
 
@@ -87,7 +84,7 @@ function EmployeeFormModal({ branches, initialData, onSubmit, onCancel, isSaving
             ))}
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label htmlFor="basicSalary">Basic Salary (₹)</Label>
               <Input id="basicSalary" name="basicSalary" type="number" min="0" value={form.basicSalary} onChange={handleChange} className="font-mono text-xs h-9" />
@@ -95,13 +92,6 @@ function EmployeeFormModal({ branches, initialData, onSubmit, onCancel, isSaving
             <div className="space-y-1.5">
               <Label htmlFor="joiningDate">Joining Date</Label>
               <Input id="joiningDate" name="joiningDate" type="date" value={form.joiningDate} onChange={handleChange} className="text-xs h-9" />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="branch">Branch *</Label>
-              <select id="branch" name="branch" value={form.branch} onChange={handleChange}
-                className="flex h-9 w-full rounded border border-input bg-background px-3 text-xs focus:outline-none">
-                {branches.map((b) => <option key={b._id} value={b._id}>{b.name}</option>)}
-              </select>
             </div>
           </div>
 
@@ -146,7 +136,6 @@ export default function EmployeeListPage() {
   const navigate = useNavigate();
 
   const [employees, setEmployees] = useState([]);
-  const [branches, setBranches] = useState([]);
   const [search, setSearch] = useState('');
   const [deptFilter, setDeptFilter] = useState('all');
   const [isLoading, setIsLoading] = useState(true);
@@ -156,14 +145,8 @@ export default function EmployeeListPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editData, setEditData] = useState(null);
 
-  const loadBranches = useCallback(async () => {
-    try {
-      const res = await branchApi.listBranches(restaurantId, { limit: 100 });
-      setBranches(res.items || []);
-    } catch { /* non-fatal */ }
-  }, [restaurantId]);
-
   const loadEmployees = useCallback(async () => {
+    if (!restaurantId) return;
     setIsLoading(true);
     setError('');
     try {
@@ -176,7 +159,7 @@ export default function EmployeeListPage() {
     }
   }, [restaurantId]);
 
-  useEffect(() => { if (restaurantId) { loadBranches(); loadEmployees(); } }, [restaurantId, loadBranches, loadEmployees]);
+  useEffect(() => { if (restaurantId) loadEmployees(); }, [restaurantId, loadEmployees]);
 
   const handleSubmit = async (payload) => {
     setIsSaving(true);
@@ -223,7 +206,7 @@ export default function EmployeeListPage() {
         <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 space-y-0 pb-4">
           <div>
             <CardTitle>Employee Directory</CardTitle>
-            <CardDescription>Manage all staff profiles across branches.</CardDescription>
+            <CardDescription>Manage all staff profiles.</CardDescription>
           </div>
           <Button size="xs" onClick={() => { setEditData(null); setIsModalOpen(true); }} className="h-8">
             <Plus className="h-4 w-4 mr-1" /> Register Employee
@@ -283,7 +266,6 @@ export default function EmployeeListPage() {
 
       {isModalOpen && (
         <EmployeeFormModal
-          branches={branches}
           initialData={editData}
           onSubmit={handleSubmit}
           onCancel={() => { setIsModalOpen(false); setEditData(null); }}

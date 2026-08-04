@@ -31,8 +31,8 @@ const buildDateRange = (startDate, endDate) => {
 // EXECUTIVE DASHBOARD
 // ==========================================
 
-const getExecutiveDashboard = async (restaurantId, branchId = null) => {
-  const cacheKey = `executive_dash_${restaurantId}_${branchId || 'all'}`;
+const getExecutiveDashboard = async (restaurantId) => {
+  const cacheKey = `executive_dash_${restaurantId}`;
   const cachedData = getCache(cacheKey);
   if (cachedData) return cachedData;
 
@@ -42,8 +42,6 @@ const getExecutiveDashboard = async (restaurantId, branchId = null) => {
   const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
 
   const matchBase = { restaurant };
-  if (branchId) matchBase.branch = new mongoose.Types.ObjectId(branchId);
-
   const invBase = { ...matchBase, invoiceStatus: 'Paid' };
 
   const [
@@ -146,11 +144,10 @@ const getExecutiveDashboard = async (restaurantId, branchId = null) => {
 // SALES REPORTS
 // ==========================================
 
-const getSalesSummary = async (restaurantId, { startDate, endDate, branchId, groupBy = 'day' }) => {
+const getSalesSummary = async (restaurantId, { startDate, endDate, groupBy = 'day' }) => {
   const restaurant = new mongoose.Types.ObjectId(restaurantId);
   const dateRange = buildDateRange(startDate, endDate);
   const match = { restaurant, invoiceStatus: 'Paid', invoiceDate: dateRange };
-  if (branchId) match.branch = new mongoose.Types.ObjectId(branchId);
 
   const dateFormat = groupBy === 'month' ? '%Y-%m' : groupBy === 'year' ? '%Y' : groupBy === 'week' ? '%Y-W%V' : '%Y-%m-%d';
 
@@ -187,39 +184,10 @@ const getSalesSummary = async (restaurantId, { startDate, endDate, branchId, gro
   return { timeline, totals: totals[0] || {} };
 };
 
-const getSalesByBranch = async (restaurantId, { startDate, endDate }) => {
-  const restaurant = new mongoose.Types.ObjectId(restaurantId);
-  const dateRange = buildDateRange(startDate, endDate);
-  return Invoice.aggregate([
-    { $match: { restaurant, invoiceStatus: 'Paid', invoiceDate: dateRange } },
-    {
-      $group: {
-        _id: '$branch',
-        totalRevenue: { $sum: '$grandTotal' },
-        totalOrders: { $sum: 1 },
-        avgTicket: { $avg: '$grandTotal' },
-      },
-    },
-    {
-      $lookup: { from: 'branches', localField: '_id', foreignField: '_id', as: 'branch' },
-    },
-    { $unwind: { path: '$branch', preserveNullAndEmptyArrays: true } },
-    {
-      $project: {
-        branchName: '$branch.name',
-        branchCode: '$branch.code',
-        totalRevenue: 1, totalOrders: 1, avgTicket: 1,
-      },
-    },
-    { $sort: { totalRevenue: -1 } },
-  ]);
-};
-
-const getSalesByCategory = async (restaurantId, { startDate, endDate, branchId }) => {
+const getSalesByCategory = async (restaurantId, { startDate, endDate }) => {
   const restaurant = new mongoose.Types.ObjectId(restaurantId);
   const dateRange = buildDateRange(startDate, endDate);
   const match = { restaurant, isDeleted: false, orderStatus: 'Completed', createdAt: dateRange };
-  if (branchId) match.branch = new mongoose.Types.ObjectId(branchId);
 
   return Order.aggregate([
     { $match: match },
@@ -254,11 +222,10 @@ const getSalesByCategory = async (restaurantId, { startDate, endDate, branchId }
   ]);
 };
 
-const getSalesByItem = async (restaurantId, { startDate, endDate, branchId, limit = 20 }) => {
+const getSalesByItem = async (restaurantId, { startDate, endDate, limit = 20 }) => {
   const restaurant = new mongoose.Types.ObjectId(restaurantId);
   const dateRange = buildDateRange(startDate, endDate);
   const match = { restaurant, isDeleted: false, orderStatus: 'Completed', createdAt: dateRange };
-  if (branchId) match.branch = new mongoose.Types.ObjectId(branchId);
 
   return Order.aggregate([
     { $match: match },
@@ -277,11 +244,10 @@ const getSalesByItem = async (restaurantId, { startDate, endDate, branchId, limi
   ]);
 };
 
-const getHourlySales = async (restaurantId, { startDate, endDate, branchId }) => {
+const getHourlySales = async (restaurantId, { startDate, endDate }) => {
   const restaurant = new mongoose.Types.ObjectId(restaurantId);
   const dateRange = buildDateRange(startDate, endDate);
   const match = { restaurant, invoiceStatus: 'Paid', invoiceDate: dateRange };
-  if (branchId) match.branch = new mongoose.Types.ObjectId(branchId);
 
   return Invoice.aggregate([
     { $match: match },
@@ -301,11 +267,10 @@ const getHourlySales = async (restaurantId, { startDate, endDate, branchId }) =>
 // ORDER REPORTS
 // ==========================================
 
-const getOrderSummary = async (restaurantId, { startDate, endDate, branchId }) => {
+const getOrderSummary = async (restaurantId, { startDate, endDate }) => {
   const restaurant = new mongoose.Types.ObjectId(restaurantId);
   const dateRange = buildDateRange(startDate, endDate);
   const match = { restaurant, isDeleted: false, createdAt: dateRange };
-  if (branchId) match.branch = new mongoose.Types.ObjectId(branchId);
 
   const [summary, typeDistribution, peakHours] = await Promise.all([
     Order.aggregate([
@@ -342,7 +307,7 @@ const getOrderSummary = async (restaurantId, { startDate, endDate, branchId }) =
 // RESERVATION REPORTS
 // ==========================================
 
-const getReservationSummary = async (restaurantId, { startDate, endDate, branchId }) => {
+const getReservationSummary = async (restaurantId, { startDate, endDate }) => {
   const restaurant = new mongoose.Types.ObjectId(restaurantId);
 
   // Reservations use string date field (YYYY-MM-DD)
@@ -350,7 +315,6 @@ const getReservationSummary = async (restaurantId, { startDate, endDate, branchI
   const end = endDate || new Date().toISOString().slice(0, 10);
 
   const match = { restaurant, isDeleted: false, reservationDate: { $gte: start, $lte: end } };
-  if (branchId) match.branch = new mongoose.Types.ObjectId(branchId);
 
   const [statusBreakdown, peakHours] = await Promise.all([
     Reservation.aggregate([
@@ -386,7 +350,7 @@ const getReservationSummary = async (restaurantId, { startDate, endDate, branchI
 // CUSTOMER REPORTS
 // ==========================================
 
-const getCustomerSummary = async (restaurantId, { startDate, endDate, branchId }) => {
+const getCustomerSummary = async (restaurantId, { startDate, endDate }) => {
   const restaurant = new mongoose.Types.ObjectId(restaurantId);
   const dateRange = buildDateRange(startDate, endDate);
 
@@ -466,10 +430,9 @@ const getCustomerLoyaltySummary = async (restaurantId, { startDate, endDate }) =
 // INVENTORY REPORTS
 // ==========================================
 
-const getInventorySummary = async (restaurantId, branchId = null) => {
+const getInventorySummary = async (restaurantId) => {
   const restaurant = new mongoose.Types.ObjectId(restaurantId);
   const match = { restaurant, isDeleted: false };
-  if (branchId) match.branch = new mongoose.Types.ObjectId(branchId);
 
   const ingredients = await Ingredient.find(match).lean();
   const outOfStock = ingredients.filter((i) => i.currentStock <= 0);
@@ -488,11 +451,10 @@ const getInventorySummary = async (restaurantId, branchId = null) => {
   };
 };
 
-const getPurchaseSummary = async (restaurantId, { startDate, endDate, branchId }) => {
+const getPurchaseSummary = async (restaurantId, { startDate, endDate }) => {
   const restaurant = new mongoose.Types.ObjectId(restaurantId);
   const dateRange = buildDateRange(startDate, endDate);
   const match = { restaurant, isDeleted: false, purchaseDate: dateRange };
-  if (branchId) match.branch = new mongoose.Types.ObjectId(branchId);
 
   return Purchase.aggregate([
     { $match: match },
@@ -507,11 +469,10 @@ const getPurchaseSummary = async (restaurantId, { startDate, endDate, branchId }
   ]);
 };
 
-const getIngredientConsumption = async (restaurantId, { startDate, endDate, branchId }) => {
+const getIngredientConsumption = async (restaurantId, { startDate, endDate }) => {
   const restaurant = new mongoose.Types.ObjectId(restaurantId);
   const dateRange = buildDateRange(startDate, endDate);
   const match = { restaurant, transactionType: 'Consumption', createdAt: dateRange };
-  if (branchId) match.branch = new mongoose.Types.ObjectId(branchId);
 
   return StockTransaction.aggregate([
     { $match: match },
@@ -544,11 +505,10 @@ const getIngredientConsumption = async (restaurantId, { startDate, endDate, bran
   ]);
 };
 
-const getWasteAnalysis = async (restaurantId, { startDate, endDate, branchId }) => {
+const getWasteAnalysis = async (restaurantId, { startDate, endDate }) => {
   const restaurant = new mongoose.Types.ObjectId(restaurantId);
   const dateRange = buildDateRange(startDate, endDate);
   const match = { restaurant, transactionType: 'Waste', createdAt: dateRange };
-  if (branchId) match.branch = new mongoose.Types.ObjectId(branchId);
 
   return StockTransaction.aggregate([
     { $match: match },
@@ -581,12 +541,11 @@ const getWasteAnalysis = async (restaurantId, { startDate, endDate, branchId }) 
 // EMPLOYEE REPORTS
 // ==========================================
 
-const getAttendanceSummary = async (restaurantId, { startDate, endDate, branchId }) => {
+const getAttendanceSummary = async (restaurantId, { startDate, endDate }) => {
   const restaurant = new mongoose.Types.ObjectId(restaurantId);
   const start = startDate || new Date(new Date().setDate(1)).toISOString().slice(0, 10);
   const end = endDate || new Date().toISOString().slice(0, 10);
   const match = { restaurant, date: { $gte: start, $lte: end } };
-  if (branchId) match.branch = new mongoose.Types.ObjectId(branchId);
 
   const [statusBreakdown, avgWorkingHours, totalOvertime] = await Promise.all([
     Attendance.aggregate([
@@ -610,12 +569,11 @@ const getAttendanceSummary = async (restaurantId, { startDate, endDate, branchId
   };
 };
 
-const getWorkingHoursReport = async (restaurantId, { startDate, endDate, branchId }) => {
+const getWorkingHoursReport = async (restaurantId, { startDate, endDate }) => {
   const restaurant = new mongoose.Types.ObjectId(restaurantId);
   const start = startDate || new Date(new Date().setDate(1)).toISOString().slice(0, 10);
   const end = endDate || new Date().toISOString().slice(0, 10);
   const match = { restaurant, date: { $gte: start, $lte: end } };
-  if (branchId) match.branch = new mongoose.Types.ObjectId(branchId);
 
   return Attendance.aggregate([
     { $match: match },
@@ -643,11 +601,10 @@ const getWorkingHoursReport = async (restaurantId, { startDate, endDate, branchI
   ]);
 };
 
-const getLeaveSummary = async (restaurantId, { startDate, endDate, branchId }) => {
+const getLeaveSummary = async (restaurantId, { startDate, endDate }) => {
   const restaurant = new mongoose.Types.ObjectId(restaurantId);
   const dateRange = buildDateRange(startDate, endDate);
   const match = { restaurant, createdAt: dateRange };
-  if (branchId) match.branch = new mongoose.Types.ObjectId(branchId);
 
   return Leave.aggregate([
     { $match: match },
@@ -659,17 +616,13 @@ const getLeaveSummary = async (restaurantId, { startDate, endDate, branchId }) =
 // FINANCIAL REPORTS
 // ==========================================
 
-const getFinancialSummary = async (restaurantId, { startDate, endDate, branchId }) => {
+const getFinancialSummary = async (restaurantId, { startDate, endDate }) => {
   const restaurant = new mongoose.Types.ObjectId(restaurantId);
   const dateRange = buildDateRange(startDate, endDate);
 
   const invMatch = { restaurant, invoiceStatus: 'Paid', invoiceDate: dateRange };
   const refMatch = { restaurant, invoiceStatus: 'Refunded', invoiceDate: dateRange };
   const purchMatch = { restaurant, isDeleted: false, purchaseDate: dateRange };
-  if (branchId) {
-    const bid = new mongoose.Types.ObjectId(branchId);
-    invMatch.branch = bid; refMatch.branch = bid; purchMatch.branch = bid;
-  }
 
   const [revenue, refunds, purchases, taxSummary] = await Promise.all([
     Invoice.aggregate([
@@ -728,11 +681,10 @@ const getFinancialSummary = async (restaurantId, { startDate, endDate, branchId 
   };
 };
 
-const getGstReport = async (restaurantId, { startDate, endDate, branchId }) => {
+const getGstReport = async (restaurantId, { startDate, endDate }) => {
   const restaurant = new mongoose.Types.ObjectId(restaurantId);
   const dateRange = buildDateRange(startDate, endDate);
   const match = { restaurant, invoiceStatus: 'Paid', invoiceDate: dateRange };
-  if (branchId) match.branch = new mongoose.Types.ObjectId(branchId);
 
   return Invoice.aggregate([
     { $match: match },
@@ -751,7 +703,7 @@ const getGstReport = async (restaurantId, { startDate, endDate, branchId }) => {
   ]);
 };
 
-const getPaymentMethodSummary = async (restaurantId, { startDate, endDate, branchId }) => {
+const getPaymentMethodSummary = async (restaurantId, { startDate, endDate }) => {
   const restaurant = new mongoose.Types.ObjectId(restaurantId);
   const dateRange = buildDateRange(startDate, endDate);
   const match = { restaurant, paymentStatus: 'Success', createdAt: dateRange };
@@ -773,7 +725,6 @@ module.exports = {
   getExecutiveDashboard,
   // Sales
   getSalesSummary,
-  getSalesByBranch,
   getSalesByCategory,
   getSalesByItem,
   getHourlySales,

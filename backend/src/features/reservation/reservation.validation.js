@@ -5,7 +5,6 @@ const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
 const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
 const createReservationSchema = z.object({
-  branch: z.string().regex(objectIdRegex, 'Invalid branch id'),
   table: z.string().regex(objectIdRegex, 'Invalid table id'),
   customerName: z.string().trim().min(1, 'Customer name is required'),
   customerPhone: z.string().trim().min(5, 'Valid phone number is required'),

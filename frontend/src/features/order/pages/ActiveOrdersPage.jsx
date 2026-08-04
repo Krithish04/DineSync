@@ -1,54 +1,35 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
-import { LayoutGrid, ShoppingBag, List, ClipboardList } from 'lucide-react';
+import { ShoppingBag, List, Bell, X } from 'lucide-react';
 import RestaurantLayout from '@/features/restaurant/components/RestaurantLayout';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import Loader from '@/components/common/Loader';
 import OrderCard from '../components/OrderCard';
 import useAuthStore from '@/features/auth/store/auth.store';
 import * as orderApi from '../api/order.api';
-import * as branchApi from '@/features/branch/api/branch.api';
+import { Button } from '@/components/ui/button';
 
 export default function ActiveOrdersPage() {
   const restaurantId = useAuthStore((state) => state.restaurant?._id);
   const userRole = useAuthStore((state) => state.user?.role);
-  const canManage = ['super_admin', 'owner', 'manager'].includes(userRole);
+  const canManage = ['super_admin', 'owner', 'manager', 'staff'].includes(userRole);
   const navigate = useNavigate();
 
   const [orders, setOrders] = useState([]);
-  const [branches, setBranches] = useState([]);
-  const [selectedBranch, setSelectedBranch] = useState('');
+  const [assistanceAlerts, setAssistanceAlerts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [socketConnected, setSocketConnected] = useState(false);
 
-  // Load branches
-  const loadBranches = useCallback(async () => {
-    try {
-      const res = await branchApi.listBranches(restaurantId, { limit: 100 });
-      setBranches(res.items || []);
-      if (res.items?.length > 0) {
-        setSelectedBranch(res.items[0]._id);
-      }
-    } catch {
-      // Fail silently
-    }
-  }, [restaurantId]);
-
   // Load active orders (Pending, Accepted, Preparing, Ready, Served)
   const loadActiveOrders = useCallback(async () => {
-    if (!selectedBranch) return;
+    if (!restaurantId) return;
     setIsLoading(true);
     setError('');
     try {
-      // List active orders by listing all and then filtering (or filtering on backend)
       const res = await orderApi.listOrders(restaurantId, {
-        branch: selectedBranch,
         limit: 100,
       });
-      // Keep only active states on this board
       const activeStates = ['Pending', 'Accepted', 'Preparing', 'Ready', 'Served'];
       setOrders((res.items || []).filter((o) => activeStates.includes(o.orderStatus)));
     } catch (err) {
@@ -56,30 +37,24 @@ export default function ActiveOrdersPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [restaurantId, selectedBranch]);
+  }, [restaurantId]);
 
   useEffect(() => {
     if (restaurantId) {
-      loadBranches();
-    }
-  }, [restaurantId, loadBranches]);
-
-  useEffect(() => {
-    if (selectedBranch) {
       loadActiveOrders();
     }
-  }, [selectedBranch, loadActiveOrders]);
+  }, [restaurantId, loadActiveOrders]);
 
-  // Socket.IO Integration for Live Updates
+  // Socket.IO Integration for Live Updates & Assistance Alerts
   useEffect(() => {
-    if (!restaurantId || !selectedBranch) return;
+    if (!restaurantId) return;
 
     const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api/v1';
     const socketURL = baseURL.replace('/api/v1', '');
     
     const socket = io(socketURL, {
       withCredentials: true,
-      transports: ['websocket'], // Ensure fast connection
+      transports: ['websocket'],
     });
 
     socket.on('connect', () => {
@@ -93,32 +68,26 @@ export default function ActiveOrdersPage() {
 
     // Real-Time Event handlers
     socket.on('order:created', (newOrder) => {
-      // Only append if it matches selected branch
-      const matchesBranch = newOrder.branch?._id === selectedBranch || newOrder.branch === selectedBranch;
-      if (matchesBranch) {
-        setOrders((prev) => {
-          if (prev.some((o) => o._id === newOrder._id)) return prev;
-          return [newOrder, ...prev];
-        });
-      }
+      setOrders((prev) => {
+        if (prev.some((o) => o._id === newOrder._id)) return prev;
+        return [newOrder, ...prev];
+      });
     });
 
     socket.on('order:updated', (updatedOrder) => {
       const activeStates = ['Pending', 'Accepted', 'Preparing', 'Ready', 'Served'];
       const isStillActive = activeStates.includes(updatedOrder.orderStatus);
-      const matchesBranch = updatedOrder.branch?._id === selectedBranch || updatedOrder.branch === selectedBranch;
 
       setOrders((prev) => {
         const exists = prev.some((o) => o._id === updatedOrder._id);
         
         if (exists) {
-          if (isStillActive && matchesBranch) {
+          if (isStillActive) {
             return prev.map((o) => (o._id === updatedOrder._id ? updatedOrder : o));
           } else {
-            // Remove if transitioned out of active states (e.g. Completed)
             return prev.filter((o) => o._id !== updatedOrder._id);
           }
-        } else if (isStillActive && matchesBranch) {
+        } else if (isStillActive) {
           return [updatedOrder, ...prev];
         }
         return prev;
@@ -133,10 +102,21 @@ export default function ActiveOrdersPage() {
       setOrders((prev) => prev.filter((o) => o._id !== completedOrder._id));
     });
 
+    socket.on('assistance:requested', (data) => {
+      setAssistanceAlerts((prev) => [
+        { id: Date.now() + Math.random(), ...data },
+        ...prev,
+      ]);
+    });
+
     return () => {
       socket.disconnect();
     };
-  }, [restaurantId, selectedBranch]);
+  }, [restaurantId]);
+
+  const handleDismissAssistance = (id) => {
+    setAssistanceAlerts((prev) => prev.filter((a) => a.id !== id));
+  };
 
   // Handle Quick State Shift
   const handleStatusChange = async (orderId, newStatus) => {
@@ -174,21 +154,6 @@ export default function ActiveOrdersPage() {
       <div className="space-y-6">
         {/* Controls bar */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-border/40 pb-4">
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-semibold text-muted-foreground shrink-0">Branch:</span>
-            <select
-              value={selectedBranch}
-              onChange={(e) => setSelectedBranch(e.target.value)}
-              className="flex h-9 w-full appearance-none rounded border border-input bg-background px-3 py-1 text-xs font-semibold focus:outline-none min-w-[170px]"
-            >
-              {branches.map((b) => (
-                <option key={b._id} value={b._id}>
-                  {b.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
           <div className="flex items-center gap-2">
             <span className={`inline-flex h-2.5 w-2.5 rounded-full ${socketConnected ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
             <span className="text-xs font-semibold text-muted-foreground">
@@ -205,6 +170,36 @@ export default function ActiveOrdersPage() {
             </Button>
           </div>
         </div>
+
+        {/* Real-Time Customer Assistance Alerts */}
+        {assistanceAlerts.length > 0 && (
+          <div className="space-y-2">
+            {assistanceAlerts.map((alert) => (
+              <div
+                key={alert.id}
+                className="rounded-xl border border-amber-300 bg-amber-500/15 p-4 text-amber-950 dark:text-amber-200 flex items-center justify-between shadow-sm animate-pulse"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-amber-500 text-white font-bold shrink-0">
+                    <Bell className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold">Assistance Requested at {alert.tableName}!</p>
+                    <p className="text-xs opacity-90">{alert.note || 'Customer needs staff assistance.'}</p>
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="bg-card text-xs font-semibold"
+                  onClick={() => handleDismissAssistance(alert.id)}
+                >
+                  <X className="h-3.5 w-3.5 mr-1" /> Dismiss / Handled
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
 
         {error && (
           <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">

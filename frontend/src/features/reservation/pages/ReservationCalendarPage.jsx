@@ -1,17 +1,15 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, ChevronLeft, ChevronRight, Grid, List } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Grid, List } from 'lucide-react';
 import RestaurantLayout from '@/features/restaurant/components/RestaurantLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import Loader from '@/components/common/Loader';
 import CalendarView from '../components/CalendarView';
 import useAuthStore from '@/features/auth/store/auth.store';
 import * as reservationApi from '../api/reservation.api';
 import * as tableApi from '@/features/table/api/table.api';
-import * as branchApi from '@/features/branch/api/branch.api';
 
 export default function ReservationCalendarPage() {
   const restaurantId = useAuthStore((state) => state.restaurant?._id);
@@ -20,37 +18,22 @@ export default function ReservationCalendarPage() {
   const [viewMode, setViewMode] = useState('day'); // 'day' or 'week'
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().slice(0, 10));
   
-  const [branches, setBranches] = useState([]);
-  const [selectedBranch, setSelectedBranch] = useState('');
   const [tables, setTables] = useState([]);
   const [reservations, setReservations] = useState([]);
   
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // Load branches initially
-  const loadBranches = useCallback(async () => {
+  // Load tables
+  const loadTables = useCallback(async () => {
+    if (!restaurantId) return;
     try {
-      const res = await branchApi.listBranches(restaurantId, { limit: 100 });
-      setBranches(res.items || []);
-      if (res.items?.length > 0) {
-        setSelectedBranch(res.items[0]._id); // Preselect first branch
-      }
-    } catch {
-      // Non-fatal
-    }
-  }, [restaurantId]);
-
-  // Load tables for the selected branch
-  const loadBranchTables = useCallback(async () => {
-    if (!selectedBranch) return;
-    try {
-      const res = await tableApi.listTables(restaurantId, { branch: selectedBranch, limit: 100 });
+      const res = await tableApi.listTables(restaurantId, { limit: 100 });
       setTables(res.items || []);
     } catch {
       setTables([]);
     }
-  }, [restaurantId, selectedBranch]);
+  }, [restaurantId]);
 
   // Load bookings for the calendar scope
   const loadCalendarBookings = useCallback(async () => {
@@ -58,16 +41,14 @@ export default function ReservationCalendarPage() {
     setError('');
     try {
       const params = {};
-      if (selectedBranch) params.branch = selectedBranch;
 
-      // In weekly view, fetch all active bookings. In daily view, filter by date.
       if (viewMode === 'day') {
         params.date = selectedDate;
       }
       
       const result = await reservationApi.listReservations(restaurantId, {
         ...params,
-        limit: 200, // Fetch up to 200 bookings for the calendar grid
+        limit: 200,
       });
       setReservations(result.items || []);
     } catch (err) {
@@ -75,25 +56,14 @@ export default function ReservationCalendarPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [restaurantId, selectedBranch, selectedDate, viewMode]);
+  }, [restaurantId, selectedDate, viewMode]);
 
   useEffect(() => {
     if (restaurantId) {
-      loadBranches();
-    }
-  }, [restaurantId, loadBranches]);
-
-  useEffect(() => {
-    if (selectedBranch) {
-      loadBranchTables();
-    }
-  }, [selectedBranch, loadBranchTables]);
-
-  useEffect(() => {
-    if (restaurantId) {
+      loadTables();
       loadCalendarBookings();
     }
-  }, [restaurantId, selectedBranch, selectedDate, viewMode, loadCalendarBookings]);
+  }, [restaurantId, loadTables, loadCalendarBookings]);
 
   // Calendar shift buttons
   const shiftDate = (amount) => {
@@ -115,7 +85,7 @@ export default function ReservationCalendarPage() {
         <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 space-y-0 pb-4">
           <div>
             <CardTitle>Reservations Sheet</CardTitle>
-            <CardDescription>Visual hourly sheet centered on branch tables or calendar days.</CardDescription>
+            <CardDescription>Visual hourly sheet centered on dining tables or calendar days.</CardDescription>
           </div>
           <div className="flex gap-2">
             <Button size="xs" variant="outline" onClick={() => navigate('/restaurant/reservations/list')} className="h-8">
@@ -127,26 +97,8 @@ export default function ReservationCalendarPage() {
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Filters, Controls bar */}
+          {/* Controls bar */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-border/40 pb-4">
-            {/* Branch selector */}
-            <div className="flex items-center gap-2">
-              <Label htmlFor="branch-picker" className="text-xs font-semibold shrink-0">Branch:</Label>
-              <select
-                id="branch-picker"
-                value={selectedBranch}
-                onChange={(e) => setSelectedBranch(e.target.value)}
-                className="flex h-9 w-full appearance-none rounded border border-input bg-background px-3 py-1 text-xs font-semibold focus:outline-none min-w-[160px]"
-              >
-                {branches.length === 0 && <option value="">No branches</option>}
-                {branches.map((b) => (
-                  <option key={b._id} value={b._id}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
             {/* Date shift & Picker */}
             <div className="flex items-center gap-2">
               <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => shiftDate(-1)}>

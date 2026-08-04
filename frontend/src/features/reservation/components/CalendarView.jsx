@@ -39,7 +39,7 @@ export default function CalendarView({
     if (tables.length === 0) {
       return (
         <div className="text-center py-12 text-sm text-muted-foreground italic border border-dashed rounded">
-          Create branch tables first to view the reservation grid sheet.
+          Create dining tables first to view the reservation grid sheet.
         </div>
       );
     }

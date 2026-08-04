@@ -48,7 +48,6 @@ const listMenuItems = async (
     isAvailable,
     isFeatured,
     isRecommended,
-    branchId,
     sortBy = 'name',
     sortOrder = 'asc',
   } = {}
@@ -81,15 +80,6 @@ const listMenuItems = async (
 
   if (isRecommended !== undefined) {
     query.isRecommended = isRecommended;
-  }
-
-  // Branch isolation check: If branchId is specified, return items available in that specific branch
-  // or items where availableBranches is empty (meaning available in all branches)
-  if (branchId) {
-    query.$or = [
-      { availableBranches: branchId },
-      { availableBranches: { $size: 0 } },
-    ];
   }
 
   const skip = (page - 1) * limit;

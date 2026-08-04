@@ -70,8 +70,7 @@ const listLoyaltyTransactions = asyncHandler(async (req, res) => {
 });
 
 const getCustomerStats = asyncHandler(async (req, res) => {
-  const branchId = req.query.branch || undefined;
-  const stats = await customerService.getCustomerStats(req.params.restaurantId, branchId);
+  const stats = await customerService.getCustomerStats(req.params.restaurantId);
   return new ApiResponse(200, { stats }, 'Customer stats fetched successfully').send(res);
 });
 

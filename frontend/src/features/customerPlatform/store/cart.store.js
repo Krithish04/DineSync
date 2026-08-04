@@ -22,7 +22,6 @@ const useCartStore = create(
   persist(
     (set, get) => ({
       restaurantId: null,
-      branchId: null,
       tableId: null,
       tableNumber: null,
       tableStatus: 'Available', // 'Available' | 'Occupied' | 'Reserved'
@@ -49,7 +48,7 @@ const useCartStore = create(
       restaurantCoords: { lat: 19.076, lng: 72.8777 }, // Default restaurant location (Mumbai center)
       allowedRadiusMeters: 500, // 500-meter safety geofence radius
 
-      setSessionContext: ({ restaurantId, branchId, tableId, tableNumber, tableStatus, orderType }) =>
+      setSessionContext: ({ restaurantId, tableId, tableNumber, tableStatus, orderType }) =>
         set((state) => {
           const nextTableId = tableId !== undefined ? tableId : state.tableId;
           const nextTableNumber = tableNumber !== undefined ? tableNumber : state.tableNumber;
@@ -74,7 +73,6 @@ const useCartStore = create(
 
           return {
             restaurantId: restaurantId || state.restaurantId,
-            branchId: branchId || state.branchId,
             tableId: nextTableId,
             tableNumber: nextTableNumber,
             tableStatus: nextTableStatus,

@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react';
-import { DollarSign, CreditCard, TrendingUp, Percent, Receipt } from 'lucide-react';
 import RestaurantLayout from '@/features/restaurant/components/RestaurantLayout';
 import Loader from '@/components/common/Loader';
 import useAuthStore from '@/features/auth/store/auth.store';
@@ -8,7 +7,6 @@ import ChartWidget from '../components/ChartWidget';
 import ReportFilters from '../components/ReportFilters';
 import ExportToolbar from '../components/ExportToolbar';
 import * as reportsApi from '../api/reports.api';
-import * as branchApi from '@/features/branch/api/branch.api';
 
 const today = new Date();
 const defaultStart = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().slice(0, 10);
@@ -18,25 +16,17 @@ export default function FinancialReportPage() {
   const restaurantId = useAuthStore((s) => s.restaurant?._id);
 
   const [filters, setFilters] = useState({ startDate: defaultStart, endDate: defaultEnd });
-  const [branches, setBranches] = useState([]);
   const [financial, setFinancial] = useState(null);
   const [gstData, setGstData] = useState([]);
   const [paymentMethods, setPaymentMethods] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const loadBranches = useCallback(async () => {
-    try {
-      const res = await branchApi.listBranches(restaurantId, { limit: 100 });
-      setBranches(res.items || []);
-    } catch { /* non-fatal */ }
-  }, [restaurantId]);
-
   const loadData = useCallback(async () => {
     if (!restaurantId) return;
     setIsLoading(true);
     setError('');
-    const params = { startDate: filters.startDate, endDate: filters.endDate, branch: filters.branch || undefined };
+    const params = { startDate: filters.startDate, endDate: filters.endDate };
     try {
       const [finRes, gstRes, pmRes] = await Promise.all([
         reportsApi.getFinancialSummary(restaurantId, params),
@@ -53,7 +43,6 @@ export default function FinancialReportPage() {
     }
   }, [restaurantId, filters]);
 
-  useEffect(() => { loadBranches(); }, [loadBranches]);
   useEffect(() => { loadData(); }, [loadData]);
 
   const gstChartData = gstData.map((g) => ({
@@ -83,7 +72,7 @@ export default function FinancialReportPage() {
   return (
     <RestaurantLayout title="Financial Reports" description="Revenue, expenses, profit margins, GST tax audit, and payment method summaries.">
       <div className="space-y-6 max-w-full">
-        <ReportFilters filters={filters} onChange={setFilters} branches={branches} />
+        <ReportFilters filters={filters} onChange={setFilters} />
 
         {isLoading && <Loader />}
         {error && <div className="bg-rose-50 border border-rose-200 text-rose-700 rounded-xl p-4 text-sm">{error}</div>}

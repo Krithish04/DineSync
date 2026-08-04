@@ -14,11 +14,6 @@ const notificationSchema = new Schema(
       required: true,
       index: true,
     },
-    branch: {
-      type: Schema.Types.ObjectId,
-      ref: 'Branch',
-      default: null,
-    },
     recipient: {
       type: Schema.Types.ObjectId,
       ref: 'User',

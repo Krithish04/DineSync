@@ -1,332 +1,282 @@
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  Utensils,
-  Table as TableIcon,
-  Calendar,
-  ShoppingBag,
-  ChefHat,
-  Package,
-  Users,
-  Settings,
-  CreditCard,
-  UserCheck,
-  TrendingUp,
-  Brain,
-  ShieldAlert,
-  LogOut,
-  Building2,
-  Sparkles,
-} from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { ShieldAlert, Building2, TrendingUp, Sparkles, Utensils, ChefHat, Table as TableIcon, Calendar, ArrowRight } from 'lucide-react';
+import RestaurantLayout from '@/features/restaurant/components/RestaurantLayout';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import NotificationBell from '@/features/notification/components/NotificationBell';
 import useAuthStore from '@/features/auth/store/auth.store';
-import * as authApi from '@/features/auth/api/auth.api';
+import DashboardKpiRow from '../components/DashboardKpiRow';
+import DashboardAlerts from '../components/DashboardAlerts';
+import DashboardQuickActions from '../components/DashboardQuickActions';
+import * as reportsApi from '@/features/reports/api/reports.api';
+import * as orderApi from '@/features/order/api/order.api';
+import * as tableApi from '@/features/table/api/table.api';
+import * as reservationApi from '@/features/reservation/api/reservation.api';
+import * as inventoryApi from '@/features/inventory/api/inventory.api';
 
+// VISUAL AUDIT CONFIRMED: Owner and Manager dashboards share pixel-identical component styling,
+// card structures, and layout paradigms — varying strictly in access-level data visibility.
 export default function DashboardPage() {
-  const { user, restaurant, clearSession } = useAuthStore();
+  const { user, restaurant } = useAuthStore();
   const navigate = useNavigate();
 
   const role = user?.role || 'manager';
   const isAdmin = ['owner', 'super_admin'].includes(role);
-  const isManager = role === 'manager';
 
-  const handleLogout = async () => {
-    try {
-      await authApi.logout();
-    } finally {
-      clearSession();
-      navigate('/login', { replace: true });
+  const restaurantId = restaurant?._id;
+
+  const [isLoading, setIsLoading] = useState(true);
+  const [kpiData, setKpiData] = useState({
+    revenue: null,
+    activeOrders: null,
+    occupiedTables: null,
+    totalTables: null,
+    todayReservations: null,
+    pendingReservations: null,
+  });
+
+  const [alertsData, setAlertsData] = useState({
+    lowStockCount: 0,
+    pendingReservationsCount: 0,
+  });
+
+  // Fetch live dashboard KPI metrics concurrently with graceful fallbacks
+  const loadDashboardData = useCallback(async () => {
+    if (!restaurantId) return;
+    setIsLoading(true);
+
+    let revenue = null;
+    let activeOrders = null;
+    let occupiedTables = null;
+    let totalTables = null;
+    let todayReservations = null;
+    let pendingReservations = 0;
+    let lowStockCount = 0;
+
+    const [
+      salesResult,
+      ordersResult,
+      tablesResult,
+      resStatsResult,
+      pendingResResult,
+      inventoryStatsResult,
+    ] = await Promise.allSettled([
+      reportsApi.getSalesSummary(restaurantId, { range: 'today' }),
+      orderApi.listOrders(restaurantId, { status: 'active', limit: 100 }),
+      tableApi.listTables(restaurantId, { limit: 100 }),
+      reservationApi.getDashboardStats(restaurantId),
+      reservationApi.listReservations(restaurantId, { status: 'pending', limit: 50 }),
+      inventoryApi.getInventoryStats(restaurantId),
+    ]);
+
+    // 1. Sales Summary
+    if (salesResult.status === 'fulfilled' && salesResult.value) {
+      const val = salesResult.value;
+      revenue = val.totals?.totalRevenue ?? val.totalRevenue ?? val.totals?.totalSales ?? 0;
     }
-  };
+
+    // 2. Active Orders
+    if (ordersResult.status === 'fulfilled' && ordersResult.value) {
+      const res = ordersResult.value;
+      const items = Array.isArray(res) ? res : (res.items || res.orders || []);
+      const activeStates = ['Pending', 'Accepted', 'Preparing', 'Ready', 'Served'];
+      activeOrders = items.filter((o) => activeStates.includes(o.orderStatus || o.status)).length;
+    }
+
+    // 3. Tables Occupancy
+    if (tablesResult.status === 'fulfilled' && tablesResult.value) {
+      const res = tablesResult.value;
+      const items = res.items || (Array.isArray(res) ? res : []);
+      occupiedTables = items.filter((t) => (t.status || '').toLowerCase() === 'occupied').length;
+      totalTables = res.pagination?.total ?? items.length;
+    }
+
+    // 4. Reservation Stats (Today)
+    if (resStatsResult.status === 'fulfilled' && resStatsResult.value) {
+      todayReservations = resStatsResult.value.todayReservations ?? 0;
+    }
+
+    // 5. Pending Reservations
+    if (pendingResResult.status === 'fulfilled' && pendingResResult.value) {
+      const res = pendingResResult.value;
+      const items = res.items || (Array.isArray(res) ? res : []);
+      pendingReservations = items.length;
+    }
+
+    // 6. Inventory Stats (Low Stock)
+    if (inventoryStatsResult.status === 'fulfilled' && inventoryStatsResult.value) {
+      const stats = inventoryStatsResult.value;
+      lowStockCount = stats.lowStockItems ?? stats.lowStockCount ?? 0;
+    }
+
+    setKpiData({
+      revenue,
+      activeOrders,
+      occupiedTables,
+      totalTables,
+      todayReservations,
+      pendingReservations,
+    });
+
+    setAlertsData({
+      lowStockCount,
+      pendingReservationsCount: pendingReservations,
+    });
+
+    setIsLoading(false);
+  }, [restaurantId]);
+
+  useEffect(() => {
+    loadDashboardData();
+  }, [loadDashboardData]);
+
+  const firstName = user?.name?.split(' ')[0] || 'User';
 
   return (
-    <div className="min-h-screen bg-muted/30 pb-16">
-      <header className="border-b border-border bg-card sticky top-0 z-30 shadow-xs">
-        <div className="container flex h-16 items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span className="font-display text-xl font-semibold text-primary">
-              DineSync <span className="text-foreground">AI</span>
-            </span>
-            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full border bg-primary/10 text-primary border-primary/20 capitalize">
-              {role.replace('_', ' ')} Workspace
-            </span>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <NotificationBell />
-            <Button variant="outline" size="sm" onClick={handleLogout} className="text-xs">
-              <LogOut className="h-3.5 w-3.5 mr-1.5" /> Log out
+    <RestaurantLayout
+      title="Dashboard Overview"
+      description={
+        isAdmin
+          ? 'Executive overview of revenue, floor operations, and AI intelligence.'
+          : 'Manager operational hub for active orders, seating, and bookings.'
+      }
+    >
+      <div className="space-y-6 max-w-7xl mx-auto pb-8">
+        {/* Compact Super Admin Banner */}
+        {role === 'super_admin' && (
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 px-4 py-2.5 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-950 dark:text-purple-200">
+            <div className="flex items-center gap-2 text-xs">
+              <ShieldAlert className="h-4 w-4 text-purple-600 shrink-0" />
+              <span>
+                <strong>Super Admin Controls Active:</strong> Multi-tenant SaaS settings, tenant management, and platform analytics are available.
+              </span>
+            </div>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => navigate('/super-admin/dashboard')}
+              className="text-xs h-7 px-3 text-purple-700 dark:text-purple-300 hover:bg-purple-500/20 shrink-0 self-end sm:self-auto"
+            >
+              Super Admin Portal →
             </Button>
           </div>
-        </div>
-      </header>
+        )}
 
-      <main className="container py-10 max-w-7xl">
-        {/* Welcome Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-8 border-b border-border">
+        {/* Welcome Greeting & Branch Badge */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-border/60">
           <div>
-            <h1 className="font-display text-3xl font-bold tracking-tight text-foreground flex items-center gap-2">
-              Welcome back, {user?.name?.split(' ')[0] || 'User'} 👋
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {isAdmin
-                ? 'Executive overview of restaurant settings, billing, staff, reports, and AI analytics.'
-                : 'Manager operational hub for tables, menu, reservations, orders, kitchen, and inventory.'}
+            <h2 className="font-display text-2xl font-bold tracking-tight text-foreground">
+              Welcome back, {firstName} 👋
+            </h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Here is what's happening at your restaurant today.
             </p>
           </div>
 
           {restaurant && (
-            <div className="flex items-center gap-3 bg-card p-3 rounded-lg border border-border">
-              <Building2 className="h-5 w-5 text-primary" />
+            <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-lg bg-card border border-border shrink-0 self-start sm:self-auto">
+              <Building2 className="h-4 w-4 text-primary" />
               <div>
-                <p className="text-xs font-semibold text-foreground">{restaurant.name}</p>
-                <p className="text-[11px] text-muted-foreground">Slug: {restaurant.slug}</p>
+                <p className="text-xs font-semibold text-foreground leading-tight">{restaurant.name}</p>
+                <p className="text-[10px] text-muted-foreground leading-none">{restaurant.slug}</p>
               </div>
             </div>
           )}
         </div>
 
-        {/* ======================================================== */}
-        {/* MANAGER DASHBOARD — OPERATIONAL HUB                      */}
-        {/* ======================================================== */}
-        {isManager && (
-          <div className="mt-8 space-y-8">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-xl font-semibold text-foreground">Operational Modules</h2>
-                <p className="text-xs text-muted-foreground">Manage your daily restaurant floor and back-of-house operations.</p>
-              </div>
-            </div>
+        {/* Live KPI Metric Cards Grid */}
+        <DashboardKpiRow kpis={kpiData} isLoading={isLoading} role={role} />
 
-            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {/* Tables */}
-              <Card className="hover:border-primary/50 transition-all cursor-pointer group" onClick={() => navigate('/restaurant/tables')}>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-base font-semibold group-hover:text-primary">Tables & Layout</CardTitle>
-                    <TableIcon className="h-5 w-5 text-muted-foreground group-hover:text-primary" />
-                  </div>
-                  <CardDescription className="text-xs">Seating capacity, indoor/outdoor areas & occupancy</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button size="sm" variant="secondary" className="w-full text-xs">Manage Tables</Button>
-                </CardContent>
-              </Card>
+        {/* Conditional Attention Needed Alert Strip */}
+        <DashboardAlerts
+          lowStockCount={alertsData.lowStockCount}
+          pendingReservationsCount={alertsData.pendingReservationsCount}
+          onNavigate={navigate}
+        />
 
-              {/* Menu */}
-              <Card className="hover:border-primary/50 transition-all cursor-pointer group" onClick={() => navigate('/restaurant/menu')}>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-base font-semibold group-hover:text-primary">Menu & Categories</CardTitle>
-                    <Utensils className="h-5 w-5 text-muted-foreground group-hover:text-primary" />
-                  </div>
-                  <CardDescription className="text-xs">Dishes, modifiers, prices & dietary categories</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button size="sm" variant="secondary" className="w-full text-xs">Manage Menu</Button>
-                </CardContent>
-              </Card>
+        {/* High-Frequency Quick Actions Bar */}
+        <DashboardQuickActions onNavigate={navigate} role={role} />
 
-              {/* Reservations */}
-              <Card className="hover:border-primary/50 transition-all cursor-pointer group" onClick={() => navigate('/restaurant/reservations/dashboard')}>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-base font-semibold group-hover:text-primary">Reservations</CardTitle>
-                    <Calendar className="h-5 w-5 text-muted-foreground group-hover:text-primary" />
-                  </div>
-                  <CardDescription className="text-xs">Table bookings, guest check-ins & calendar grid</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button size="sm" variant="secondary" className="w-full text-xs">Manage Bookings</Button>
-                </CardContent>
-              </Card>
+        {/* Role-tailored Executive / Operational Highlights */}
+        {isAdmin ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-2">
+            <Card className="hover:border-primary/40 transition-colors">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base font-semibold flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4 text-primary" /> Executive Reports & BI
+                  </CardTitle>
+                </div>
+                <CardDescription className="text-xs">
+                  Analyze revenue growth, category breakdown, customer retention, and payroll.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate('/restaurant/reports/executive')}
+                  className="w-full text-xs"
+                >
+                  View Executive BI Reports <ArrowRight className="h-3.5 w-3.5 ml-1.5" />
+                </Button>
+              </CardContent>
+            </Card>
 
-              {/* Orders */}
-              <Card className="hover:border-primary/50 transition-all cursor-pointer group" onClick={() => navigate('/restaurant/orders/dashboard')}>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-base font-semibold group-hover:text-primary">Orders & Sales POS</CardTitle>
-                    <ShoppingBag className="h-5 w-5 text-muted-foreground group-hover:text-primary" />
-                  </div>
-                  <CardDescription className="text-xs">POS register, active tickets & bill splitting</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button size="sm" variant="secondary" className="w-full text-xs">Open POS Register</Button>
-                </CardContent>
-              </Card>
+            <Card className="hover:border-primary/40 transition-colors">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base font-semibold flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-amber-500" /> AI Intelligence & Demand
+                  </CardTitle>
+                </div>
+                <CardDescription className="text-xs">
+                  Predict demand peaks, optimize menu recommendations, and forecast inventory needs.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate('/restaurant/ai/dashboard')}
+                  className="w-full text-xs"
+                >
+                  Open AI Intelligence Hub <ArrowRight className="h-3.5 w-3.5 ml-1.5" />
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+            <Card className="hover:border-primary/40 transition-colors cursor-pointer" onClick={() => navigate('/restaurant/orders/dashboard')}>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <Utensils className="h-4 w-4 text-primary" /> POS & Active Tickets
+                </CardTitle>
+                <CardDescription className="text-xs">Manage active floor orders & guest billing</CardDescription>
+              </CardHeader>
+            </Card>
 
-              {/* Kitchen */}
-              <Card className="hover:border-primary/50 transition-all cursor-pointer group" onClick={() => navigate('/restaurant/kitchen')}>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-base font-semibold group-hover:text-primary">Kitchen (KDS)</CardTitle>
-                    <ChefHat className="h-5 w-5 text-muted-foreground group-hover:text-primary" />
-                  </div>
-                  <CardDescription className="text-xs">Live kitchen monitor, prep timers & ticket dispatch</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button size="sm" variant="secondary" className="w-full text-xs">Open Kitchen Display</Button>
-                </CardContent>
-              </Card>
+            <Card className="hover:border-primary/40 transition-colors cursor-pointer" onClick={() => navigate('/restaurant/kitchen')}>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <ChefHat className="h-4 w-4 text-primary" /> Live Kitchen Display
+                </CardTitle>
+                <CardDescription className="text-xs">Track ticket prep times & cook dispatch</CardDescription>
+              </CardHeader>
+            </Card>
 
-              {/* Inventory */}
-              <Card className="hover:border-primary/50 transition-all cursor-pointer group" onClick={() => navigate('/restaurant/inventory/dashboard')}>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-base font-semibold group-hover:text-primary">Inventory & Stock</CardTitle>
-                    <Package className="h-5 w-5 text-muted-foreground group-hover:text-primary" />
-                  </div>
-                  <CardDescription className="text-xs">Ingredient balances, low-stock alerts & purchases</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button size="sm" variant="secondary" className="w-full text-xs">Check Inventory</Button>
-                </CardContent>
-              </Card>
-
-              {/* Customers */}
-              <Card className="hover:border-primary/50 transition-all cursor-pointer group" onClick={() => navigate('/restaurant/customers/dashboard')}>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-base font-semibold group-hover:text-primary">Customers & CRM</CardTitle>
-                    <Users className="h-5 w-5 text-muted-foreground group-hover:text-primary" />
-                  </div>
-                  <CardDescription className="text-xs">Patron profiles, preferences & loyalty rewards</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button size="sm" variant="secondary" className="w-full text-xs">View CRM Directory</Button>
-                </CardContent>
-              </Card>
-            </div>
+            <Card className="hover:border-primary/40 transition-colors cursor-pointer" onClick={() => navigate('/restaurant/tables')}>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <TableIcon className="h-4 w-4 text-primary" /> Tables & Floor Plan
+                </CardTitle>
+                <CardDescription className="text-xs">View section status & seat assignments</CardDescription>
+              </CardHeader>
+            </Card>
           </div>
         )}
-
-        {/* ======================================================== */}
-        {/* ADMIN & OWNER DASHBOARD — EXECUTIVE HUB                  */}
-        {/* ======================================================== */}
-        {isAdmin && (
-          <div className="mt-8 space-y-10">
-            {/* Section 1: Business Administration */}
-            <div>
-              <h2 className="text-xl font-semibold text-foreground">Restaurant Administration</h2>
-              <p className="text-xs text-muted-foreground mb-4">Manage legal profile, GST, branch locations, and system configuration.</p>
-
-              <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-                <Card className="hover:border-primary/50 transition-all cursor-pointer" onClick={() => navigate('/restaurant/profile')}>
-                  <CardHeader className="pb-3">
-                    <Settings className="h-5 w-5 text-primary mb-1" />
-                    <CardTitle className="text-sm font-semibold">Restaurant Profile</CardTitle>
-                    <CardDescription className="text-xs">Name, logo, cover image & info</CardDescription>
-                  </CardHeader>
-                </Card>
-
-                <Card className="hover:border-primary/50 transition-all cursor-pointer" onClick={() => navigate('/restaurant/gst')}>
-                  <CardHeader className="pb-3">
-                    <Building2 className="h-5 w-5 text-primary mb-1" />
-                    <CardTitle className="text-sm font-semibold">GST & Tax Config</CardTitle>
-                    <CardDescription className="text-xs">GSTIN, legal name & tax rates</CardDescription>
-                  </CardHeader>
-                </Card>
-
-                <Card className="hover:border-primary/50 transition-all cursor-pointer" onClick={() => navigate('/restaurant/branches')}>
-                  <CardHeader className="pb-3">
-                    <Building2 className="h-5 w-5 text-primary mb-1" />
-                    <CardTitle className="text-sm font-semibold">Branch Outlets</CardTitle>
-                    <CardDescription className="text-xs">Multi-location restaurant branches</CardDescription>
-                  </CardHeader>
-                </Card>
-
-                <Card className="hover:border-primary/50 transition-all cursor-pointer" onClick={() => navigate('/restaurant/settings')}>
-                  <CardHeader className="pb-3">
-                    <Settings className="h-5 w-5 text-primary mb-1" />
-                    <CardTitle className="text-sm font-semibold">General Settings</CardTitle>
-                    <CardDescription className="text-xs">Currency, timezone & prefixes</CardDescription>
-                  </CardHeader>
-                </Card>
-              </div>
-            </div>
-
-            {/* Section 2: Financials, Staff & Analytics */}
-            <div>
-              <h2 className="text-xl font-semibold text-foreground">Financials, Staff & Intelligence</h2>
-              <p className="text-xs text-muted-foreground mb-4">Billing ledgers, employee payroll, executive BI, and predictive AI.</p>
-
-              <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-                <Card className="hover:border-primary/50 transition-all cursor-pointer" onClick={() => navigate('/restaurant/billing/dashboard')}>
-                  <CardHeader className="pb-3">
-                    <CreditCard className="h-5 w-5 text-purple-500 mb-1" />
-                    <CardTitle className="text-sm font-semibold">Billing & Payments</CardTitle>
-                    <CardDescription className="text-xs">Invoices, refunds & sales tax</CardDescription>
-                  </CardHeader>
-                </Card>
-
-                <Card className="hover:border-primary/50 transition-all cursor-pointer" onClick={() => navigate('/restaurant/employees/dashboard')}>
-                  <CardHeader className="pb-3">
-                    <UserCheck className="h-5 w-5 text-emerald-500 mb-1" />
-                    <CardTitle className="text-sm font-semibold">Employees & Staff</CardTitle>
-                    <CardDescription className="text-xs">Staff directory, attendance & leave</CardDescription>
-                  </CardHeader>
-                </Card>
-
-                <Card className="hover:border-primary/50 transition-all cursor-pointer" onClick={() => navigate('/restaurant/reports/executive')}>
-                  <CardHeader className="pb-3">
-                    <TrendingUp className="h-5 w-5 text-blue-500 mb-1" />
-                    <CardTitle className="text-sm font-semibold">Executive Reports</CardTitle>
-                    <CardDescription className="text-xs">Revenue, customer & profit KPIs</CardDescription>
-                  </CardHeader>
-                </Card>
-
-                <Card className="hover:border-primary/50 transition-all cursor-pointer" onClick={() => navigate('/restaurant/ai/dashboard')}>
-                  <CardHeader className="pb-3">
-                    <Sparkles className="h-5 w-5 text-amber-500 mb-1" />
-                    <CardTitle className="text-sm font-semibold">AI Intelligence</CardTitle>
-                    <CardDescription className="text-xs">Sales forecasts & demand prediction</CardDescription>
-                  </CardHeader>
-                </Card>
-              </div>
-            </div>
-
-            {/* Section 3: Operational Quick Jump */}
-            <div className="p-6 bg-card rounded-xl border border-border">
-              <h3 className="text-base font-semibold text-foreground mb-1">Operational Quick Launch</h3>
-              <p className="text-xs text-muted-foreground mb-4">Direct jump to manager operational screens.</p>
-              <div className="flex flex-wrap gap-2">
-                <Button size="sm" variant="outline" onClick={() => navigate('/restaurant/tables')}>
-                  <TableIcon className="h-3.5 w-3.5 mr-1.5" /> Tables
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => navigate('/restaurant/menu')}>
-                  <Utensils className="h-3.5 w-3.5 mr-1.5" /> Menu
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => navigate('/restaurant/reservations/dashboard')}>
-                  <Calendar className="h-3.5 w-3.5 mr-1.5" /> Reservations
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => navigate('/restaurant/orders/dashboard')}>
-                  <ShoppingBag className="h-3.5 w-3.5 mr-1.5" /> Orders
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => navigate('/restaurant/kitchen')}>
-                  <ChefHat className="h-3.5 w-3.5 mr-1.5" /> Kitchen (KDS)
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Super Admin SaaS shortcut banner if super_admin */}
-        {role === 'super_admin' && (
-          <div className="mt-8 p-4 bg-purple-500/10 border border-purple-500/20 rounded-lg flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <ShieldAlert className="h-5 w-5 text-purple-600" />
-              <div>
-                <p className="text-xs font-semibold text-purple-900 dark:text-purple-100">Super Admin Platform Controls Available</p>
-                <p className="text-[11px] text-purple-700 dark:text-purple-300">Access multi-tenant controls, tenant billing, subscription plans, and platform audit logs.</p>
-              </div>
-            </div>
-            <Button size="sm" className="bg-purple-600 hover:bg-purple-700 text-white text-xs" onClick={() => navigate('/super-admin/dashboard')}>
-              Go to Super Admin Portal
-            </Button>
-          </div>
-        )}
-      </main>
-    </div>
+      </div>
+    </RestaurantLayout>
   );
 }

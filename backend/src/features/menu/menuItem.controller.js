@@ -16,7 +16,6 @@ const listMenuItems = asyncHandler(async (req, res) => {
   const isAvailable = req.query.isAvailable !== undefined ? req.query.isAvailable === 'true' : undefined;
   const isFeatured = req.query.isFeatured !== undefined ? req.query.isFeatured === 'true' : undefined;
   const isRecommended = req.query.isRecommended !== undefined ? req.query.isRecommended === 'true' : undefined;
-  const branchId = req.query.branchId || undefined;
   const sortBy = req.query.sortBy || 'name';
   const sortOrder = req.query.sortOrder || 'asc';
 
@@ -29,7 +28,6 @@ const listMenuItems = asyncHandler(async (req, res) => {
     isAvailable,
     isFeatured,
     isRecommended,
-    branchId,
     sortBy,
     sortOrder,
   });

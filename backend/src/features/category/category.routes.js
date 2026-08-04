@@ -2,7 +2,7 @@ const express = require('express');
 const categoryController = require('./category.controller');
 const { validateBody } = require('../../middlewares/validate.middleware');
 const { createCategorySchema, updateCategorySchema } = require('./category.validation');
-const { protect, authorize, enforceTenantIsolation } = require('../../middlewares/auth.middleware');
+const { protect, authorize, enforceTenantIsolation, authorizeMenuEdit } = require('../../middlewares/auth.middleware');
 const { ROLES } = require('../../constants/roles.constant');
 
 const router = express.Router({ mergeParams: true });
@@ -14,13 +14,13 @@ router.use(protect, enforceTenantIsolation);
 
 router
   .route('/')
-  .post(canManage, validateBody(createCategorySchema), categoryController.createCategory)
+  .post(authorizeMenuEdit, validateBody(createCategorySchema), categoryController.createCategory)
   .get(categoryController.listCategories);
 
 router
   .route('/:categoryId')
   .get(categoryController.getCategory)
-  .patch(canManage, validateBody(updateCategorySchema), categoryController.updateCategory)
-  .delete(canManage, categoryController.deleteCategory);
+  .patch(authorizeMenuEdit, validateBody(updateCategorySchema), categoryController.updateCategory)
+  .delete(authorizeMenuEdit, categoryController.deleteCategory);
 
 module.exports = router;

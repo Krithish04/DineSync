@@ -61,7 +61,6 @@ const generateInvoice = async (restaurantId, payload, cashierId) => {
       restaurant: restaurantId,
       order: order._id,
       customer: order.customer || null,
-      branch: order.branch,
       table: order.table || null,
       cashier: cashierId,
       invoiceStatus: 'Generated',
@@ -91,9 +90,8 @@ const generateInvoice = async (restaurantId, payload, cashierId) => {
   ]);
 };
 
-const listInvoices = async (restaurantId, { branch, status, search = '' }) => {
+const listInvoices = async (restaurantId, { status, search = '' }) => {
   const query = { restaurant: restaurantId };
-  if (branch) query.branch = branch;
   if (status) query.invoiceStatus = status;
 
   if (search) {
@@ -112,7 +110,6 @@ const getInvoice = async (restaurantId, invoiceId) => {
     { path: 'customer', select: 'fullName phoneNumber customerId loyaltyPoints membershipTier' },
     { path: 'table', select: 'tableNumber tableName' },
     { path: 'cashier', select: 'name role' },
-    { path: 'branch', select: 'name code address' },
     { path: 'order' },
   ]);
 
@@ -272,13 +269,9 @@ const refundInvoice = async (restaurantId, invoiceId, cashierId) => {
 // STATISTICS & REPORTS
 // ==========================================
 
-const getBillingStats = async (restaurantId, branchId = null) => {
+const getBillingStats = async (restaurantId) => {
   const query = { restaurant: restaurantId, invoiceStatus: 'Paid' };
   const paymentsQuery = { restaurant: restaurantId, paymentStatus: 'Success' };
-
-  if (branchId) {
-    query.branch = branchId;
-  }
 
   const [invoices, paymentsList] = await Promise.all([
     Invoice.find(query),

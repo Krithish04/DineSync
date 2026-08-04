@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Filter, ClipboardList, Eye } from 'lucide-react';
+import { Search, ClipboardList, Eye } from 'lucide-react';
 import RestaurantLayout from '@/features/restaurant/components/RestaurantLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -8,14 +8,12 @@ import { Button } from '@/components/ui/button';
 import Loader from '@/components/common/Loader';
 import useAuthStore from '@/features/auth/store/auth.store';
 import * as orderApi from '../api/order.api';
-import * as branchApi from '@/features/branch/api/branch.api';
 
 export default function OrderHistoryPage() {
   const restaurantId = useAuthStore((state) => state.restaurant?._id);
   const navigate = useNavigate();
 
   const [orders, setOrders] = useState([]);
-  const [branches, setBranches] = useState([]);
   const [pagination, setPagination] = useState(null);
   
   const [isLoading, setIsLoading] = useState(true);
@@ -24,7 +22,6 @@ export default function OrderHistoryPage() {
   // Filters
   const [search, setSearch] = useState('');
   const [searchDebounced, setSearchDebounced] = useState('');
-  const [selectedBranch, setSelectedBranch] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedPayment, setSelectedPayment] = useState('all');
   const [page, setPage] = useState(1);
@@ -39,16 +36,6 @@ export default function OrderHistoryPage() {
     return () => clearTimeout(handler);
   }, [search]);
 
-  // Load branches
-  const loadBranches = useCallback(async () => {
-    try {
-      const res = await branchApi.listBranches(restaurantId, { limit: 100 });
-      setBranches(res.items || []);
-    } catch {
-      // Non-fatal
-    }
-  }, [restaurantId]);
-
   // Load historical orders list
   const loadOrdersHistory = useCallback(async () => {
     setIsLoading(true);
@@ -60,7 +47,6 @@ export default function OrderHistoryPage() {
         search: searchDebounced,
       };
 
-      if (selectedBranch !== 'all') params.branch = selectedBranch;
       if (selectedStatus !== 'all') params.orderStatus = selectedStatus;
       if (selectedPayment !== 'all') params.paymentStatus = selectedPayment;
 
@@ -72,14 +58,13 @@ export default function OrderHistoryPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [restaurantId, page, searchDebounced, selectedBranch, selectedStatus, selectedPayment]);
+  }, [restaurantId, page, searchDebounced, selectedStatus, selectedPayment]);
 
   useEffect(() => {
     if (restaurantId) {
-      loadBranches();
       loadOrdersHistory();
     }
-  }, [restaurantId, loadBranches, loadOrdersHistory]);
+  }, [restaurantId, loadOrdersHistory]);
 
   return (
     <RestaurantLayout
@@ -99,8 +84,8 @@ export default function OrderHistoryPage() {
           )}
 
           {/* Filters controls bar */}
-          <div className="grid gap-4 grid-cols-1 sm:grid-cols-4">
-            <div className="relative col-span-1 sm:col-span-4">
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
+            <div className="relative col-span-1 sm:col-span-3">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Search order number or item contents..."
@@ -108,24 +93,6 @@ export default function OrderHistoryPage() {
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-9 text-sm"
               />
-            </div>
-
-            <div className="relative">
-              <select
-                value={selectedBranch}
-                onChange={(e) => {
-                  setSelectedBranch(e.target.value);
-                  setPage(1);
-                }}
-                className="flex h-10 w-full appearance-none rounded border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none"
-              >
-                <option value="all">All Branches</option>
-                {branches.map((b) => (
-                  <option key={b._id} value={b._id}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
             </div>
 
             <div className="relative">
@@ -180,7 +147,6 @@ export default function OrderHistoryPage() {
                   <thead>
                     <tr className="border-b border-border bg-muted/20 text-xs uppercase text-muted-foreground">
                       <th className="p-3 font-medium">Order Number</th>
-                      <th className="p-3 font-medium">Branch Location</th>
                       <th className="p-3 font-medium">Order Type</th>
                       <th className="p-3 font-medium text-center">Items Count</th>
                       <th className="p-3 font-medium text-right">Grand Total</th>
@@ -196,9 +162,6 @@ export default function OrderHistoryPage() {
                           <span className="font-mono text-xs font-semibold text-foreground bg-muted px-2 py-0.5 rounded">
                             {o.orderNumber}
                           </span>
-                        </td>
-                        <td className="p-3 text-muted-foreground text-xs font-medium">
-                          {o.branch?.name || 'Restaurant'}
                         </td>
                         <td className="p-3 text-xs font-semibold text-foreground">
                           {o.orderType}

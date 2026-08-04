@@ -18,12 +18,6 @@ const attendanceSchema = new Schema(
       required: true,
       index: true,
     },
-    branch: {
-      type: Schema.Types.ObjectId,
-      ref: 'Branch',
-      required: true,
-      index: true,
-    },
     date: {
       type: String, // format YYYY-MM-DD
       required: true,

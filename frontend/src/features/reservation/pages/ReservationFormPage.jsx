@@ -6,7 +6,6 @@ import Loader from '@/components/common/Loader';
 import ReservationForm from '../components/ReservationForm';
 import useAuthStore from '@/features/auth/store/auth.store';
 import * as reservationApi from '../api/reservation.api';
-import * as branchApi from '@/features/branch/api/branch.api';
 
 export default function ReservationFormPage() {
   const { reservationId } = useParams();
@@ -16,23 +15,12 @@ export default function ReservationFormPage() {
   const restaurantId = useAuthStore((state) => state.restaurant?._id);
 
   const [reservation, setReservation] = useState(null);
-  const [branches, setBranches] = useState([]);
   const [isLoading, setIsLoading] = useState(isEditMode);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
   const pageTitle = useMemo(() => (isEditMode ? 'Edit reservation' : 'Add reservation'), [isEditMode]);
-
-  // Load branches
-  const loadBranches = useCallback(async () => {
-    try {
-      const result = await branchApi.listBranches(restaurantId, { limit: 100 });
-      setBranches(result.items || []);
-    } catch {
-      // Non-fatal
-    }
-  }, [restaurantId]);
 
   // Load reservation details if editing
   const loadReservation = useCallback(async () => {
@@ -50,9 +38,8 @@ export default function ReservationFormPage() {
 
   useEffect(() => {
     if (!restaurantId) return;
-    loadBranches();
     if (isEditMode) loadReservation();
-  }, [restaurantId, isEditMode, loadBranches, loadReservation]);
+  }, [restaurantId, isEditMode, loadReservation]);
 
   const handleSubmit = async (formPayload) => {
     setError('');
@@ -62,7 +49,6 @@ export default function ReservationFormPage() {
       if (isEditMode) {
         await reservationApi.updateReservation(restaurantId, reservationId, formPayload);
         setSuccess('Reservation updated successfully.');
-        // Redirect back to dashboard/list after brief delay
         setTimeout(() => navigate('/restaurant/reservations/list'), 1500);
       } else {
         await reservationApi.createReservation(restaurantId, formPayload);
@@ -88,7 +74,7 @@ export default function ReservationFormPage() {
           <CardDescription>
             {isEditMode
               ? 'Update customer requests, seating details, or reservation time.'
-              : 'Add a new reservation. Seating capacity, overlap, and branch hours are validated automatically.'}
+              : 'Add a new reservation. Seating capacity and overlaps are validated automatically.'}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -109,7 +95,6 @@ export default function ReservationFormPage() {
 
               <ReservationForm
                 restaurantId={restaurantId}
-                branches={branches}
                 initialData={reservation}
                 onSubmit={handleSubmit}
                 onCancel={() => navigate('/restaurant/reservations/list')}

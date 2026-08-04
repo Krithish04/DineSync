@@ -102,14 +102,8 @@ export default function TableCard({
           </Button>
         </div>
 
-        {/* Branch / Notes */}
+        {/* Notes */}
         <div className="space-y-1.5 text-xs text-muted-foreground border-t border-border/40 pt-3">
-          {table.branch && (
-            <div className="flex items-center gap-1">
-              <MapPin className="h-3.5 w-3.5 shrink-0" />
-              <span className="truncate">{table.branch.name}</span>
-            </div>
-          )}
           {table.notes && (
             <div className="flex items-start gap-1">
               <ClipboardList className="h-3.5 w-3.5 shrink-0 mt-0.5" />

@@ -7,41 +7,22 @@ import { Button } from '@/components/ui/button';
 import Loader from '@/components/common/Loader';
 import useAuthStore from '@/features/auth/store/auth.store';
 import * as orderApi from '../api/order.api';
-import * as branchApi from '@/features/branch/api/branch.api';
 
 export default function OrderDashboardPage() {
   const restaurantId = useAuthStore((state) => state.restaurant?._id);
   const navigate = useNavigate();
 
-  const [branches, setBranches] = useState([]);
-  const [selectedBranch, setSelectedBranch] = useState('all');
   const [ordersSummary, setOrdersSummary] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // Load branches
-  const loadBranches = useCallback(async () => {
-    try {
-      const res = await branchApi.listBranches(restaurantId, { limit: 100 });
-      setBranches(res.items || []);
-      if (res.items?.length > 0) {
-        setSelectedBranch(res.items[0]._id);
-      }
-    } catch {
-      // Non-fatal
-    }
-  }, [restaurantId]);
-
   // Load active orders counts
   const loadSummaryData = useCallback(async () => {
-    if (!selectedBranch) return;
+    if (!restaurantId) return;
     setIsLoading(true);
     setError('');
     try {
-      const params = { limit: 100 };
-      if (selectedBranch !== 'all') params.branch = selectedBranch;
-      
-      const res = await orderApi.listOrders(restaurantId, params);
+      const res = await orderApi.listOrders(restaurantId, { limit: 100 });
       const list = res.items || [];
       
       // Calculate inline counts
@@ -58,45 +39,20 @@ export default function OrderDashboardPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [restaurantId, selectedBranch]);
+  }, [restaurantId]);
 
   useEffect(() => {
     if (restaurantId) {
-      loadBranches();
-    }
-  }, [restaurantId, loadBranches]);
-
-  useEffect(() => {
-    if (selectedBranch) {
       loadSummaryData();
     }
-  }, [selectedBranch, loadSummaryData]);
+  }, [restaurantId, loadSummaryData]);
 
   return (
     <RestaurantLayout
       title="Restaurant Management"
-      description="Coordinate POS checkout checkout registers and active kitchen monitor boards."
+      description="Coordinate POS checkout registers and active kitchen monitor boards."
     >
       <div className="space-y-8">
-        {/* Top Controls */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-muted-foreground shrink-0">Filter Branch:</span>
-            <select
-              value={selectedBranch}
-              onChange={(e) => setSelectedBranch(e.target.value)}
-              className="flex h-9 w-full appearance-none rounded border border-input bg-background px-3 py-1 text-xs font-semibold focus:outline-none min-w-[180px]"
-            >
-              <option value="all">All Locations</option>
-              {branches.map((b) => (
-                <option key={b._id} value={b._id}>
-                  {b.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
         {error && (
           <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
             {error}

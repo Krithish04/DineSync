@@ -7,35 +7,24 @@ import { Button } from '@/components/ui/button';
 import Loader from '@/components/common/Loader';
 import useAuthStore from '@/features/auth/store/auth.store';
 import * as employeeApi from '../api/employee.api';
-import * as branchApi from '@/features/branch/api/branch.api';
 
 export default function EmployeeDashboardPage() {
   const restaurantId = useAuthStore((s) => s.restaurant?._id);
   const navigate = useNavigate();
 
-  const [branches, setBranches] = useState([]);
-  const [selectedBranch, setSelectedBranch] = useState('all');
   const [stats, setStats] = useState(null);
   const [employees, setEmployees] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const loadBranches = useCallback(async () => {
-    try {
-      const res = await branchApi.listBranches(restaurantId, { limit: 100 });
-      setBranches(res.items || []);
-    } catch { /* non-fatal */ }
-  }, [restaurantId]);
-
   const loadData = useCallback(async () => {
+    if (!restaurantId) return;
     setIsLoading(true);
     setError('');
     try {
-      const params = {};
-      if (selectedBranch !== 'all') params.branch = selectedBranch;
       const [statsRes, empRes] = await Promise.all([
-        employeeApi.getEmployeeStats(restaurantId, params),
-        employeeApi.listEmployees(restaurantId, params),
+        employeeApi.getEmployeeStats(restaurantId),
+        employeeApi.listEmployees(restaurantId),
       ]);
       setStats(statsRes);
       setEmployees(empRes || []);
@@ -44,10 +33,11 @@ export default function EmployeeDashboardPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [restaurantId, selectedBranch]);
+  }, [restaurantId]);
 
-  useEffect(() => { if (restaurantId) loadBranches(); }, [restaurantId, loadBranches]);
-  useEffect(() => { if (restaurantId) loadData(); }, [restaurantId, selectedBranch, loadData]);
+  useEffect(() => {
+    if (restaurantId) loadData();
+  }, [restaurantId, loadData]);
 
   // Client-side CSV export of employee directory
   const exportCSV = () => {
@@ -76,17 +66,7 @@ export default function EmployeeDashboardPage() {
       <div className="space-y-8">
         {/* Header controls */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-border/40 pb-4">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-muted-foreground shrink-0">Branch:</span>
-            <select
-              value={selectedBranch}
-              onChange={(e) => setSelectedBranch(e.target.value)}
-              className="flex h-9 rounded border border-input bg-background px-3 text-xs font-semibold focus:outline-none min-w-[160px]"
-            >
-              <option value="all">All Branches</option>
-              {branches.map((b) => <option key={b._id} value={b._id}>{b.name}</option>)}
-            </select>
-          </div>
+          <h2 className="text-xl font-bold tracking-tight">Staff Overview</h2>
           <div className="flex gap-2">
             <Button size="xs" variant="outline" onClick={() => navigate('/restaurant/employees/list')} className="h-8">
               <Users className="h-4 w-4 mr-1" /> Staff Directory
@@ -128,7 +108,7 @@ export default function EmployeeDashboardPage() {
               <Card className="lg:col-span-2">
                 <CardHeader>
                   <CardTitle className="text-sm font-bold flex items-center gap-2"><Users className="h-4 w-4 text-primary" /> Staff Directory</CardTitle>
-                  <CardDescription className="text-xs">All active employees across this branch.</CardDescription>
+                  <CardDescription className="text-xs">All active employees.</CardDescription>
                 </CardHeader>
                 <CardContent>
                   {employees.length === 0 ? (

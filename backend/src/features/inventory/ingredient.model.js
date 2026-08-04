@@ -10,12 +10,6 @@ const ingredientSchema = new Schema(
       required: true,
       index: true,
     },
-    branch: {
-      type: Schema.Types.ObjectId,
-      ref: 'Branch',
-      required: [true, 'Branch ID is required'],
-      index: true,
-    },
     ingredientName: {
       type: String,
       required: [true, 'Ingredient name is required'],
@@ -95,7 +89,7 @@ const ingredientSchema = new Schema(
   { timestamps: true }
 );
 
-// Ingredient name must be unique per branch/restaurant
-ingredientSchema.index({ branch: 1, ingredientName: 1 }, { unique: true });
+// Ingredient name must be unique per restaurant
+ingredientSchema.index({ restaurant: 1, ingredientName: 1 }, { unique: true });
 
 module.exports = mongoose.model('Ingredient', ingredientSchema);

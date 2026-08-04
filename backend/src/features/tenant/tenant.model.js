@@ -59,6 +59,10 @@ const settingsSchema = new Schema(
       type: Boolean,
       default: true,
     },
+    staffCanEditMenu: {
+      type: Boolean,
+      default: false,
+    },
   },
   { _id: false }
 );

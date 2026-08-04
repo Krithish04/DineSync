@@ -4,13 +4,11 @@ import RestaurantLayout from '@/features/restaurant/components/RestaurantLayout'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Select } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import Loader from '@/components/common/Loader';
 import useAuthStore from '@/features/auth/store/auth.store';
 import * as tableApi from '../api/table.api';
-import * as branchApi from '@/features/branch/api/branch.api';
 
 const TABLE_TYPES = [
   { value: 'Indoor', label: 'Indoor' },
@@ -20,7 +18,6 @@ const TABLE_TYPES = [
 ];
 
 const emptyForm = {
-  branch: '',
   tableNumber: '',
   tableName: '',
   capacity: 4,
@@ -37,27 +34,12 @@ export default function TableFormPage() {
   const restaurantId = useAuthStore((state) => state.restaurant?._id);
 
   const [form, setForm] = useState(emptyForm);
-  const [branches, setBranches] = useState([]);
   const [isLoading, setIsLoading] = useState(isEditMode);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
   const pageTitle = useMemo(() => (isEditMode ? 'Edit table' : 'Add table'), [isEditMode]);
-
-  // Load branches list
-  const loadBranches = useCallback(async () => {
-    try {
-      const result = await branchApi.listBranches(restaurantId, { limit: 100 });
-      setBranches(result.items || []);
-      // If adding a new table, preselect the first branch if available
-      if (!isEditMode && result.items?.length > 0) {
-        setForm((prev) => ({ ...prev, branch: result.items[0]._id }));
-      }
-    } catch {
-      // Non-fatal
-    }
-  }, [restaurantId, isEditMode]);
 
   // Load table details on edit mode
   const loadTable = useCallback(async () => {
@@ -66,7 +48,6 @@ export default function TableFormPage() {
     try {
       const table = await tableApi.getTable(restaurantId, tableId);
       setForm({
-        branch: table.branch?._id || table.branch || '',
         tableNumber: table.tableNumber || '',
         tableName: table.tableName || '',
         capacity: table.capacity || 4,
@@ -83,9 +64,8 @@ export default function TableFormPage() {
 
   useEffect(() => {
     if (!restaurantId) return;
-    loadBranches();
     if (isEditMode) loadTable();
-  }, [restaurantId, isEditMode, loadBranches, loadTable]);
+  }, [restaurantId, isEditMode, loadTable]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -105,10 +85,6 @@ export default function TableFormPage() {
     setSuccess('');
 
     // Client-side validations
-    if (!form.branch) {
-      setError('Branch selection is required.');
-      return;
-    }
     if (!form.tableNumber.trim()) {
       setError('Table number is required.');
       return;
@@ -126,7 +102,6 @@ export default function TableFormPage() {
       } else {
         await tableApi.createTable(restaurantId, form);
         setSuccess('Table created successfully.');
-        // Redirect back to list after short delay
         setTimeout(() => navigate('/restaurant/tables'), 1500);
       }
     } catch (err) {
@@ -140,7 +115,7 @@ export default function TableFormPage() {
   return (
     <RestaurantLayout
       title="Restaurant Management"
-      description="Create and adjust configurations for individual branch dining tables."
+      description="Create and adjust configurations for individual dining tables."
     >
       <Card className="max-w-xl">
         <CardHeader>
@@ -148,7 +123,7 @@ export default function TableFormPage() {
           <CardDescription>
             {isEditMode
               ? 'Update table number, seating capacity, notes, or active status.'
-              : 'Add a new physical dining table to a specific branch location.'}
+              : 'Add a new physical dining table.'}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -166,32 +141,6 @@ export default function TableFormPage() {
                   {success}
                 </div>
               )}
-
-              {/* Branch Select */}
-              <div className="space-y-2">
-                <Label htmlFor="branch">Select Branch *</Label>
-                <select
-                  id="branch"
-                  name="branch"
-                  value={form.branch}
-                  onChange={handleChange}
-                  disabled={isEditMode} // Cannot move branch for existing table
-                  className="flex h-10 w-full appearance-none rounded-md border border-input bg-background px-3 py-2 pr-9 text-sm text-foreground shadow-sm focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-60 disabled:cursor-not-allowed"
-                  required
-                >
-                  <option value="" disabled>Select a branch...</option>
-                  {branches.map((b) => (
-                    <option key={b._id} value={b._id}>
-                      {b.name} ({b.code})
-                    </option>
-                  ))}
-                </select>
-                {isEditMode && (
-                  <p className="text-[10px] text-muted-foreground">
-                    Branch location cannot be modified after table creation.
-                  </p>
-                )}
-              </div>
 
               {/* Table Number & Table Name */}
               <div className="grid grid-cols-2 gap-4">

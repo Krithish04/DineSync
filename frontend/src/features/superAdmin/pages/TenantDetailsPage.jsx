@@ -35,7 +35,7 @@ export default function TenantDetailsPage() {
   const subscription = details?.subscription;
 
   return (
-    <SuperAdminLayout title="Tenant Deep-Dive Details" description="Inspect usage statistics, storage allocation, branches, and subscription status.">
+    <SuperAdminLayout title="Tenant Deep-Dive Details" description="Inspect usage statistics, storage allocation, and subscription status.">
       <div className="space-y-6 max-w-full">
         <Button variant="outline" size="sm" onClick={() => navigate('/super-admin/tenants')} className="gap-1.5 text-xs">
           <ArrowLeft size={14} /> Back to Tenant List
@@ -68,7 +68,7 @@ export default function TenantDetailsPage() {
 
             {/* Usage Stats Grid */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <ForecastCard title="Active Branches" value={details.branchesCount} icon={Building2} variant="primary" />
+              <ForecastCard title="Restaurant Profile" value="Configured" icon={Building2} variant="primary" />
               <ForecastCard title="Registered Staff Users" value={details.usersCount} icon={Users} variant="emerald" />
               <ForecastCard title="Est. Storage Used" value={details.storageUsageMb} suffix=" MB" icon={HardDrive} variant="amber" />
               <ForecastCard title="Subscription Plan" value={subscription?.planCode?.toUpperCase()} icon={CreditCard} variant="purple" />

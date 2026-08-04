@@ -22,22 +22,6 @@ export default function ReportFilters({ filters = {}, onChange, branches = [], s
         onChange={({ startDate, endDate }) => onChange({ ...filters, startDate, endDate })}
       />
 
-      {/* Branch filter */}
-      {branches.length > 0 && (
-        <div className="flex items-center gap-2">
-          <label className="text-xs font-medium text-muted-foreground">Branch</label>
-          <select
-            value={filters.branch || 'all'}
-            onChange={(e) => update('branch', e.target.value === 'all' ? '' : e.target.value)}
-            className="text-sm border border-border rounded-lg px-3 py-1.5 bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-          >
-            <option value="all">All Branches</option>
-            {branches.map((b) => (
-              <option key={b._id} value={b._id}>{b.name}</option>
-            ))}
-          </select>
-        </div>
-      )}
 
       {/* Group By */}
       {showGroupBy && (

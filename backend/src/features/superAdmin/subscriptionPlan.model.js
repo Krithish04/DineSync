@@ -31,10 +31,6 @@ const subscriptionPlanSchema = new Schema(
       type: Number,
       default: 5, // -1 for unlimited
     },
-    branchLimit: {
-      type: Number,
-      default: 1, // -1 for unlimited
-    },
     storageLimitMb: {
       type: Number,
       default: 2048, // 2GB

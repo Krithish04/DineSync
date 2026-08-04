@@ -1,7 +1,6 @@
 const mongoose = require('mongoose');
 const axios = require('axios');
 const Restaurant = require('../tenant/tenant.model');
-const Branch = require('../branch/branch.model');
 const User = require('../auth/auth.model');
 const TenantSubscription = require('./tenantSubscription.model');
 const subscriptionService = require('./subscription.service');
@@ -14,11 +13,10 @@ const ApiError = require('../../utils/ApiError');
 // 1. SAAS PLATFORM OVERVIEW METRICS
 // ==========================================
 const getPlatformOverview = async () => {
-  const [totalTenants, activeTenants, totalUsers, totalBranches, subscriptions] = await Promise.all([
+  const [totalTenants, activeTenants, totalUsers, subscriptions] = await Promise.all([
     Restaurant.countDocuments(),
     Restaurant.countDocuments({ isActive: true }),
     User.countDocuments({ isDeleted: false }),
-    Branch.countDocuments(),
     TenantSubscription.find({ status: 'Active' }),
   ]);
 
@@ -36,7 +34,6 @@ const getPlatformOverview = async () => {
     activeTenants,
     pendingTenants: Math.max(0, totalTenants - activeTenants),
     totalUsers,
-    totalBranches,
     estimatedStorageMb: totalTenants * 150 + totalUsers * 5, // 150MB avg per tenant
   };
 };
@@ -77,18 +74,16 @@ const getTenantDetails = async (restaurantId) => {
   const restaurant = await Restaurant.findById(restaurantId).populate('owner', 'fullName email phoneNumber role');
   if (!restaurant) throw ApiError.notFound('Restaurant tenant not found.');
 
-  const [branchesCount, usersCount, subscription] = await Promise.all([
-    Branch.countDocuments({ restaurant: restaurantId }),
+  const [usersCount, subscription] = await Promise.all([
     User.countDocuments({ restaurant: restaurantId, isDeleted: false }),
     subscriptionService.getTenantSubscription(restaurantId),
   ]);
 
   return {
     restaurant,
-    branchesCount,
     usersCount,
     subscription,
-    storageUsageMb: branchesCount * 120 + usersCount * 10 + 200,
+    storageUsageMb: usersCount * 10 + 200,
   };
 };
 

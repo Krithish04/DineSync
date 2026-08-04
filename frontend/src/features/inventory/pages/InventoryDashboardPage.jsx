@@ -7,47 +7,28 @@ import { Button } from '@/components/ui/button';
 import Loader from '@/components/common/Loader';
 import useAuthStore from '@/features/auth/store/auth.store';
 import * as inventoryApi from '../api/inventory.api';
-import * as branchApi from '@/features/branch/api/branch.api';
 
 export default function InventoryDashboardPage() {
   const restaurantId = useAuthStore((state) => state.restaurant?._id);
   const navigate = useNavigate();
 
-  const [branches, setBranches] = useState([]);
-  const [selectedBranch, setSelectedBranch] = useState('all');
   const [stats, setStats] = useState(null);
   const [lowStockList, setLowStockList] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // Load branches
-  const loadBranches = useCallback(async () => {
-    try {
-      const res = await branchApi.listBranches(restaurantId, { limit: 100 });
-      setBranches(res.items || []);
-      if (res.items?.length > 0) {
-        setSelectedBranch(res.items[0]._id);
-      }
-    } catch {
-      // Non-fatal
-    }
-  }, [restaurantId]);
-
   // Load KDS stats & low stock list
   const loadDashboardData = useCallback(async () => {
-    if (!selectedBranch) return;
+    if (!restaurantId) return;
     setIsLoading(true);
     setError('');
     try {
-      const params = {};
-      if (selectedBranch !== 'all') params.branch = selectedBranch;
-
       // Stats
-      const statsResult = await inventoryApi.getInventoryStats(restaurantId, params);
+      const statsResult = await inventoryApi.getInventoryStats(restaurantId);
       setStats(statsResult);
 
       // Mapped items lists
-      const ingredientsList = await inventoryApi.listIngredients(restaurantId, params);
+      const ingredientsList = await inventoryApi.listIngredients(restaurantId);
       
       // Calculate low/out of stock items in JS
       const lowStock = (ingredientsList || []).filter(
@@ -59,19 +40,13 @@ export default function InventoryDashboardPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [restaurantId, selectedBranch]);
+  }, [restaurantId]);
 
   useEffect(() => {
     if (restaurantId) {
-      loadBranches();
-    }
-  }, [restaurantId, loadBranches]);
-
-  useEffect(() => {
-    if (selectedBranch) {
       loadDashboardData();
     }
-  }, [selectedBranch, loadDashboardData]);
+  }, [restaurantId, loadDashboardData]);
 
   return (
     <RestaurantLayout
@@ -81,21 +56,7 @@ export default function InventoryDashboardPage() {
       <div className="space-y-8">
         {/* Navigation Action Bar */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-border/40 pb-4">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-muted-foreground shrink-0">Branch:</span>
-            <select
-              value={selectedBranch}
-              onChange={(e) => setSelectedBranch(e.target.value)}
-              className="flex h-9 w-full appearance-none rounded border border-input bg-background px-3 py-1 text-xs font-semibold focus:outline-none min-w-[170px]"
-            >
-              <option value="all">All Branches</option>
-              {branches.map((b) => (
-                <option key={b._id} value={b._id}>
-                  {b.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          <h2 className="text-xl font-bold tracking-tight">Inventory Overview</h2>
 
           <div className="flex flex-wrap gap-2 shrink-0">
             <Button size="xs" variant="outline" onClick={() => navigate('/restaurant/inventory/ingredients')} className="h-8">

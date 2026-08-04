@@ -2,7 +2,6 @@ const mongoose = require('mongoose');
 const Order = require('./order.model');
 const MenuItem = require('../menu/menuItem.model');
 const Table = require('../table/table.model');
-const Branch = require('../branch/branch.model');
 const ApiError = require('../../utils/ApiError');
 const socketConfig = require('../../config/socket.config');
 
@@ -130,11 +129,10 @@ const createOrder = async (restaurantId, payload, userId = null) => {
  */
 const listOrders = async (
   restaurantId,
-  { page = 1, limit = 20, branch, orderStatus, paymentStatus, orderType, search = '' }
+  { page = 1, limit = 20, orderStatus, paymentStatus, orderType, search = '' }
 ) => {
   const query = { restaurant: restaurantId, isDeleted: false };
 
-  if (branch) query.branch = branch;
   if (orderStatus) query.orderStatus = orderStatus;
   if (paymentStatus) query.paymentStatus = paymentStatus;
   if (orderType) query.orderType = orderType;
@@ -153,7 +151,6 @@ const listOrders = async (
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .populate('branch', 'name code')
       .populate('table', 'tableNumber tableName'),
     Order.countDocuments(query),
   ]);
@@ -174,7 +171,6 @@ const listOrders = async (
  */
 const getOrder = async (restaurantId, orderId) => {
   const order = await Order.findOne({ _id: orderId, restaurant: restaurantId, isDeleted: false })
-    .populate('branch', 'name code')
     .populate('table', 'tableNumber tableName');
 
   if (!order) {
@@ -214,7 +210,6 @@ const updateOrder = async (restaurantId, orderId, updates) => {
   await order.save();
 
   // Populate references
-  await order.populate('branch', 'name code');
   await order.populate('table', 'tableNumber tableName');
 
   // Broadcast update
@@ -243,10 +238,12 @@ const updateOrderStatus = async (restaurantId, orderId, newStatus) => {
       if (item.kitchenStatus === 'Pending') item.kitchenStatus = 'Preparing';
     });
   } else if (newStatus === 'Ready') {
+    if (!order.readyAt) order.readyAt = new Date();
     order.items.forEach((item) => {
       if (['Pending', 'Preparing'].includes(item.kitchenStatus)) item.kitchenStatus = 'Ready';
     });
   } else if (newStatus === 'Served') {
+    if (!order.servedAt) order.servedAt = new Date();
     order.items.forEach((item) => {
       item.kitchenStatus = 'Served';
     });
@@ -268,7 +265,6 @@ const updateOrderStatus = async (restaurantId, orderId, newStatus) => {
     }
   }
 
-  await order.populate('branch', 'name code');
   await order.populate('table', 'tableNumber tableName');
 
   // Broadcast Socket events based on status
@@ -341,7 +337,6 @@ const updatePaymentStatus = async (restaurantId, orderId, paymentStatus, redeemP
   }
 
   await order.save();
-  await order.populate('branch', 'name code');
   await order.populate('table', 'tableNumber tableName');
 
   // Broadcast payment event
@@ -417,7 +412,6 @@ const splitBill = async (restaurantId, orderId, splitPayload) => {
 
   const newOrder = await Order.create({
     restaurant: restaurantId,
-    branch: order.branch,
     table: order.table,
     reservation: order.reservation,
     customer: order.customer,
@@ -430,9 +424,7 @@ const splitBill = async (restaurantId, orderId, splitPayload) => {
     notes: `Split from order: ${order.orderNumber}`,
   });
 
-  await order.populate('branch', 'name code');
   await order.populate('table', 'tableNumber tableName');
-  await newOrder.populate('branch', 'name code');
   await newOrder.populate('table', 'tableNumber tableName');
 
   // Broadcast updates
@@ -461,11 +453,8 @@ const mergeOrders = async (restaurantId, targetOrderId, sourceOrderIds) => {
     throw ApiError.notFound('One or more source orders not found.');
   }
 
-  // Validate merging constraints (must belong to same branch and table)
+  // Validate merging constraints (must belong to same table)
   for (const src of sourceOrders) {
-    if (src.branch.toString() !== targetOrder.branch.toString()) {
-      throw ApiError.badRequest('Cannot merge orders across different branch locations.');
-    }
     if (src.table?.toString() !== targetOrder.table?.toString()) {
       throw ApiError.badRequest('Cannot merge orders across different seating tables.');
     }
@@ -530,7 +519,6 @@ const mergeOrders = async (restaurantId, targetOrderId, sourceOrderIds) => {
     socketConfig.broadcastEvent(restaurantId, 'order:cancelled', src);
   }
 
-  await targetOrder.populate('branch', 'name code');
   await targetOrder.populate('table', 'tableNumber tableName');
 
   // Broadcast updates

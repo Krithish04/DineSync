@@ -58,10 +58,6 @@ export default function SubscriptionPlansPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     <Check size={14} className="text-emerald-600 shrink-0" />
-                    <span><strong>{plan.branchLimit === -1 ? 'Unlimited' : plan.branchLimit}</strong> Branch Locations</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Check size={14} className="text-emerald-600 shrink-0" />
                     <span><strong>{plan.storageLimitMb / 1024} GB</strong> Storage Limit</span>
                   </div>
                   <div className="flex items-center gap-2">

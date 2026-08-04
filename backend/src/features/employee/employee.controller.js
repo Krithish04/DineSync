@@ -7,13 +7,21 @@ const createEmployee = asyncHandler(async (req, res) => {
   return new ApiResponse(201, { employee }, 'Employee registered successfully').send(res);
 });
 
+const createEmployeeUser = asyncHandler(async (req, res) => {
+  const result = await employeeService.createEmployeeUser(
+    req.params.restaurantId,
+    req.params.employeeId,
+    req.body
+  );
+  return new ApiResponse(201, result, 'Employee system user account created successfully').send(res);
+});
+
 const listEmployees = asyncHandler(async (req, res) => {
-  const branch = req.query.branch || undefined;
   const department = req.query.department || undefined;
   const status = req.query.status || undefined;
   const search = req.query.search || '';
 
-  const employees = await employeeService.listEmployees(req.params.restaurantId, { branch, department, status, search });
+  const employees = await employeeService.listEmployees(req.params.restaurantId, { department, status, search });
   return new ApiResponse(200, { employees }, 'Employee directory fetched successfully').send(res);
 });
 
@@ -35,7 +43,6 @@ const deleteEmployee = asyncHandler(async (req, res) => {
 const clockIn = asyncHandler(async (req, res) => {
   const attendance = await employeeService.clockIn(
     req.params.restaurantId,
-    req.body.branchId || req.query.branchId || req.user?.branch,
     req.body.employeeId,
     req.body
   );
@@ -78,14 +85,12 @@ const approveLeave = asyncHandler(async (req, res) => {
 });
 
 const createShift = asyncHandler(async (req, res) => {
-  const branchId = req.query.branchId || req.body.branchId;
-  const shift = await employeeService.createShift(req.params.restaurantId, branchId, req.body);
+  const shift = await employeeService.createShift(req.params.restaurantId, req.body);
   return new ApiResponse(201, { shift }, 'Shift schedule created successfully').send(res);
 });
 
 const listShifts = asyncHandler(async (req, res) => {
-  const branchId = req.query.branchId;
-  const shifts = await employeeService.listShifts(req.params.restaurantId, branchId);
+  const shifts = await employeeService.listShifts(req.params.restaurantId);
   return new ApiResponse(200, { shifts }, 'Weekly shifts fetched successfully').send(res);
 });
 
@@ -114,13 +119,13 @@ const paySalary = asyncHandler(async (req, res) => {
 });
 
 const getEmployeeStats = asyncHandler(async (req, res) => {
-  const branchId = req.query.branch || undefined;
-  const stats = await employeeService.getEmployeeStats(req.params.restaurantId, branchId);
+  const stats = await employeeService.getEmployeeStats(req.params.restaurantId);
   return new ApiResponse(200, { stats }, 'Employee stats fetched successfully').send(res);
 });
 
 module.exports = {
   createEmployee,
+  createEmployeeUser,
   listEmployees,
   getEmployee,
   updateEmployee,

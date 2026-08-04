@@ -1,65 +1,42 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Search, ClipboardList, Info, Calendar } from 'lucide-react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Search, ClipboardList, Info } from 'lucide-react';
 import RestaurantLayout from '@/features/restaurant/components/RestaurantLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import Loader from '@/components/common/Loader';
 import useAuthStore from '@/features/auth/store/auth.store';
 import * as inventoryApi from '../api/inventory.api';
-import * as branchApi from '@/features/branch/api/branch.api';
 
 export default function StockHistoryPage() {
   const restaurantId = useAuthStore((state) => state.restaurant?._id);
 
   const [transactions, setTransactions] = useState([]);
-  const [branches, setBranches] = useState([]);
-  const [selectedBranch, setSelectedBranch] = useState('');
   
   const [search, setSearch] = useState('');
   const [selectedType, setSelectedType] = useState('all');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // Load branches
-  const loadBranches = useCallback(async () => {
-    try {
-      const res = await branchApi.listBranches(restaurantId, { limit: 100 });
-      setBranches(res.items || []);
-      if (res.items?.length > 0) {
-        setSelectedBranch(res.items[0]._id);
-      }
-    } catch {
-      // Non-fatal
-    }
-  }, [restaurantId]);
-
   // Load stock transactions history
   const loadStockHistory = useCallback(async () => {
-    if (!selectedBranch) return;
+    if (!restaurantId) return;
     setIsLoading(true);
     setError('');
     try {
-      const params = { branch: selectedBranch };
-      const res = await inventoryApi.listStockTransactions(restaurantId, params);
+      const res = await inventoryApi.listStockTransactions(restaurantId);
       setTransactions(res || []);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load stock transactions.');
     } finally {
       setIsLoading(false);
     }
-  }, [restaurantId, selectedBranch]);
+  }, [restaurantId]);
 
   useEffect(() => {
     if (restaurantId) {
-      loadBranches();
-    }
-  }, [restaurantId, loadBranches]);
-
-  useEffect(() => {
-    if (selectedBranch) {
       loadStockHistory();
     }
-  }, [selectedBranch, loadStockHistory]);
+  }, [restaurantId, loadStockHistory]);
 
   const filteredTransactions = useMemo(() => {
     return transactions.filter((tx) => {
@@ -87,22 +64,7 @@ export default function StockHistoryPage() {
           )}
 
           {/* Filtering bar */}
-          <div className="grid gap-4 grid-cols-1 sm:grid-cols-3 border-b border-border/40 pb-4">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-muted-foreground shrink-0">Branch:</span>
-              <select
-                value={selectedBranch}
-                onChange={(e) => setSelectedBranch(e.target.value)}
-                className="flex h-9 w-full appearance-none rounded border border-input bg-background px-3 py-1 text-xs font-semibold focus:outline-none min-w-[160px]"
-              >
-                {branches.map((b) => (
-                  <option key={b._id} value={b._id}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 border-b border-border/40 pb-4">
             <div className="relative">
               <select
                 value={selectedType}
@@ -196,6 +158,3 @@ export default function StockHistoryPage() {
     </RestaurantLayout>
   );
 }
-
-// Add simple useMemo import since we used it in filteredTransactions
-import { useMemo } from 'react';

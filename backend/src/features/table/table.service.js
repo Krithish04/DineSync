@@ -1,6 +1,5 @@
 const mongoose = require('mongoose');
 const Table = require('./table.model');
-const Branch = require('../branch/branch.model');
 const ApiError = require('../../utils/ApiError');
 const env = require('../../config/env.config');
 const socketConfig = require('../../config/socket.config');
@@ -21,34 +20,24 @@ const getTableOrFail = async (restaurantId, tableId) => {
  * Creates a new dining table with a sleek short QR URL: /t/:tableId
  */
 const createTable = async (restaurantId, payload) => {
-  // 1. Verify branch exists and belongs to the restaurant
-  const branchExists = await Branch.findOne({
-    _id: payload.branch,
-    restaurant: restaurantId,
-  });
-
-  if (!branchExists) {
-    throw ApiError.notFound('Branch not found.');
-  }
-
-  // 2. Check for duplicate table number within the branch (among active tables)
+  // 1. Check for duplicate table number within the restaurant (among active tables)
   const existingByNumber = await Table.findOne({
-    branch: payload.branch,
+    restaurant: restaurantId,
     tableNumber: { $regex: new RegExp(`^${payload.tableNumber}$`, 'i') },
     isDeleted: false,
   });
 
   if (existingByNumber) {
-    throw ApiError.conflict('A table with this number already exists at this branch.');
+    throw ApiError.conflict('A table with this number already exists.');
   }
 
-  // 3. Generate a pre-allocated table ID for the QR code target URL
+  // 2. Generate a pre-allocated table ID for the QR code target URL
   const tableId = new mongoose.Types.ObjectId();
 
-  // 4. Construct the short QR target URL (/t/:tableId)
+  // 3. Construct the short QR target URL (/t/:tableId)
   const targetMenuUrl = `${env.CLIENT_URL}/t/${tableId}`;
 
-  // 5. Create Table document
+  // 4. Create Table document
   const table = await Table.create({
     _id: tableId,
     ...payload,
@@ -60,14 +49,10 @@ const createTable = async (restaurantId, payload) => {
 };
 
 /**
- * Lists active tables. Supports pagination, filtering by branch and status, and searching by tableNumber.
+ * Lists active tables. Supports pagination, filtering by status, and searching by tableNumber.
  */
-const listTables = async (restaurantId, { page = 1, limit = 20, branch, status, search = '' }) => {
+const listTables = async (restaurantId, { page = 1, limit = 20, status, search = '' }) => {
   const query = { restaurant: restaurantId, isDeleted: false };
-
-  if (branch) {
-    query.branch = branch;
-  }
 
   if (status) {
     query.status = status;
@@ -83,8 +68,7 @@ const listTables = async (restaurantId, { page = 1, limit = 20, branch, status, 
     Table.find(query)
       .sort({ tableNumber: 1 })
       .skip(skip)
-      .limit(limit)
-      .populate('branch', 'name code'),
+      .limit(limit),
     Table.countDocuments(query),
   ]);
 
@@ -103,8 +87,7 @@ const listTables = async (restaurantId, { page = 1, limit = 20, branch, status, 
  * Fetches a single table.
  */
 const getTable = async (restaurantId, tableId) => {
-  const table = await Table.findOne({ _id: tableId, restaurant: restaurantId, isDeleted: false })
-    .populate('branch', 'name code');
+  const table = await Table.findOne({ _id: tableId, restaurant: restaurantId, isDeleted: false });
   if (!table) {
     throw ApiError.notFound('Table not found.');
   }
@@ -117,32 +100,17 @@ const getTable = async (restaurantId, tableId) => {
 const updateTable = async (restaurantId, tableId, updates) => {
   const table = await getTableOrFail(restaurantId, tableId);
 
-  // If branch is being changed, verify it exists
-  const targetBranchId = updates.branch || table.branch;
-  if (updates.branch && updates.branch !== table.branch.toString()) {
-    const branchExists = await Branch.findOne({
-      _id: updates.branch,
-      restaurant: restaurantId,
-    });
-    if (!branchExists) {
-      throw ApiError.notFound('Branch not found.');
-    }
-  }
-
-  // If tableNumber or branch is changing, check for uniqueness collisions
+  // If tableNumber is changing, check for uniqueness collisions
   const checkNumber = updates.tableNumber || table.tableNumber;
-  if (
-    (updates.tableNumber && updates.tableNumber !== table.tableNumber) ||
-    (updates.branch && updates.branch !== table.branch.toString())
-  ) {
+  if (updates.tableNumber && updates.tableNumber !== table.tableNumber) {
     const existing = await Table.findOne({
-      branch: targetBranchId,
+      restaurant: restaurantId,
       tableNumber: { $regex: new RegExp(`^${checkNumber}$`, 'i') },
       _id: { $ne: tableId },
       isDeleted: false,
     });
     if (existing) {
-      throw ApiError.conflict('Another table with this number already exists at the selected branch.');
+      throw ApiError.conflict('Another table with this number already exists.');
     }
   }
 
@@ -151,9 +119,6 @@ const updateTable = async (restaurantId, tableId, updates) => {
 
   Object.assign(table, updates);
   await table.save();
-
-  // Populate branch fields before returning
-  await table.populate('branch', 'name code');
 
   return table;
 };
@@ -176,7 +141,6 @@ const updateTableStatus = async (restaurantId, tableId, status) => {
   const table = await getTableOrFail(restaurantId, tableId);
   table.status = status;
   await table.save();
-  await table.populate('branch', 'name code');
 
   // Broadcast real-time Socket.IO event to all connected storefronts & manager dashboards
   socketConfig.broadcastEvent(restaurantId, 'table:updated', {

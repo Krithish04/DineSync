@@ -3,15 +3,15 @@ const ApiResponse = require('../../utils/ApiResponse');
 const customerExperienceService = require('./customerExperience.service');
 
 const resolveQrCode = asyncHandler(async (req, res) => {
-  const { branchId, tableId, type } = req.query;
-  const data = await customerExperienceService.resolveQrCode(req.params.restaurantId, { branchId, tableId, type });
+  const { tableId, type } = req.query;
+  const data = await customerExperienceService.resolveQrCode(req.params.restaurantId, { tableId, type });
   return new ApiResponse(200, data, 'QR code resolved successfully').send(res);
 });
 
 const getPublicMenu = asyncHandler(async (req, res) => {
-  const { branchId, categoryId, dietary, search, isPopular, isFeatured } = req.query;
+  const { categoryId, dietary, search, isPopular, isFeatured } = req.query;
   const data = await customerExperienceService.getPublicMenu(req.params.restaurantId, {
-    branchId, categoryId, dietary, search, isPopular, isFeatured,
+    categoryId, dietary, search, isPopular, isFeatured,
   });
   return new ApiResponse(200, data, 'Public digital menu fetched successfully').send(res);
 });
@@ -51,6 +51,11 @@ const submitCustomerFeedback = asyncHandler(async (req, res) => {
   return new ApiResponse(201, { feedback }, 'Customer feedback submitted successfully').send(res);
 });
 
+const requestAssistance = asyncHandler(async (req, res) => {
+  const data = await customerExperienceService.requestAssistance(req.params.restaurantId, req.body);
+  return new ApiResponse(200, data, 'Assistance requested successfully').send(res);
+});
+
 module.exports = {
   resolveQrCode,
   getPublicMenu,
@@ -61,4 +66,5 @@ module.exports = {
   payCustomerOrder,
   cancelCustomerOrder,
   submitCustomerFeedback,
+  requestAssistance,
 };

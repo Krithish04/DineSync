@@ -51,3 +51,13 @@ export const getCustomerReports = async (restaurantId) => {
   const { data } = await api.get(`${customersUrl(restaurantId)}/reports/analytics`);
   return data.data.reports;
 };
+
+export const listFeedback = async (restaurantId, params = {}) => {
+  const { data } = await api.get(`/restaurants/${restaurantId}/feedback`, { params });
+  return data.data;
+};
+
+export const respondToFeedback = async (restaurantId, feedbackId, payload) => {
+  const { data } = await api.patch(`/restaurants/${restaurantId}/feedback/${feedbackId}/respond`, payload);
+  return data.data;
+};

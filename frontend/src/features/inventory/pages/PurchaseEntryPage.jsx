@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, List, Clipboard, ArrowLeft } from 'lucide-react';
+import { Plus, Clipboard, ArrowLeft } from 'lucide-react';
 import RestaurantLayout from '@/features/restaurant/components/RestaurantLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,13 +7,11 @@ import Loader from '@/components/common/Loader';
 import PurchaseForm from '../components/PurchaseForm';
 import useAuthStore from '@/features/auth/store/auth.store';
 import * as inventoryApi from '../api/inventory.api';
-import * as branchApi from '@/features/branch/api/branch.api';
 
 export default function PurchaseEntryPage() {
   const restaurantId = useAuthStore((state) => state.restaurant?._id);
 
   const [purchases, setPurchases] = useState([]);
-  const [branches, setBranches] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [ingredients, setIngredients] = useState([]);
   
@@ -28,14 +26,12 @@ export default function PurchaseEntryPage() {
     setIsLoading(true);
     setError('');
     try {
-      const [pList, bList, sList, iList] = await Promise.all([
+      const [pList, sList, iList] = await Promise.all([
         inventoryApi.listPurchases(restaurantId),
-        branchApi.listBranches(restaurantId, { limit: 100 }),
         inventoryApi.listSuppliers(restaurantId),
         inventoryApi.listIngredients(restaurantId),
       ]);
       setPurchases(pList || []);
-      setBranches(bList.items || []);
       setSuppliers(sList || []);
       setIngredients(iList || []);
     } catch (err) {
@@ -93,7 +89,6 @@ export default function PurchaseEntryPage() {
               <CardContent>
                 <PurchaseForm
                   restaurantId={restaurantId}
-                  branches={branches}
                   suppliers={suppliers}
                   ingredients={ingredients}
                   onSubmit={handlePurchaseSubmit}

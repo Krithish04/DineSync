@@ -19,7 +19,6 @@ const DURATIONS = [
 
 export default function ReservationForm({
   restaurantId,
-  branches = [],
   initialData = null,
   onSubmit,
   onCancel,
@@ -28,7 +27,6 @@ export default function ReservationForm({
   const isEditMode = !!initialData;
 
   const [form, setForm] = useState({
-    branch: '',
     table: '',
     customerName: '',
     customerPhone: '',
@@ -52,7 +50,6 @@ export default function ReservationForm({
   useEffect(() => {
     if (initialData) {
       setForm({
-        branch: initialData.branch?._id || initialData.branch || '',
         table: initialData.table?._id || initialData.table || '',
         customerName: initialData.customerName || '',
         customerPhone: initialData.customerPhone || '',
@@ -70,15 +67,12 @@ export default function ReservationForm({
     }
   }, [initialData]);
 
-  // Load tables dynamically when branch changes
-  const loadBranchTables = useCallback(async (branchId) => {
-    if (!branchId) {
-      setTables([]);
-      return;
-    }
+  // Load all active tables
+  const loadTables = useCallback(async () => {
+    if (!restaurantId) return;
     setIsLoadingTables(true);
     try {
-      const result = await tableApi.listTables(restaurantId, { branch: branchId, limit: 100 });
+      const result = await tableApi.listTables(restaurantId, { limit: 100 });
       setTables(result.items || []);
     } catch {
       setTables([]);
@@ -87,12 +81,9 @@ export default function ReservationForm({
     }
   }, [restaurantId]);
 
-  // Pre-load tables if editing, or when branch changes
   useEffect(() => {
-    if (form.branch) {
-      loadBranchTables(form.branch);
-    }
-  }, [form.branch, loadBranchTables]);
+    loadTables();
+  }, [loadTables]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -110,7 +101,6 @@ export default function ReservationForm({
     setError('');
 
     // Validations
-    if (!form.branch) return setError('Branch is required.');
     if (!form.table) return setError('Table is required.');
     if (!form.customerName.trim()) return setError('Customer name is required.');
     if (!form.customerPhone.trim()) return setError('Customer phone number is required.');
@@ -129,49 +119,27 @@ export default function ReservationForm({
         </div>
       )}
 
-      {/* Branch & Table Select */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="branch">Select Branch *</Label>
-          <select
-            id="branch"
-            name="branch"
-            value={form.branch}
-            onChange={handleChange}
-            disabled={isEditMode}
-            className="flex h-10 w-full appearance-none rounded-md border border-input bg-background px-3 py-2 pr-9 text-sm text-foreground shadow-sm focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-60"
-            required
-          >
-            <option value="" disabled>Select branch...</option>
-            {branches.map((b) => (
-              <option key={b._id} value={b._id}>
-                {b.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="table">Select Table *</Label>
-          <select
-            id="table"
-            name="table"
-            value={form.table}
-            onChange={handleChange}
-            className="flex h-10 w-full appearance-none rounded-md border border-input bg-background px-3 py-2 pr-9 text-sm text-foreground shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
-            required
-            disabled={!form.branch || isLoadingTables}
-          >
-            <option value="" disabled>
-              {isLoadingTables ? 'Loading branch tables...' : 'Select table...'}
+      {/* Table Select */}
+      <div className="space-y-2">
+        <Label htmlFor="table">Select Table *</Label>
+        <select
+          id="table"
+          name="table"
+          value={form.table}
+          onChange={handleChange}
+          className="flex h-10 w-full appearance-none rounded-md border border-input bg-background px-3 py-2 pr-9 text-sm text-foreground shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+          required
+          disabled={isLoadingTables}
+        >
+          <option value="" disabled>
+            {isLoadingTables ? 'Loading tables...' : 'Select table...'}
+          </option>
+          {tables.map((t) => (
+            <option key={t._id} value={t._id}>
+              Table {t.tableNumber} (Cap: {t.capacity} • {t.type} • {t.status})
             </option>
-            {tables.map((t) => (
-              <option key={t._id} value={t._id}>
-                Table {t.tableNumber} (Cap: {t.capacity} • {t.type} • {t.status})
-              </option>
-            ))}
-          </select>
-        </div>
+          ))}
+        </select>
       </div>
 
       {/* Customer Info */}
