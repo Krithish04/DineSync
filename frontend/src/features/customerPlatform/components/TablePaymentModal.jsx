@@ -13,27 +13,43 @@ import FeedbackModal from './FeedbackModal';
  */
 export default function TablePaymentModal({ isOpen, onClose }) {
   const {
-    restaurantId = '66aa11112222333344445555',
+    restaurantId,
     tableId,
     tableNumber,
+    sessionId,
     placedOrders = [],
     tableHost,
+    signOutHost,
   } = useCartStore();
 
   const [paymentMethod, setPaymentMethod] = useState('UPI');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCashRequested, setIsCashRequested] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [settledAmount, setSettledAmount] = useState(null);
 
   if (!isOpen && !showFeedbackModal) return null;
 
-  const totalBillAmount = placedOrders.reduce((sum, ord) => sum + (ord.grandTotal || 0), 0);
+  const totalBillAmount = settledAmount !== null
+    ? settledAmount
+    : placedOrders.reduce((sum, ord) => sum + (ord.grandTotal || 0), 0);
 
   const handleSettleBill = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
 
     try {
+      if (sessionId) {
+        const settleRes = await customerApi.settleTableSession(restaurantId, sessionId, {
+          paymentMethod,
+          transactionReference: paymentMethod === 'Cash' ? undefined : `ONLINE-${Date.now()}`,
+        }).catch(() => null);
+
+        if (settleRes?.totalAmount !== undefined) {
+          setSettledAmount(settleRes.totalAmount);
+        }
+      }
+
       if (paymentMethod === 'Cash') {
         // Cash Payment: Mark cash requested, keep table OCCUPIED so Manager must collect cash & click Empty Table
         setIsCashRequested(true);
@@ -49,6 +65,7 @@ export default function TablePaymentModal({ isOpen, onClose }) {
           }
         }
         setIsSubmitting(false);
+        signOutHost();
         setShowFeedbackModal(true);
       }
     } catch {

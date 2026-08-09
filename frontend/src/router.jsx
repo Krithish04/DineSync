@@ -36,6 +36,7 @@ const ReservationListPage = lazyLoad(() => import('@/features/reservation/pages/
 const ReservationCalendarPage = lazyLoad(() => import('@/features/reservation/pages/ReservationCalendarPage'));
 const ReservationFormPage = lazyLoad(() => import('@/features/reservation/pages/ReservationFormPage'));
 const OrderDashboardPage = lazyLoad(() => import('@/features/order/pages/OrderDashboardPage'));
+const StaffOrderBoardPage = lazyLoad(() => import('@/features/order/pages/StaffOrderBoardPage'));
 const NewOrderPage = lazyLoad(() => import('@/features/order/pages/NewOrderPage'));
 const ActiveOrdersPage = lazyLoad(() => import('@/features/order/pages/ActiveOrdersPage'));
 const OrderDetailsPage = lazyLoad(() => import('@/features/order/pages/OrderDetailsPage'));
@@ -85,6 +86,7 @@ const LiveOrderTrackingPage = lazyLoad(() => import('@/features/customerPlatform
 const CustomerPortalDashboardPage = lazyLoad(() => import('@/features/customerPlatform/pages/CustomerDashboardPage'));
 const CustomerLoyaltyDashboardPage = lazyLoad(() => import('@/features/customerPlatform/pages/CustomerLoyaltyDashboardPage'));
 const FeedbackPage = lazyLoad(() => import('@/features/customerPlatform/pages/FeedbackPage'));
+const ReservationBookingPage = lazyLoad(() => import('@/features/customerPlatform/pages/ReservationBookingPage'));
 const NotificationCenterPage = lazyLoad(() => import('@/features/notification/pages/NotificationCenterPage'));
 const NotificationSettingsPage = lazyLoad(() => import('@/features/notification/pages/NotificationSettingsPage'));
 const AlertDashboardPage = lazyLoad(() => import('@/features/notification/pages/AlertDashboardPage'));
@@ -157,23 +159,12 @@ const router = createBrowserRouter([
     ],
   },
   {
-    element: <ProtectedRoute allowedRoles={['super_admin', 'owner', 'manager']} />,
+    /* Staff Accessible Operations: Staff Order Board, Reservations, Categories, Menu */
+    element: <ProtectedRoute allowedRoles={['super_admin', 'manager', 'staff']} />,
     children: [
       {
-        path: '/restaurant/profile',
-        element: <RestaurantProfilePage />,
-      },
-      {
-        path: '/restaurant/settings',
-        element: <RestaurantSettingsPage />,
-      },
-      {
-        path: '/restaurant/gst',
-        element: <GstSettingsPage />,
-      },
-      {
-        path: '/restaurant/opening-hours',
-        element: <OpeningHoursPage />,
+        path: '/restaurant/staff-orders',
+        element: <StaffOrderBoardPage />,
       },
       {
         path: '/restaurant/categories',
@@ -182,18 +173,6 @@ const router = createBrowserRouter([
       {
         path: '/restaurant/menu',
         element: <MenuListPage />,
-      },
-      {
-        path: '/restaurant/tables',
-        element: <TableListPage />,
-      },
-      {
-        path: '/restaurant/tables/new',
-        element: <TableFormPage />,
-      },
-      {
-        path: '/restaurant/tables/:tableId/edit',
-        element: <TableFormPage />,
       },
       {
         path: '/restaurant/reservations/dashboard',
@@ -215,17 +194,23 @@ const router = createBrowserRouter([
         path: '/restaurant/reservations/:reservationId/edit',
         element: <ReservationFormPage />,
       },
+    ],
+  },
+  {
+    /* Manager Operations: Tables, Orders & POS, Inventory, Billing, Settings, Reports, Notifications */
+    element: <ProtectedRoute allowedRoles={['super_admin', 'manager']} />,
+    children: [
       {
-        path: '/restaurant/orders/dashboard',
-        element: <OrderDashboardPage />,
+        path: '/restaurant/tables',
+        element: <TableListPage />,
       },
       {
-        path: '/restaurant/orders/new',
-        element: <NewOrderPage />,
+        path: '/restaurant/tables/new',
+        element: <TableFormPage />,
       },
       {
-        path: '/restaurant/orders/active',
-        element: <ActiveOrdersPage />,
+        path: '/restaurant/tables/:tableId/edit',
+        element: <TableFormPage />,
       },
       {
         path: '/restaurant/orders/history',
@@ -234,10 +219,6 @@ const router = createBrowserRouter([
       {
         path: '/restaurant/orders/:orderId',
         element: <OrderDetailsPage />,
-      },
-      {
-        path: '/restaurant/kitchen',
-        element: <KitchenDashboardPage />,
       },
       {
         path: '/restaurant/inventory/dashboard',
@@ -260,28 +241,8 @@ const router = createBrowserRouter([
         element: <StockHistoryPage />,
       },
       {
-        path: '/restaurant/customers/dashboard',
-        element: <CustomerDashboardPage />,
-      },
-      {
-        path: '/restaurant/customers/list',
-        element: <CustomerListPage />,
-      },
-      {
-        path: '/restaurant/customers/:customerId/profile',
-        element: <CustomerProfilePage />,
-      },
-      {
-        path: '/restaurant/customers/loyalty',
-        element: <LoyaltyDashboardPage />,
-      },
-      {
         path: '/restaurant/feedback/manage',
         element: <FeedbackManagementPage />,
-      },
-      {
-        path: '/restaurant/feedback/insights',
-        element: <FeedbackInsightsPage />,
       },
       {
         path: '/restaurant/billing/dashboard',
@@ -299,6 +260,48 @@ const router = createBrowserRouter([
         path: '/restaurant/billing/checkout/:orderId',
         element: <PaymentScreenPage />,
       },
+      {
+        path: '/restaurant/settings',
+        element: <RestaurantSettingsPage />,
+      },
+      {
+        path: '/restaurant/opening-hours',
+        element: <OpeningHoursPage />,
+      },
+      {
+        path: '/restaurant/reports/sales',
+        element: <SalesReportPage />,
+      },
+      {
+        path: '/restaurant/reports/inventory',
+        element: <InventoryReportPage />,
+      },
+      {
+        path: '/restaurant/reports/employees',
+        element: <EmployeeReportPage />,
+      },
+      {
+        path: '/restaurant/reports/financial',
+        element: <FinancialReportPage />,
+      },
+      {
+        path: '/restaurant/reports/scheduled',
+        element: <ScheduledReportsPage />,
+      },
+      {
+        path: '/restaurant/notifications/center',
+        element: <NotificationCenterPage />,
+      },
+      {
+        path: '/restaurant/notifications/settings',
+        element: <NotificationSettingsPage />,
+      },
+    ],
+  },
+  {
+    /* Owner & Manager Shared Operations: Employees/Payroll, Executive BI, Feedback Insights, Alert Center */
+    element: <ProtectedRoute allowedRoles={['super_admin', 'owner', 'manager']} />,
+    children: [
       {
         path: '/restaurant/employees/dashboard',
         element: <EmployeeDashboardPage />,
@@ -324,32 +327,50 @@ const router = createBrowserRouter([
         element: <LeaveManagementPage />,
       },
       {
+        path: '/restaurant/notifications/alerts',
+        element: <AlertDashboardPage />,
+      },
+    ],
+  },
+  {
+    /* Owner Oversight: Executive BI, Feedback Insights, Customers & CRM, Restaurant Profile, GST Config, AI Intelligence */
+    element: <ProtectedRoute allowedRoles={['super_admin', 'owner']} />,
+    children: [
+      {
         path: '/restaurant/reports/executive',
         element: <ExecutiveDashboardPage />,
       },
       {
-        path: '/restaurant/reports/sales',
-        element: <SalesReportPage />,
+        path: '/restaurant/feedback/insights',
+        element: <FeedbackInsightsPage />,
       },
       {
-        path: '/restaurant/reports/customers',
-        element: <CustomerReportPage />,
+        path: '/restaurant/customers/dashboard',
+        element: <CustomerDashboardPage />,
       },
       {
-        path: '/restaurant/reports/inventory',
-        element: <InventoryReportPage />,
+        path: '/restaurant/customers/list',
+        element: <CustomerListPage />,
       },
       {
-        path: '/restaurant/reports/employees',
-        element: <EmployeeReportPage />,
+        path: '/restaurant/customers/:customerId/profile',
+        element: <CustomerProfilePage />,
       },
       {
-        path: '/restaurant/reports/financial',
-        element: <FinancialReportPage />,
+        path: '/restaurant/customers/:customerId',
+        element: <CustomerProfilePage />,
       },
       {
-        path: '/restaurant/reports/scheduled',
-        element: <ScheduledReportsPage />,
+        path: '/restaurant/customers/loyalty',
+        element: <LoyaltyDashboardPage />,
+      },
+      {
+        path: '/restaurant/profile',
+        element: <RestaurantProfilePage />,
+      },
+      {
+        path: '/restaurant/gst',
+        element: <GstSettingsPage />,
       },
       {
         path: '/restaurant/ai/dashboard',
@@ -379,17 +400,33 @@ const router = createBrowserRouter([
         path: '/restaurant/ai/sentiment',
         element: <SentimentDashboardPage />,
       },
+    ],
+  },
+  {
+    /* Kitchen Monitor & Operations (Manager, Chef & Super Admin) */
+    element: <ProtectedRoute allowedRoles={['super_admin', 'manager', 'chef']} />,
+    children: [
       {
-        path: '/restaurant/notifications/center',
-        element: <NotificationCenterPage />,
+        path: '/restaurant/kitchen',
+        element: <KitchenDashboardPage />,
+      },
+    ],
+  },
+  {
+    /* Super Admin Console & Legacy Order Creation Routes */
+    element: <ProtectedRoute allowedRoles={['super_admin']} />,
+    children: [
+      {
+        path: '/restaurant/orders/dashboard',
+        element: <OrderDashboardPage />,
       },
       {
-        path: '/restaurant/notifications/settings',
-        element: <NotificationSettingsPage />,
+        path: '/restaurant/orders/new',
+        element: <NewOrderPage />,
       },
       {
-        path: '/restaurant/notifications/alerts',
-        element: <AlertDashboardPage />,
+        path: '/restaurant/orders/active',
+        element: <ActiveOrdersPage />,
       },
       {
         path: '/super-admin/dashboard',
@@ -452,6 +489,18 @@ const router = createBrowserRouter([
   {
     path: '/menu/feedback',
     element: <FeedbackPage />,
+  },
+  {
+    path: '/menu/reservations',
+    element: <ReservationBookingPage />,
+  },
+  {
+    path: '/book/:restaurantId',
+    element: <ReservationBookingPage />,
+  },
+  {
+    path: '/book',
+    element: <ReservationBookingPage />,
   },
   {
     path: '/customer/dashboard',

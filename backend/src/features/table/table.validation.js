@@ -16,7 +16,7 @@ const createTableSchema = z.object({
     .or(z.literal('')),
   capacity: z.number().int().min(1, 'Capacity must be at least 1'),
   type: z.enum(['Indoor', 'Outdoor', 'VIP', 'Private']).optional(),
-  status: z.enum(['Available', 'Occupied', 'Reserved', 'Cleaning', 'Maintenance']).optional(),
+  status: z.enum(['Available', 'Occupied', 'Reserved', 'Cleaning', 'Maintenance', 'Inactive']).optional(),
   isActive: z.boolean().optional(),
   notes: z
     .string()
@@ -29,7 +29,7 @@ const createTableSchema = z.object({
 const updateTableSchema = createTableSchema.partial();
 
 const updateTableStatusSchema = z.object({
-  status: z.enum(['Available', 'Occupied', 'Reserved', 'Cleaning', 'Maintenance']),
+  status: z.enum(['Available', 'Occupied', 'Reserved', 'Cleaning', 'Maintenance', 'Inactive']),
 });
 
 module.exports = {

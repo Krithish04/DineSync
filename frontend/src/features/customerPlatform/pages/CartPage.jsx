@@ -1,15 +1,18 @@
 import { useNavigate } from 'react-router-dom';
-import { ShoppingBag, ArrowRight, Trash2, Plus, Minus } from 'lucide-react';
+import { ShoppingBag, ArrowRight, Trash2, Plus, Minus, Gift } from 'lucide-react';
 import CustomerLayout from '../components/CustomerLayout';
 import CouponSelector from '../components/CouponSelector';
-import LoyaltyWidget from '../components/LoyaltyWidget';
 import { Button } from '@/components/ui/button';
 import useCartStore from '../store/cart.store';
+
+import QrCodeRequiredCard from '../components/QrCodeRequiredCard';
 
 export default function CartPage() {
   const navigate = useNavigate();
 
   const {
+    restaurantId,
+    tableId,
     items,
     updateQuantity,
     removeItem,
@@ -22,6 +25,16 @@ export default function CartPage() {
     getGrandTotal,
     tableNumber,
   } = useCartStore();
+
+  const hasContext = Boolean(restaurantId && tableId);
+
+  if (!hasContext) {
+    return (
+      <CustomerLayout title="Your Cart">
+        <QrCodeRequiredCard message="Please scan your table's QR code to view and manage your cart." />
+      </CustomerLayout>
+    );
+  }
 
   const subtotal = getSubtotal();
   const tax = getTax();
@@ -77,9 +90,19 @@ export default function CartPage() {
               ))}
             </div>
 
-            {/* Coupons & Loyalty */}
+            {/* Coupons & Loyalty Teaser */}
             <CouponSelector />
-            <LoyaltyWidget pointsBalance={240} membershipTier="Gold" />
+            <div className="bg-gradient-to-r from-amber-500/10 via-primary/5 to-purple-500/10 border border-amber-500/20 rounded-xl p-3.5 flex items-center gap-3 text-xs">
+              <div className="p-2 rounded-lg bg-amber-500/20 text-amber-600 shrink-0">
+                <Gift size={18} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h4 className="font-semibold text-foreground">Earn Loyalty Rewards</h4>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  Sign in at checkout to start earning loyalty points on this order and redeem rewards.
+                </p>
+              </div>
+            </div>
 
             {/* Special Instructions */}
             <div className="bg-card border border-border rounded-xl p-3.5 space-y-1">

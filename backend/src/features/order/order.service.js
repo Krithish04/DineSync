@@ -293,6 +293,10 @@ const updatePaymentStatus = async (restaurantId, orderId, paymentStatus, redeemP
   if (paymentStatus === 'Paid' && oldPaymentStatus !== 'Paid') {
     order.orderStatus = 'Completed';
 
+    // Ensure Paid Invoice exists for BI reporting
+    const billingService = require('../billing/billing.service');
+    await billingService.ensurePaidInvoiceForOrder(restaurantId, order, order.paymentMethod || 'UPI', order.paymentDetails?.transactionId);
+
     // Free table
     if (order.table) {
       const activeOrders = await Order.exists({
@@ -331,7 +335,10 @@ const updatePaymentStatus = async (restaurantId, orderId, paymentStatus, redeemP
         await customerService.earnPointsForOrder(restaurantId, order.customer, order);
       } catch (err) {
         // eslint-disable-next-line no-console
-        console.error('[Loyalty] Point accrual failed:', err.message);
+        console.error('[Loyalty] Point accrual failed:', err.stack || err);
+        if (process.env.NODE_ENV !== 'production') {
+          throw err;
+        }
       }
     }
   }

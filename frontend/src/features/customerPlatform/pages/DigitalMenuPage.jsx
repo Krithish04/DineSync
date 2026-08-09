@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Search, Filter } from 'lucide-react';
+import { Search, Filter, AlertTriangle } from 'lucide-react';
 import CustomerLayout from '../components/CustomerLayout';
 import CustomerMenuCard from '../components/CustomerMenuCard';
 import CategoryTabs from '../components/CategoryTabs';
@@ -12,14 +12,20 @@ import Loader from '@/components/common/Loader';
 import useCartStore from '../store/cart.store';
 import * as customerApi from '../api/customerPlatform.api';
 
+import QrCodeRequiredCard from '../components/QrCodeRequiredCard';
+import { Sparkles } from 'lucide-react';
+
 export default function DigitalMenuPage() {
   const [searchParams] = useSearchParams();
   const promptAuth = searchParams.get('promptAuth');
 
-  const restaurantId = useCartStore((s) => s.restaurantId) || '66aa11112222333344445555';
+  const restaurantId = useCartStore((s) => s.restaurantId);
+  const tableId = useCartStore((s) => s.tableId);
   const branchId = useCartStore((s) => s.branchId);
   const tableHost = useCartStore((s) => s.tableHost);
   const isViewOnly = useCartStore((s) => s.isViewOnly);
+  const isInactiveTable = useCartStore((s) => s.isInactiveTable || s.tableStatus === 'Inactive');
+  const tableNumber = useCartStore((s) => s.tableNumber);
 
   const [categories, setCategories] = useState([]);
   const [items, setItems] = useState([]);
@@ -29,15 +35,20 @@ export default function DigitalMenuPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [showFirstVisitHint, setShowFirstVisitHint] = useState(true);
+
+  // Route Guarding: check for valid table + restaurant context
+  const hasContext = Boolean(restaurantId && (tableId || searchParams.get('tableId')));
 
   // Auto-open OTP modal if table is available and requested
   useEffect(() => {
-    if (promptAuth === 'true' && !tableHost && !isViewOnly) {
+    if (promptAuth === 'true' && !tableHost && !isViewOnly && !isInactiveTable) {
       setIsAuthModalOpen(true);
     }
-  }, [promptAuth, tableHost, isViewOnly]);
+  }, [promptAuth, tableHost, isViewOnly, isInactiveTable]);
 
   const loadMenu = useCallback(async () => {
+    if (!restaurantId) return;
     setIsLoading(true);
     try {
       const data = await customerApi.getPublicMenu(restaurantId, {
@@ -58,9 +69,50 @@ export default function DigitalMenuPage() {
 
   useEffect(() => { loadMenu(); }, [loadMenu]);
 
+  if (!hasContext) {
+    return (
+      <CustomerLayout title="Digital Menu">
+        <QrCodeRequiredCard message="Please scan your table's QR code to view our live digital menu and place orders." />
+      </CustomerLayout>
+    );
+  }
+
   return (
     <CustomerLayout title="Digital Menu">
       <div className="space-y-4">
+        {/* First-Time Visit Diner Welcome Hint */}
+        {showFirstVisitHint && (
+          <div className="bg-primary/10 border border-primary/20 rounded-xl p-3 text-xs flex items-center justify-between shadow-xs animate-in slide-in-from-top duration-200">
+            <div className="flex items-center gap-2 text-primary">
+              <Sparkles size={16} className="shrink-0 animate-pulse" />
+              <div>
+                <span className="font-bold text-foreground block">Welcome to Table {tableNumber ? `#${tableNumber}` : ''}!</span>
+                <span className="text-[11px] text-muted-foreground">Tap any dish to customize and add to your order.</span>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowFirstVisitHint(false)}
+              className="text-muted-foreground hover:text-foreground font-bold text-xs p-1"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+        {/* Inactive Table Banner */}
+        {isInactiveTable && (
+          <div className="bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 rounded-xl p-3 text-xs flex items-center gap-2.5">
+            <AlertTriangle size={18} className="shrink-0 text-amber-600" />
+            <div>
+              <span className="font-bold block text-amber-900 dark:text-amber-200">
+                Table {tableNumber ? `#${tableNumber}` : ''} is Inactive
+              </span>
+              <span className="text-[11px] text-amber-700/90 dark:text-amber-300/90">
+                Direct table ordering is turned off. You are browsing the digital menu in View-Only mode.
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Geolocation Verification Banner */}
         <LocationVerifier />
 

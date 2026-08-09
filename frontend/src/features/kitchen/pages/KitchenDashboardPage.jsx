@@ -17,15 +17,12 @@ export default function KitchenDashboardPage() {
     socketConnected,
     isFullscreen,
     toggleFullscreen,
-    handleStatusChange,
-    handleTicketDrop,
-    handleItemStatusChange,
   } = useKitchenTickets();
 
   return (
     <RestaurantLayout
-      title="Restaurant Management"
-      description="Kitchen display dashboard monitoring live cook queues."
+      title="Kitchen Live Monitor"
+      description="Live, read-only view of active kitchen tickets across cooking stations."
     >
       <div className="space-y-6">
         {/* Top Controls */}
@@ -33,13 +30,13 @@ export default function KitchenDashboardPage() {
           <div className="flex items-center gap-2">
             <span className={`inline-flex h-2.5 w-2.5 rounded-full ${socketConnected ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
             <span className="text-xs font-semibold text-muted-foreground">
-              {socketConnected ? 'KDS Display Online' : 'Offline'}
+              {socketConnected ? 'Kitchen Monitor Online (Read-Only)' : 'Offline'}
             </span>
           </div>
 
           <Button size="xs" variant="outline" onClick={toggleFullscreen} className="h-8 gap-1">
             {isFullscreen ? <Minimize className="h-3.5 w-3.5" /> : <Maximize className="h-3.5 w-3.5" />}
-            Fullscreen KDS
+            Fullscreen Monitor
           </Button>
         </div>
 
@@ -135,34 +132,28 @@ export default function KitchenDashboardPage() {
 
         {/* Drag-and-Drop Columns Board */}
         {isLoading ? (
-          <Loader label="Opening KDS console..." />
+          <Loader label="Opening Kitchen Monitor..." />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <KitchenQueue
               title="Pending Confirmation"
               status="Pending"
               tickets={lanes.pending}
-              onTicketDrop={handleTicketDrop}
-              onStatusChange={handleStatusChange}
-              onItemStatusChange={handleItemStatusChange}
+              isReadOnly={true}
             />
 
             <KitchenQueue
               title="Preparing (Cooking)"
               status="Preparing"
               tickets={lanes.preparing}
-              onTicketDrop={handleTicketDrop}
-              onStatusChange={handleStatusChange}
-              onItemStatusChange={handleItemStatusChange}
+              isReadOnly={true}
             />
 
             <KitchenQueue
               title="Ready for Service"
               status="Ready"
               tickets={lanes.ready}
-              onTicketDrop={handleTicketDrop}
-              onStatusChange={handleStatusChange}
-              onItemStatusChange={handleItemStatusChange}
+              isReadOnly={true}
             />
           </div>
         )}

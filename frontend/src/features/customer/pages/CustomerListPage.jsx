@@ -173,26 +173,31 @@ export default function CustomerListPage() {
                       <td className="p-3 text-muted-foreground font-mono">{cust.phoneNumber}</td>
                       <td className="p-3 text-muted-foreground">{cust.email || '-'}</td>
                       <td className="p-3 text-center">
-                        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-bold border ${
-                          cust.loyaltyTier === 'Platinum' ? 'bg-purple-100 text-purple-800 border-purple-200' :
-                          cust.loyaltyTier === 'Gold' ? 'bg-amber-100 text-amber-800 border-amber-200' :
-                          cust.loyaltyTier === 'Silver' ? 'bg-slate-100 text-slate-800 border-slate-200' :
-                          'bg-blue-100 text-blue-800 border-blue-200'
-                        }`}>
-                          <Sparkles className="h-2.5 w-2.5" /> {cust.loyaltyTier}
-                        </span>
+                        {(() => {
+                          const tier = cust.membershipTier || cust.loyaltyTier || 'Bronze';
+                          return (
+                            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-bold border ${
+                              tier === 'Platinum' ? 'bg-purple-100 text-purple-800 border-purple-200' :
+                              tier === 'Gold' ? 'bg-amber-100 text-amber-800 border-amber-200' :
+                              tier === 'Silver' ? 'bg-slate-100 text-slate-800 border-slate-200' :
+                              'bg-blue-100 text-blue-800 border-blue-200'
+                            }`}>
+                              <Sparkles className="h-2.5 w-2.5" /> {tier}
+                            </span>
+                          );
+                        })()}
                       </td>
                       <td className="p-3 text-center font-mono font-bold text-primary">{cust.loyaltyPoints || 0} pts</td>
-                      <td className="p-3 text-center font-mono text-muted-foreground">{cust.totalVisits || 0}</td>
+                      <td className="p-3 text-center font-mono text-muted-foreground">{cust.visitCount ?? cust.totalVisits ?? 0}</td>
                       <td className="p-3 text-right font-mono font-bold text-foreground">
-                        ₹{cust.totalSpend?.toFixed(2) || '0.00'}
+                        ₹{Number(cust.totalSpent ?? cust.totalSpend ?? 0).toFixed(2)}
                       </td>
                       <td className="p-3 text-center flex items-center justify-center gap-1">
                         <Button
                           size="xs"
                           variant="outline"
                           className="h-7 text-[10px] px-2.5"
-                          onClick={() => navigate(`/restaurant/customers/${cust._id}`)}
+                          onClick={() => navigate(`/restaurant/customers/${cust._id}/profile`)}
                         >
                           Profile
                         </Button>

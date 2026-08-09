@@ -2,21 +2,24 @@ import { useState } from 'react';
 import { User, Phone, ShieldCheck, ArrowRight, Lock, KeyRound, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import useCartStore from '../store/cart.store';
+import useCustomerAuthStore from '../store/customerAuth.store';
 import * as customerApi from '../api/customerPlatform.api';
 
 /**
- * Customer Table Session Login & OTP Verification Modal.
- * Authenticates diner with Name, Phone & OTP to claim Table Host rights.
+ * Customer Table Session Login & Real Phone OTP Verification Modal.
+ * Authenticates diner with Phone & OTP for profile, order history, and loyalty tracking.
  */
-export default function CustomerAuthModal({ isOpen, onClose }) {
-  const { loginTableHost, tableNumber, tableId, restaurantId = '66aa11112222333344445555', activeTableSessions } = useCartStore();
+export default function CustomerAuthModal({ isOpen, onClose, onSuccess }) {
+  const { loginTableHost, tableNumber, tableId, restaurantId, activeTableSessions } = useCartStore();
+  const setCustomerSession = useCustomerAuthStore((state) => state.setCustomerSession);
 
   const [step, setStep] = useState('phone'); // 'phone' | 'otp'
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
-  const [generatedOtp, setGeneratedOtp] = useState('');
+  const [devOtpHint, setDevOtpHint] = useState('');
   const [error, setError] = useState('');
+  const [isSending, setIsSending] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
 
   if (!isOpen) return null;
@@ -24,24 +27,31 @@ export default function CustomerAuthModal({ isOpen, onClose }) {
   // Check if table is currently active with another host
   const existingSession = tableId ? activeTableSessions[tableId] : null;
 
-  const handleSendOtp = (e) => {
+  const handleSendOtp = async (e) => {
     e.preventDefault();
     setError('');
 
-    if (!name.trim()) {
-      setError('Please enter your full name');
-      return;
-    }
-    if (!phone || phone.replace(/\D/g, '').length < 10) {
+    const cleanPhone = phone.replace(/\D/g, '');
+    if (!cleanPhone || cleanPhone.length < 10) {
       setError('Please enter a valid 10-digit phone number');
       return;
     }
 
-    // Generate 6-digit mock OTP for dev
-    const code = '123456';
-    setGeneratedOtp(code);
-    setOtp(code); // Pre-fill for smooth UX
-    setStep('otp');
+    setIsSending(true);
+    try {
+      const res = await customerApi.sendCustomerOtp(restaurantId, { phone: cleanPhone });
+      if (res?.devOtp) {
+        setDevOtpHint(res.devOtp);
+        setOtp(res.devOtp); // Pre-fill in dev mode for smooth testing
+      } else {
+        setDevOtpHint('');
+      }
+      setStep('otp');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to send OTP. Please try again.');
+    } finally {
+      setIsSending(false);
+    }
   };
 
   const handleVerifyOtp = async (e) => {
@@ -49,28 +59,60 @@ export default function CustomerAuthModal({ isOpen, onClose }) {
     setError('');
     setIsVerifying(true);
 
+    const cleanPhone = phone.replace(/\D/g, '');
     try {
-      if (otp !== generatedOtp && otp !== '123456') {
-        setError('Invalid OTP code. Please enter 123456');
-        setIsVerifying(false);
-        return;
+      const res = await customerApi.verifyCustomerOtp(restaurantId, {
+        phone: cleanPhone,
+        code: otp,
+        fullName: name.trim() || undefined,
+      });
+
+      // 1. Save real customer session token & profile
+      if (res?.token && res?.customer) {
+        setCustomerSession({ token: res.token, customer: res.customer });
       }
 
-      // 1. Claim table host on backend (updates table status to 'Occupied' in DB and broadcasts socket event to Manager dashboard)
+      let claimedSession = null;
+      let hostToken = null;
+      // 2. Optionally claim table host session if tableId is present
       if (tableId && restaurantId) {
-        await customerApi.claimTableHost(restaurantId, {
-          tableId,
-          hostName: name,
-          hostPhone: phone,
-        }).catch(() => null);
+        try {
+          const claimRes = await customerApi.claimTableHost(restaurantId, {
+            tableId,
+            hostName: name.trim() || res.customer?.fullName || 'Guest',
+            hostPhone: cleanPhone,
+          });
+          if (claimRes?.session) {
+            claimedSession = claimRes.session;
+          }
+          if (claimRes?.hostToken) {
+            hostToken = claimRes.hostToken;
+          }
+        } catch (claimErr) {
+          if (claimErr.response?.status === 409) {
+            setError(claimErr.response?.data?.message || 'Table is currently occupied by another diner. You are in View-Only mode.');
+            setIsVerifying(false);
+            return;
+          }
+        }
       }
 
-      // 2. Complete local store login & claim table host session
-      loginTableHost({ name, phone });
+      const hostPayload = {
+        name: name.trim() || res.customer?.fullName || 'Guest',
+        phone: cleanPhone,
+        sessionId: claimedSession?._id || claimedSession?.sessionId,
+        hostToken,
+      };
+
+      loginTableHost(hostPayload);
       setIsVerifying(false);
       onClose();
-    } catch {
-      setError('Failed to complete verification.');
+
+      if (typeof onSuccess === 'function') {
+        onSuccess(hostPayload);
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to complete verification. Please check the code.');
       setIsVerifying(false);
     }
   };
@@ -88,7 +130,7 @@ export default function CustomerAuthModal({ isOpen, onClose }) {
             {tableNumber ? `Table #${tableNumber} Sign In` : 'Customer Sign In'}
           </h3>
           <p className="text-xs text-muted-foreground">
-            Enter your Name & Phone Number with OTP verification to start ordering at your table.
+            Sign in with your phone & OTP to place your order and start table session.
           </p>
         </div>
 
@@ -111,22 +153,10 @@ export default function CustomerAuthModal({ isOpen, onClose }) {
           </div>
         )}
 
-        {/* STEP 1: Enter Name & Phone */}
+        {/* STEP 1: Enter Phone & Name */}
         {step === 'phone' && (
           <form onSubmit={handleSendOtp} className="space-y-4">
             <div className="space-y-3">
-              <div className="relative">
-                <User size={16} className="absolute left-3 top-3 text-muted-foreground" />
-                <input
-                  type="text"
-                  required
-                  placeholder="Your Full Name *"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 text-xs border border-border rounded-xl bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
-                />
-              </div>
-
               <div className="relative">
                 <Phone size={16} className="absolute left-3 top-3 text-muted-foreground" />
                 <input
@@ -138,10 +168,21 @@ export default function CustomerAuthModal({ isOpen, onClose }) {
                   className="w-full pl-9 pr-3 py-2 text-xs border border-border rounded-xl bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
                 />
               </div>
+
+              <div className="relative">
+                <User size={16} className="absolute left-3 top-3 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder="Your Full Name (Optional)"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 text-xs border border-border rounded-xl bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+              </div>
             </div>
 
-            <Button type="submit" className="w-full gap-2 text-xs font-semibold">
-              <span>Send Verification OTP</span>
+            <Button type="submit" disabled={isSending} className="w-full gap-2 text-xs font-semibold">
+              <span>{isSending ? 'Sending OTP...' : 'Send Verification OTP'}</span>
               <ArrowRight size={15} />
             </Button>
           </form>
@@ -152,7 +193,9 @@ export default function CustomerAuthModal({ isOpen, onClose }) {
           <form onSubmit={handleVerifyOtp} className="space-y-4">
             <div className="bg-muted/40 p-3 rounded-xl text-xs space-y-1 text-center">
               <p className="text-muted-foreground">OTP code sent to <strong>{phone}</strong></p>
-              <p className="text-[11px] text-primary font-semibold">Use OTP Code: 123456</p>
+              {devOtpHint && (
+                <p className="text-[11px] text-primary font-semibold">Dev OTP Code: {devOtpHint}</p>
+              )}
             </div>
 
             <div className="relative">
@@ -183,7 +226,7 @@ export default function CustomerAuthModal({ isOpen, onClose }) {
                 className="w-2/3 text-xs gap-1.5 font-semibold"
               >
                 <CheckCircle2 size={15} />
-                <span>{isVerifying ? 'Verifying...' : 'Verify & Start'}</span>
+                <span>{isVerifying ? 'Verifying...' : 'Verify & Sign In'}</span>
               </Button>
             </div>
           </form>

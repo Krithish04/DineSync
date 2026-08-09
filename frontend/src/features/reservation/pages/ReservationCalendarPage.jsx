@@ -72,8 +72,13 @@ export default function ReservationCalendarPage() {
     setSelectedDate(d.toISOString().slice(0, 10));
   };
 
+  const userRole = useAuthStore((state) => state.user?.role);
+  const canManage = ['super_admin', 'owner', 'manager'].includes(userRole);
+
   const handleCardClick = (res) => {
-    navigate(`/restaurant/reservations/${res._id}/edit`);
+    if (canManage) {
+      navigate(`/restaurant/reservations/${res._id}/edit`);
+    }
   };
 
   return (

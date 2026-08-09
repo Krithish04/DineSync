@@ -135,35 +135,58 @@ const evaluateTier = (totalSpent) => {
  * Increments Spent counters, evaluate membership upgrades.
  */
 const earnPointsForOrder = async (restaurantId, customerId, order) => {
-  const customer = await Customer.findOne({ _id: customerId, restaurant: restaurantId, isDeleted: false });
-  if (!customer) return null;
+  try {
+    if (!order || !customerId) return null;
 
-  const multiplier = TIER_MULTIPLIERS[customer.membershipTier] || 1.0;
-  const pointsEarned = Math.round(order.grandTotal * multiplier);
+    const Order = require('../order/order.model');
+    const orderId = order._id || order;
+    const freshOrder = await Order.findById(orderId);
 
-  customer.loyaltyPoints += pointsEarned;
-  customer.totalSpent += order.grandTotal;
-  customer.visitCount += 1;
-  customer.averageOrderValue = Math.round((customer.totalSpent / customer.visitCount) * 100) / 100;
+    if (!freshOrder || freshOrder.loyaltyAccrued) {
+      return { pointsEarned: 0, upgraded: false, alreadyAccrued: true };
+    }
 
-  // Auto Upgrade Evaluation
-  const oldTier = customer.membershipTier;
-  const newTier = evaluateTier(customer.totalSpent);
-  customer.membershipTier = newTier;
+    const customer = await Customer.findOne({ _id: customerId, restaurant: restaurantId, isDeleted: false });
+    if (!customer) return null;
 
-  await customer.save();
+    const multiplier = TIER_MULTIPLIERS[customer.membershipTier] || 1.0;
+    const pointsEarned = Math.round((freshOrder.grandTotal || 0) * multiplier);
 
-  // Log Loyalty history transaction
-  await LoyaltyTransaction.create({
-    restaurant: restaurantId,
-    customer: customerId,
-    transactionType: 'Earned',
-    points: pointsEarned,
-    order: order._id,
-    reason: `Points earned from Order #${order.orderNumber} (Tier: ${oldTier}${oldTier !== newTier ? ` upgraded to ${newTier}` : ''})`,
-  });
+    customer.loyaltyPoints += pointsEarned;
+    customer.totalSpent += (freshOrder.grandTotal || 0);
+    customer.visitCount += 1;
+    customer.averageOrderValue = Math.round((customer.totalSpent / customer.visitCount) * 100) / 100;
 
-  return { pointsEarned, upgraded: oldTier !== newTier, newTier };
+    // Auto Upgrade Evaluation
+    const oldTier = customer.membershipTier;
+    const newTier = evaluateTier(customer.totalSpent);
+    customer.membershipTier = newTier;
+
+    await customer.save();
+
+    // Mark order as accrued to prevent double counting
+    freshOrder.loyaltyAccrued = true;
+    await freshOrder.save();
+
+    // Log Loyalty history transaction
+    await LoyaltyTransaction.create({
+      restaurant: restaurantId,
+      customer: customerId,
+      transactionType: 'Earned',
+      points: pointsEarned,
+      order: freshOrder._id,
+      reason: `Points earned from Order #${freshOrder.orderNumber} (Tier: ${oldTier}${oldTier !== newTier ? ` upgraded to ${newTier}` : ''})`,
+    });
+
+    return { pointsEarned, upgraded: oldTier !== newTier, newTier };
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('[Loyalty] earnPointsForOrder failed:', err.stack || err);
+    if (process.env.NODE_ENV !== 'production') {
+      throw err;
+    }
+    return null;
+  }
 };
 
 /**

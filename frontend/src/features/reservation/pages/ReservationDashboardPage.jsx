@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import Loader from '@/components/common/Loader';
 import useAuthStore from '@/features/auth/store/auth.store';
 import * as reservationApi from '../api/reservation.api';
+import ReservationQrCard from '@/features/restaurant/components/ReservationQrCard';
 
 export default function ReservationDashboardPage() {
   const restaurantId = useAuthStore((state) => state.restaurant?._id);
@@ -172,6 +173,9 @@ export default function ReservationDashboardPage() {
                 </CardContent>
               </Card>
             </div>
+
+            {/* Shareable Reservation QR Code for Staff / Managers */}
+            <ReservationQrCard restaurantId={restaurantId} />
 
             {/* Today's Bookings overview */}
             <Card>

@@ -1,4 +1,4 @@
-import { DollarSign, ShoppingBag, Table as TableIcon, Calendar, AlertTriangle } from 'lucide-react';
+import { IndianRupee, TrendingUp, Star, Users, ShoppingBag, Table as TableIcon, Calendar, Package, AlertTriangle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 
 /**
@@ -7,81 +7,120 @@ import { Card, CardContent } from '@/components/ui/card';
  */
 export default function DashboardKpiRow({ kpis, isLoading, role }) {
   const isAdmin = ['owner', 'super_admin'].includes(role);
+  const isManager = role === 'manager';
 
-  // Define 4 cards based on role
-  const cards = isAdmin
-    ? [
-        {
-          id: 'revenue',
-          label: "Today's Revenue",
-          value: kpis?.revenue != null ? `₹${Number(kpis.revenue).toLocaleString('en-IN')}` : '—',
-          subtext: 'Sales overview for today',
-          icon: DollarSign,
-          iconBg: 'bg-primary/10 text-primary',
-        },
-        {
-          id: 'orders',
-          label: 'Active Orders',
-          value: kpis?.activeOrders != null ? kpis.activeOrders : '—',
-          subtext: 'In kitchen or active service',
-          icon: ShoppingBag,
-          iconBg: 'bg-sky-500/10 text-sky-600',
-        },
-        {
-          id: 'tables',
-          label: 'Tables Occupied',
-          value: kpis?.occupiedTables != null && kpis?.totalTables != null
+  // Define cards based on role
+  let cards = [];
+
+  if (isAdmin) {
+    cards = [
+      {
+        id: 'revenue',
+        label: "Today's Revenue",
+        value: kpis?.revenue != null ? `₹${Number(kpis.revenue).toLocaleString('en-IN')}` : '—',
+        subtext: 'Sales total for today',
+        icon: IndianRupee,
+        iconBg: 'bg-primary/10 text-primary',
+      },
+      {
+        id: 'monthRevenue',
+        label: 'Monthly Revenue',
+        value: kpis?.monthRevenue != null ? `₹${Number(kpis.monthRevenue).toLocaleString('en-IN')}` : '—',
+        subtext: 'Total sales this month',
+        icon: TrendingUp,
+        iconBg: 'bg-emerald-500/10 text-emerald-600',
+      },
+      {
+        id: 'averageRating',
+        label: 'Average Rating',
+        value: kpis?.averageRating != null ? `⭐ ${Number(kpis.averageRating).toFixed(1)} / 5` : '—',
+        subtext: 'Guest feedback score',
+        icon: Star,
+        iconBg: 'bg-amber-500/10 text-amber-600',
+      },
+      {
+        id: 'activeEmployees',
+        label: 'Active Employees',
+        value: kpis?.activeEmployees != null ? kpis.activeEmployees : '—',
+        subtext: 'Total staff on roster',
+        icon: Users,
+        iconBg: 'bg-purple-500/10 text-purple-600',
+      },
+    ];
+  } else if (isManager) {
+    cards = [
+      {
+        id: 'orders',
+        label: 'Active Orders',
+        value: kpis?.activeOrders != null ? kpis.activeOrders : '—',
+        subtext: 'In kitchen or active service',
+        icon: ShoppingBag,
+        iconBg: 'bg-sky-500/10 text-sky-600',
+      },
+      {
+        id: 'tables',
+        label: 'Tables Occupied',
+        value:
+          kpis?.occupiedTables != null && kpis?.totalTables != null
             ? `${kpis.occupiedTables} / ${kpis.totalTables}`
-            : kpis?.occupiedTables != null ? kpis.occupiedTables : '—',
-          subtext: 'Current floor occupancy',
-          icon: TableIcon,
-          iconBg: 'bg-emerald-500/10 text-emerald-600',
-        },
-        {
-          id: 'reservations',
-          label: "Today's Bookings",
-          value: kpis?.todayReservations != null ? kpis.todayReservations : '—',
-          subtext: 'Confirmed guest reservations',
-          icon: Calendar,
-          iconBg: 'bg-purple-500/10 text-purple-600',
-        },
-      ]
-    : [
-        {
-          id: 'orders',
-          label: 'Active Orders',
-          value: kpis?.activeOrders != null ? kpis.activeOrders : '—',
-          subtext: 'In kitchen or active service',
-          icon: ShoppingBag,
-          iconBg: 'bg-sky-500/10 text-sky-600',
-        },
-        {
-          id: 'tables',
-          label: 'Tables Occupied',
-          value: kpis?.occupiedTables != null && kpis?.totalTables != null
+            : kpis?.occupiedTables != null
+            ? kpis.occupiedTables
+            : '—',
+        subtext: 'Current floor occupancy',
+        icon: TableIcon,
+        iconBg: 'bg-emerald-500/10 text-emerald-600',
+      },
+      {
+        id: 'reservations',
+        label: "Today's Bookings",
+        value: kpis?.todayReservations != null ? kpis.todayReservations : '—',
+        subtext: 'Confirmed guest reservations',
+        icon: Calendar,
+        iconBg: 'bg-purple-500/10 text-purple-600',
+      },
+      {
+        id: 'lowStock',
+        label: 'Low Stock Items',
+        value: kpis?.lowStockCount != null ? kpis.lowStockCount : '—',
+        subtext: 'Ingredients below threshold',
+        icon: Package,
+        iconBg: 'bg-amber-500/10 text-amber-600',
+      },
+    ];
+  } else {
+    // Staff variant: 3 cards focused strictly on floor operations
+    cards = [
+      {
+        id: 'orders',
+        label: 'Active Orders',
+        value: kpis?.activeOrders != null ? kpis.activeOrders : '—',
+        subtext: 'Active floor orders',
+        icon: ShoppingBag,
+        iconBg: 'bg-sky-500/10 text-sky-600',
+      },
+      {
+        id: 'tables',
+        label: 'Tables Occupied',
+        value:
+          kpis?.occupiedTables != null && kpis?.totalTables != null
             ? `${kpis.occupiedTables} / ${kpis.totalTables}`
-            : kpis?.occupiedTables != null ? kpis.occupiedTables : '—',
-          subtext: 'Current floor occupancy',
-          icon: TableIcon,
-          iconBg: 'bg-emerald-500/10 text-emerald-600',
-        },
-        {
-          id: 'reservations',
-          label: "Today's Bookings",
-          value: kpis?.todayReservations != null ? kpis.todayReservations : '—',
-          subtext: 'Confirmed guest reservations',
-          icon: Calendar,
-          iconBg: 'bg-purple-500/10 text-purple-600',
-        },
-        {
-          id: 'pending',
-          label: 'Pending Requests',
-          value: kpis?.pendingReservations != null ? kpis.pendingReservations : '—',
-          subtext: 'Reservations awaiting review',
-          icon: AlertTriangle,
-          iconBg: 'bg-amber-500/10 text-amber-600',
-        },
-      ];
+            : kpis?.occupiedTables != null
+            ? kpis.occupiedTables
+            : '—',
+        subtext: 'Current floor occupancy',
+        icon: TableIcon,
+        iconBg: 'bg-emerald-500/10 text-emerald-600',
+      },
+      {
+        id: 'reservations',
+        label: "Today's Bookings",
+        value: kpis?.todayReservations != null ? kpis.todayReservations : '—',
+        subtext: 'Confirmed guest reservations',
+        icon: Calendar,
+        iconBg: 'bg-purple-500/10 text-purple-600',
+      },
+    ];
+  }
 
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

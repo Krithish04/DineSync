@@ -5,15 +5,17 @@ import CustomerLayout from '../components/CustomerLayout';
 import OrderTimeline from '../components/OrderTimeline';
 import { Button } from '@/components/ui/button';
 import Loader from '@/components/common/Loader';
-import useAuthStore from '@/features/auth/store/auth.store';
+import useCartStore from '../store/cart.store';
 import useSocketStore from '@/store/socket.store';
 import * as customerApi from '../api/customerPlatform.api';
+
+import QrCodeRequiredCard from '../components/QrCodeRequiredCard';
 
 export default function LiveOrderTrackingPage() {
   const { orderId } = useParams();
   const navigate = useNavigate();
 
-  const restaurantId = useAuthStore((s) => s.restaurant?._id) || '66aa11112222333344445555';
+  const restaurantId = useCartStore((s) => s.restaurantId);
   const socket = useSocketStore((s) => s.socket);
 
   const [tracking, setTracking] = useState(null);
@@ -21,6 +23,8 @@ export default function LiveOrderTrackingPage() {
   const [error, setError] = useState('');
   const [isCallingStaff, setIsCallingStaff] = useState(false);
   const [assistSuccess, setAssistSuccess] = useState('');
+
+  const hasContext = Boolean(restaurantId && orderId);
 
   const handleCallStaff = async () => {
     setIsCallingStaff(true);
@@ -39,7 +43,7 @@ export default function LiveOrderTrackingPage() {
   };
 
   const loadTracking = useCallback(async () => {
-    if (!orderId) return;
+    if (!orderId || !restaurantId) return;
     setIsLoading(true);
     setError('');
     try {
@@ -53,6 +57,14 @@ export default function LiveOrderTrackingPage() {
   }, [restaurantId, orderId]);
 
   useEffect(() => { loadTracking(); }, [loadTracking]);
+
+  if (!hasContext) {
+    return (
+      <CustomerLayout title="Live Order Tracking">
+        <QrCodeRequiredCard message="Please scan your table's QR code or place an order to track live preparation." />
+      </CustomerLayout>
+    );
+  }
 
   // Socket.IO real-time event listener for kitchen status shifts
   useEffect(() => {

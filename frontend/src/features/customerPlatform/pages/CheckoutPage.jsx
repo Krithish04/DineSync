@@ -2,15 +2,19 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, Table as TableIcon, CheckCircle2, ShieldCheck, UtensilsCrossed } from 'lucide-react';
 import CustomerLayout from '../components/CustomerLayout';
+import CustomerAuthModal from '../components/CustomerAuthModal';
 import { Button } from '@/components/ui/button';
 import useCartStore from '../store/cart.store';
+import useCustomerAuthStore from '../store/customerAuth.store';
 import * as customerApi from '../api/customerPlatform.api';
+
+import QrCodeRequiredCard from '../components/QrCodeRequiredCard';
 
 export default function CheckoutPage() {
   const navigate = useNavigate();
 
   const {
-    restaurantId = '66aa11112222333344445555',
+    restaurantId,
     branchId,
     tableId,
     tableNumber,
@@ -22,33 +26,46 @@ export default function CheckoutPage() {
     tableHost,
     addPlacedOrder,
     isViewOnly,
+    isInactiveTable,
+    tableStatus,
   } = useCartStore();
 
-  const [customerName, setCustomerName] = useState(tableHost?.name || '');
-  const [customerPhone, setCustomerPhone] = useState(tableHost?.phone || '');
+  const customer = useCustomerAuthStore((state) => state.customer);
+  const isAuthenticated = Boolean(customer || tableHost);
+
+  const [customerName, setCustomerName] = useState(tableHost?.name || customer?.fullName || '');
+  const [customerPhone, setCustomerPhone] = useState(tableHost?.phone || customer?.phoneNumber || '');
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [error, setError] = useState('');
 
   const grandTotal = getGrandTotal();
+  const isInactive = isInactiveTable || tableStatus === 'Inactive';
+  const hasContext = Boolean(restaurantId && tableId);
+
+  if (!hasContext) {
+    return (
+      <CustomerLayout title="Checkout">
+        <QrCodeRequiredCard message="Please scan your table's QR code to proceed with checkout." />
+      </CustomerLayout>
+    );
+  }
 
   useEffect(() => {
     if (tableHost) {
       if (!customerName) setCustomerName(tableHost.name);
       if (!customerPhone) setCustomerPhone(tableHost.phone);
+    } else if (customer) {
+      if (!customerName) setCustomerName(customer.fullName || '');
+      if (!customerPhone) setCustomerPhone(customer.phoneNumber || '');
     }
-  }, [tableHost, customerName, customerPhone]);
+  }, [tableHost, customer, customerName, customerPhone]);
 
-  const handlePlaceOrder = async (e) => {
-    e.preventDefault();
-    if (isViewOnly) {
-      setError('Table session is claimed by another diner. You are in View-Only mode.');
-      return;
-    }
-    if (!items || items.length === 0) {
-      setError('Your cart is empty.');
-      return;
-    }
+  const submitOrder = async (overrideHost = null) => {
+    const activeHost = overrideHost || tableHost;
+    const activeName = activeHost?.name || customer?.fullName || customerName;
+    const activePhone = activeHost?.phone || customer?.phoneNumber || customerPhone;
 
     setIsSubmitting(true);
     setError('');
@@ -60,8 +77,8 @@ export default function CheckoutPage() {
         tableId,
         orderType,
         items,
-        customerName: customerName || tableHost?.name || 'Guest',
-        customerPhone: customerPhone || tableHost?.phone || '9999999999',
+        customerName: activeName || 'Guest',
+        customerPhone: activePhone || '9999999999',
         notes: specialInstructions,
       });
 
@@ -78,6 +95,34 @@ export default function CheckoutPage() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handlePlaceOrder = async (e) => {
+    if (e) e.preventDefault();
+    if (isInactive) {
+      setError(`Table ${tableNumber ? `#${tableNumber}` : ''} is currently inactive and cannot place active table orders. Please contact restaurant staff.`);
+      return;
+    }
+    if (isViewOnly) {
+      setError('Table session is claimed by another diner. You are in View-Only mode.');
+      return;
+    }
+    if (!items || items.length === 0) {
+      setError('Your cart is empty.');
+      return;
+    }
+
+    if (!isAuthenticated) {
+      setIsAuthModalOpen(true);
+      return;
+    }
+
+    await submitOrder();
+  };
+
+  const handleAuthSuccess = async (hostInfo) => {
+    setIsAuthModalOpen(false);
+    await submitOrder(hostInfo);
   };
 
   return (
@@ -98,8 +143,8 @@ export default function CheckoutPage() {
           )}
         </div>
 
-        {/* Verified Table Host Information */}
-        {tableHost ? (
+        {/* Verified Table Host Information or Sign-In Prompt */}
+        {isAuthenticated ? (
           <div className="bg-primary/10 border border-primary/20 rounded-xl p-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm">
@@ -107,8 +152,8 @@ export default function CheckoutPage() {
               </div>
               <div>
                 <p className="text-xs text-primary font-semibold">Verified Table Host</p>
-                <p className="text-sm font-bold text-foreground">{tableHost.name}</p>
-                <p className="text-xs text-muted-foreground">{tableHost.phone}</p>
+                <p className="text-sm font-bold text-foreground">{tableHost?.name || customer?.fullName || 'Diner'}</p>
+                <p className="text-xs text-muted-foreground">{tableHost?.phone || customer?.phoneNumber || ''}</p>
               </div>
             </div>
             <span className="text-[10px] bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
@@ -117,25 +162,25 @@ export default function CheckoutPage() {
           </div>
         ) : (
           <div className="bg-card border border-border rounded-xl p-4 space-y-3">
-            <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider">Contact Information</h4>
-            <div className="space-y-2">
-              <input
-                type="text"
-                required
-                placeholder="Your Name *"
-                value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
-                className="w-full border border-border rounded-lg px-3 py-2 text-xs bg-background"
-              />
-              <input
-                type="tel"
-                required
-                placeholder="Phone Number *"
-                value={customerPhone}
-                onChange={(e) => setCustomerPhone(e.target.value)}
-                className="w-full border border-border rounded-lg px-3 py-2 text-xs bg-background"
-              />
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-amber-500/10 text-amber-600 flex items-center justify-center font-bold text-sm shrink-0">
+                <ShieldCheck size={20} />
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-foreground uppercase tracking-wider">Phone Verification Required</h4>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Sign in with your mobile number to host this table session and send orders to the kitchen.
+                </p>
+              </div>
             </div>
+            <Button
+              type="button"
+              onClick={() => setIsAuthModalOpen(true)}
+              className="w-full text-xs font-semibold gap-2 h-9"
+            >
+              <span>Sign In with Phone OTP to Order</span>
+              <ArrowRight size={15} />
+            </Button>
           </div>
         )}
 
@@ -172,11 +217,24 @@ export default function CheckoutPage() {
             <p className="text-xl font-bold font-display text-primary">₹{grandTotal.toFixed(2)}</p>
           </div>
           <Button type="submit" disabled={isSubmitting || isViewOnly} className="gap-2 text-xs px-5 font-bold">
-            <span>{isSubmitting ? 'Sending to Kitchen...' : 'Send Order to Kitchen'}</span>
+            <span>
+              {isSubmitting
+                ? 'Sending to Kitchen...'
+                : !isAuthenticated
+                ? 'Sign In & Send Order'
+                : 'Send Order to Kitchen'}
+            </span>
             <ArrowRight size={16} />
           </Button>
         </div>
       </form>
+
+      {/* Customer Phone OTP Auth Modal */}
+      <CustomerAuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onSuccess={handleAuthSuccess}
+      />
     </CustomerLayout>
   );
 }

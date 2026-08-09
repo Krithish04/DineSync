@@ -27,4 +27,18 @@ router
   .route('/:tableId/status')
   .patch(canManage, validateBody(updateTableStatusSchema), tableController.updateTableStatus);
 
+const canViewSession = authorize(ROLES.SUPER_ADMIN, ROLES.OWNER, ROLES.MANAGER, ROLES.STAFF);
+
+router
+  .route('/:tableId/session')
+  .get(canViewSession, tableController.getTableSession);
+
+router
+  .route('/:tableId/merge')
+  .post(canViewSession, tableController.mergeTables);
+
+router
+  .route('/:tableId/unmerge')
+  .post(canViewSession, tableController.unmergeTables);
+
 module.exports = router;

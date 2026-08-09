@@ -13,6 +13,14 @@ export default function ReservationFormPage() {
   const navigate = useNavigate();
 
   const restaurantId = useAuthStore((state) => state.restaurant?._id);
+  const userRole = useAuthStore((state) => state.user?.role);
+  const canManage = ['super_admin', 'owner', 'manager'].includes(userRole);
+
+  useEffect(() => {
+    if (userRole === 'staff') {
+      navigate('/restaurant/reservations/list', { replace: true });
+    }
+  }, [userRole, navigate]);
 
   const [reservation, setReservation] = useState(null);
   const [isLoading, setIsLoading] = useState(isEditMode);

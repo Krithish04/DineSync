@@ -24,6 +24,13 @@ const checkOverlap = (start1, duration1, start2, duration2) => {
 const validateReservationBusinessRules = async (restaurantId, payload, reservationId = null) => {
   const { table: tableId, numberOfGuests, reservationDate, reservationTime, duration = 90 } = payload;
 
+  if (!tableId) {
+    if (['Confirmed', 'Seated'].includes(payload.reservationStatus)) {
+      throw ApiError.badRequest('Table selection is required to confirm or seat a reservation.');
+    }
+    return;
+  }
+
   // 1. Validate Table exists, is active, and matches capacity
   const table = await Table.findOne({ _id: tableId, restaurant: restaurantId, isDeleted: false });
   if (!table) {
@@ -156,40 +163,41 @@ const updateReservation = async (restaurantId, reservationId, updates) => {
 
   // Merge updates onto current values to run validations
   const merged = {
-    table: updates.table || reservation.table.toString(),
+    table: updates.table || (reservation.table ? reservation.table.toString() : ''),
     numberOfGuests: updates.numberOfGuests !== undefined ? updates.numberOfGuests : reservation.numberOfGuests,
     reservationDate: updates.reservationDate || reservation.reservationDate,
     reservationTime: updates.reservationTime || reservation.reservationTime,
     duration: updates.duration !== undefined ? updates.duration : reservation.duration,
+    reservationStatus: updates.reservationStatus || reservation.reservationStatus,
   };
 
   // Re-run capacity/overlap checks
   await validateReservationBusinessRules(restaurantId, merged, reservationId);
 
   // If table is changing, check statuses
-  const oldTableId = reservation.table.toString();
-  const newTableId = merged.table;
+  const oldTableId = reservation.table ? reservation.table.toString() : null;
+  const newTableId = merged.table || null;
 
   Object.assign(reservation, updates);
   await reservation.save();
 
   // Handle table occupancy changes if status changed or table changed
   if (oldTableId !== newTableId) {
-    // Revert old table status if relevant
-    if (reservation.reservationStatus === 'Seated') {
+    if (oldTableId) {
       await Table.updateOne({ _id: oldTableId }, { status: 'Available' });
-      await Table.updateOne({ _id: newTableId }, { status: 'Occupied' });
-    } else if (reservation.reservationStatus === 'Confirmed') {
-      await Table.updateOne({ _id: oldTableId }, { status: 'Available' });
-      await Table.updateOne({ _id: newTableId }, { status: 'Reserved' });
     }
-  } else {
+    if (newTableId) {
+      if (reservation.reservationStatus === 'Seated') {
+        await Table.updateOne({ _id: newTableId }, { status: 'Occupied' });
+      } else if (reservation.reservationStatus === 'Confirmed') {
+        await Table.updateOne({ _id: newTableId }, { status: 'Reserved' });
+      }
+    }
+  } else if (newTableId) {
     if (updates.reservationStatus) {
       if (updates.reservationStatus === 'Seated') {
         await Table.updateOne({ _id: newTableId }, { status: 'Occupied' });
-      } else if (updates.reservationStatus === 'Completed') {
-        await Table.updateOne({ _id: newTableId }, { status: 'Available' });
-      } else if (['Cancelled', 'No Show'].includes(updates.reservationStatus)) {
+      } else if (updates.reservationStatus === 'Completed' || ['Cancelled', 'No Show'].includes(updates.reservationStatus)) {
         await Table.updateOne({ _id: newTableId }, { status: 'Available' });
       } else if (updates.reservationStatus === 'Confirmed') {
         await Table.updateOne({ _id: newTableId }, { status: 'Reserved' });
@@ -221,7 +229,7 @@ const deleteReservation = async (restaurantId, reservationId) => {
   await reservation.save();
 
   // Revert table status back to Available if it was occupied/reserved by this booking
-  if (['Pending', 'Confirmed', 'Seated'].includes(reservation.reservationStatus)) {
+  if (reservation.table && ['Pending', 'Confirmed', 'Seated'].includes(reservation.reservationStatus)) {
     await Table.updateOne({ _id: reservation.table }, { status: 'Available' });
   }
 

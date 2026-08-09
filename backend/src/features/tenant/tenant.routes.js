@@ -25,12 +25,12 @@ router.get('/', protect, authorize(ROLES.SUPER_ADMIN), tenantController.listAll)
 router.get('/:restaurantId', protect, canManage, tenantController.getById);
 router.delete('/:restaurantId', protect, canManageFinancials, tenantController.deactivate);
 
-// --- Profile ---
-router.get('/:restaurantId/profile', protect, canManage, tenantController.getProfile);
+// --- Profile (Owner & Super Admin only) ---
+router.get('/:restaurantId/profile', protect, canManageFinancials, tenantController.getProfile);
 router.patch(
   '/:restaurantId/profile',
   protect,
-  canManage,
+  canManageFinancials,
   validateBody(updateProfileSchema),
   tenantController.updateProfile
 );

@@ -57,9 +57,22 @@ export default function ReservationCard({
         {/* Header: Customer and Status */}
         <div className="flex items-start justify-between gap-2">
           <div>
-            <span className="text-[10px] font-mono text-muted-foreground bg-muted rounded px-2 py-0.5">
-              {reservation.reservationNumber}
-            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] font-mono text-muted-foreground bg-muted rounded px-2 py-0.5">
+                {reservation.reservationNumber}
+              </span>
+              {reservation.bookingSource && (
+                <span
+                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${
+                    reservation.bookingSource === 'QR'
+                      ? 'bg-purple-500/10 text-purple-600 border-purple-500/20'
+                      : 'bg-slate-500/10 text-slate-600 border-slate-500/20'
+                  }`}
+                >
+                  {reservation.bookingSource}
+                </span>
+              )}
+            </div>
             <h4 className="font-display text-base font-bold text-foreground mt-1 truncate max-w-[180px]">
               {reservation.customerName}
             </h4>
@@ -96,8 +109,8 @@ export default function ReservationCard({
 
           <div className="flex items-center gap-2">
             <Utensils className="h-3.5 w-3.5 text-primary shrink-0" />
-            <span className="font-semibold text-foreground">
-              Table {reservation.table?.tableNumber || 'Unassigned'}
+            <span className={`font-semibold ${!reservation.table ? 'text-amber-600 dark:text-amber-400 italic' : 'text-foreground'}`}>
+              {reservation.table?.tableNumber ? `Table #${reservation.table.tableNumber}` : 'Needs table assignment'}
             </span>
           </div>
         </div>

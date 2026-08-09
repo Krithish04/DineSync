@@ -43,6 +43,9 @@ const env = {
   // AI Microservice
   AI_SERVICE_URL: process.env.AI_SERVICE_URL || 'http://localhost:8000/api/v1',
 
+  // Auto-Serve Orders Threshold
+  AUTO_SERVE_MINUTES: parseInt(process.env.AUTO_SERVE_MINUTES, 10) || 10,
+
   isProduction: process.env.NODE_ENV === 'production',
   isDevelopment: (process.env.NODE_ENV || 'development') === 'development',
 };

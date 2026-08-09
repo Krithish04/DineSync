@@ -44,27 +44,40 @@ const createTicketsFromOrder = async (restaurantId, order) => {
     const suffix = station.toUpperCase().replace(/\s+/g, '_');
     const ticketNumber = `${order.orderNumber}-${suffix}`;
 
-    // Verify if ticket already exists (prevents duplicates on re-acceptance)
-    const exists = await KitchenTicket.exists({ ticketNumber, restaurant: restaurantId });
-    if (!exists) {
-      const ticket = await KitchenTicket.create({
-        ticketNumber,
-        restaurant: restaurantId,
-        order: order._id,
-        table: order.table,
-        orderType: order.orderType,
-        station,
-        status: 'Pending',
-        items: stationGroups[station],
-        notes: order.notes || '',
-      });
-      createdTickets.push(ticket);
+    try {
+      // Verify if ticket already exists (prevents duplicates on re-acceptance)
+      const exists = await KitchenTicket.exists({ ticketNumber, restaurant: restaurantId });
+      if (!exists) {
+        const ticket = await KitchenTicket.create({
+          ticketNumber,
+          restaurant: restaurantId,
+          order: order._id,
+          table: order.table,
+          orderType: order.orderType,
+          station,
+          status: 'Pending',
+          items: stationGroups[station],
+          notes: order.notes || '',
+        });
+        createdTickets.push(ticket);
+      }
+    } catch (err) {
+      if (err.code === 11000) {
+        // eslint-disable-next-line no-console
+        console.warn(`[KDS] Duplicate ticket creation suppressed for ${ticketNumber}:`, err.message);
+      } else {
+        throw err;
+      }
     }
   }
 
   // Broadcast to kitchen clients
   if (createdTickets.length > 0) {
-    socketConfig.broadcastEvent(restaurantId, 'kitchen:tickets_created', createdTickets);
+    const populatedTickets = await KitchenTicket.find({
+      _id: { $in: createdTickets.map((t) => t._id) },
+    }).populate('table', 'tableNumber tableName');
+
+    socketConfig.broadcastEvent(restaurantId, 'kitchen:tickets_created', populatedTickets.length > 0 ? populatedTickets : createdTickets);
   }
 
   return createdTickets;
@@ -77,8 +90,13 @@ const listTickets = async (restaurantId, { station, status, priority, search = '
   const query = { restaurant: restaurantId };
 
   if (station) query.station = station;
-  if (status) query.status = status;
-  if (priority) query.status = priority;
+  if (status) {
+    query.status = status;
+  } else {
+    // Default active tickets: filter out Served tickets
+    query.status = { $ne: 'Served' };
+  }
+  if (priority) query['items.priority'] = priority;
 
   if (search) {
     query.$or = [

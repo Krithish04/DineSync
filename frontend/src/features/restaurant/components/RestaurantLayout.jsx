@@ -23,6 +23,7 @@ import {
   ChevronRight,
   Shield,
   FileCheck,
+  History,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -37,44 +38,57 @@ const NAV_GROUPS = [
     group: 'Operations',
     roles: ['manager', 'owner', 'super_admin', 'staff', 'chef'],
     items: [
-      { to: '/restaurant/categories', label: 'Categories', icon: FolderTree, roles: ['manager', 'owner', 'super_admin'] },
-      { to: '/restaurant/menu', label: 'Menu Catalog', icon: Utensils, roles: ['manager', 'owner', 'super_admin'] },
-      { to: '/restaurant/tables', label: 'Tables & Layout', icon: TableIcon, roles: ['manager', 'owner', 'super_admin', 'staff'] },
-      { to: '/restaurant/reservations/dashboard', label: 'Reservations', icon: Calendar, roles: ['manager', 'owner', 'super_admin', 'staff'] },
-      { to: '/restaurant/orders/dashboard', label: 'Orders & POS', icon: ShoppingBag, roles: ['manager', 'owner', 'super_admin', 'staff'] },
-      { to: '/restaurant/kitchen', label: 'Kitchen (KDS)', icon: ChefHat, roles: ['manager', 'owner', 'super_admin', 'chef'] },
-      { to: '/restaurant/inventory/dashboard', label: 'Inventory & Stock', icon: Package, roles: ['manager', 'owner', 'super_admin'] },
-      { to: '/restaurant/inventory/suppliers', label: 'Suppliers & Vendors', icon: Building2, roles: ['manager', 'owner', 'super_admin'] },
-      { to: '/restaurant/customers/dashboard', label: 'Customers & CRM', icon: Users, roles: ['manager', 'owner', 'super_admin'] },
-      { to: '/restaurant/feedback/manage', label: 'Customer Feedback', icon: Bell, roles: ['manager', 'owner', 'super_admin'] },
+      { to: '/restaurant/staff-orders', label: 'Live Order Board', icon: ShoppingBag, roles: ['staff'] },
+      { to: '/restaurant/orders/history', label: 'Order History', icon: History, roles: ['manager'] },
+      { to: '/restaurant/kitchen', label: 'Kitchen Monitor', icon: ChefHat, roles: ['manager'] },
+      { to: '/restaurant/reservations/dashboard', label: 'Reservations', icon: Calendar, roles: ['manager', 'staff'] },
+      { to: '/restaurant/tables', label: 'Tables & Layout', icon: TableIcon, roles: ['manager'] },
+      { to: '/restaurant/categories', label: 'Categories', icon: FolderTree, roles: ['manager'] },
+      { to: '/restaurant/menu', label: 'Menu Catalog', icon: Utensils, roles: ['manager'] },
+      { to: '/restaurant/inventory/dashboard', label: 'Inventory & Stock', icon: Package, roles: ['manager'] },
+      { to: '/restaurant/inventory/suppliers', label: 'Suppliers & Vendors', icon: Building2, roles: ['manager'] },
+      { to: '/restaurant/feedback/manage', label: 'Customer Feedback', icon: Bell, roles: ['manager'] },
+      { to: '/restaurant/customers/dashboard', label: 'Customers & CRM', icon: Users, roles: ['owner'] },
     ],
   },
   {
     group: 'Administration',
-    roles: ['owner', 'super_admin'],
+    roles: ['owner', 'manager', 'super_admin'],
     items: [
-      { to: '/restaurant/profile', label: 'Profile', icon: Settings, roles: ['owner', 'super_admin'] },
-      { to: '/restaurant/settings', label: 'Settings', icon: Settings, roles: ['owner', 'super_admin'] },
-      { to: '/restaurant/gst', label: 'GST Config', icon: FileCheck, roles: ['owner', 'super_admin'] },
-      { to: '/restaurant/opening-hours', label: 'Opening Hours', icon: Clock, roles: ['owner', 'super_admin'] },
+      { to: '/restaurant/profile', label: 'Profile', icon: Settings, roles: ['owner'] },
+      { to: '/restaurant/gst', label: 'GST Config', icon: FileCheck, roles: ['owner'] },
+      { to: '/restaurant/opening-hours', label: 'Opening Hours', icon: Clock, roles: ['manager'] },
+      { to: '/restaurant/settings', label: 'Settings', icon: Settings, roles: ['manager'] },
     ],
   },
   {
     group: 'Finance & Staff',
-    roles: ['owner', 'super_admin', 'manager'],
+    roles: ['owner', 'manager', 'super_admin'],
     items: [
-      { to: '/restaurant/billing/dashboard', label: 'Billing & Invoices', icon: CreditCard, roles: ['owner', 'super_admin'] },
-      { to: '/restaurant/employees/dashboard', label: 'Employees & Shift', icon: UserCheck, roles: ['owner', 'super_admin', 'manager'] },
+      { to: '/restaurant/billing/dashboard', label: 'Billing & Invoices', icon: CreditCard, roles: ['manager'] },
+      { to: '/restaurant/employees/dashboard', label: 'Employees & Shift', icon: UserCheck, roles: ['owner', 'manager'] },
     ],
   },
   {
-    group: 'Analytics & AI',
-    roles: ['owner', 'super_admin'],
+    group: 'Analytics & BI',
+    roles: ['owner', 'manager', 'super_admin'],
     items: [
       { to: '/restaurant/reports/executive', label: 'Executive BI', icon: TrendingUp, roles: ['owner', 'super_admin'] },
       { to: '/restaurant/feedback/insights', label: 'Feedback Insights', icon: TrendingUp, roles: ['owner', 'super_admin'] },
-      { to: '/restaurant/ai/dashboard', label: 'AI Intelligence', icon: Sparkles, roles: ['owner', 'super_admin'] },
-      { to: '/restaurant/notifications/alerts', label: 'Alert Center', icon: Bell, roles: ['owner', 'super_admin'] },
+      { to: '/restaurant/reports/sales', label: 'Sales Report', icon: TrendingUp, roles: ['manager', 'super_admin'] },
+      { to: '/restaurant/reports/inventory', label: 'Inventory Report', icon: Package, roles: ['manager', 'super_admin'] },
+      { to: '/restaurant/reports/employees', label: 'Employee Report', icon: UserCheck, roles: ['manager', 'super_admin'] },
+      { to: '/restaurant/reports/financial', label: 'Financial Report', icon: CreditCard, roles: ['manager', 'super_admin'] },
+    ],
+  },
+  {
+    group: 'AI & Notifications',
+    roles: ['owner', 'manager', 'super_admin'],
+    items: [
+      { to: '/restaurant/ai/dashboard', label: 'AI Intelligence', icon: Sparkles, roles: ['owner'] },
+      { to: '/restaurant/notifications/alerts', label: 'Alert Center', icon: Bell, roles: ['owner', 'manager'] },
+      { to: '/restaurant/notifications/center', label: 'Notification Center', icon: Bell, roles: ['manager'] },
+      { to: '/restaurant/notifications/settings', label: 'Notification Settings', icon: Settings, roles: ['manager'] },
     ],
   },
 ];
@@ -125,6 +139,7 @@ export default function RestaurantLayout({ title, description, children }) {
   }
 
   const staffCanEditMenu = Boolean(restaurant?.settings?.staffCanEditMenu);
+  const dashboardTarget = role === 'staff' ? '/restaurant/staff-orders' : '/dashboard';
 
   // Filter navigation groups by role
   const visibleGroups = NAV_GROUPS.map((group) => ({
@@ -183,7 +198,7 @@ export default function RestaurantLayout({ title, description, children }) {
           <div className="py-4 px-2 space-y-6 overflow-y-auto max-h-[calc(100vh-140px)] scrollbar-thin">
             {/* Dashboard Root Button */}
             <NavLink
-              to="/dashboard"
+              to={dashboardTarget}
               className={({ isActive }) =>
                 cn(
                   'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
@@ -280,7 +295,7 @@ export default function RestaurantLayout({ title, description, children }) {
 
           <div className="flex items-center gap-3">
             <NotificationBell />
-            <Button variant="outline" size="sm" onClick={() => navigate('/dashboard')} className="text-xs">
+            <Button variant="outline" size="sm" onClick={() => navigate(dashboardTarget)} className="text-xs">
               Back to Dashboard
             </Button>
           </div>

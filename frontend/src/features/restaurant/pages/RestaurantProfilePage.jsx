@@ -22,6 +22,7 @@ import { Button } from '@/components/ui/button';
 import Loader from '@/components/common/Loader';
 import useAuthStore from '@/features/auth/store/auth.store';
 import * as restaurantApi from '@/features/restaurant/api/restaurant.api';
+import ReservationQrCard from '../components/ReservationQrCard';
 
 const emptyForm = {
   name: '',
@@ -304,6 +305,9 @@ export default function RestaurantProfilePage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Section 5: Reservation QR Code Card */}
+          <ReservationQrCard restaurantId={restaurantId} restaurantName={form.name} />
 
           {/* Submit Action Bar */}
           <div className="flex justify-end pt-2">

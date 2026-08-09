@@ -23,6 +23,7 @@ import { Button } from '@/components/ui/button';
 import Loader from '@/components/common/Loader';
 import useAuthStore from '@/features/auth/store/auth.store';
 import * as restaurantApi from '@/features/restaurant/api/restaurant.api';
+import ReservationQrCard from '../components/ReservationQrCard';
 
 const emptyForm = {
   currency: 'INR',
@@ -318,6 +319,9 @@ export default function RestaurantSettingsPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Section 4: Shareable Reservation QR Code */}
+          <ReservationQrCard restaurantId={restaurantId} />
 
           {/* Submit Action Bar */}
           <div className="flex justify-end pt-2">

@@ -32,7 +32,13 @@ const reservationSchema = new Schema(
     table: {
       type: Schema.Types.ObjectId,
       ref: 'Table',
-      required: [true, 'Table selection is required'],
+      default: null,
+      index: true,
+    },
+    customer: {
+      type: Schema.Types.ObjectId,
+      ref: 'Customer',
+      default: null,
       index: true,
     },
     customerName: {

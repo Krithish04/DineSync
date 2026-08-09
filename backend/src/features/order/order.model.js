@@ -104,6 +104,12 @@ const orderSchema = new Schema(
       default: null,
       index: true,
     },
+    session: {
+      type: Schema.Types.ObjectId,
+      ref: 'TableSession',
+      default: null,
+      index: true,
+    },
     reservation: {
       type: Schema.Types.ObjectId,
       ref: 'Reservation',
@@ -183,6 +189,11 @@ const orderSchema = new Schema(
     servedAt: {
       type: Date,
       default: null,
+    },
+    loyaltyAccrued: {
+      type: Boolean,
+      default: false,
+      index: true,
     },
     isDeleted: {
       type: Boolean,

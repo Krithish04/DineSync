@@ -46,6 +46,7 @@ export default function ChartWidget({
   valueKey = 'value',
   height = 260,
   title,
+  yAxisPrefix = '',
   emptyLabel = 'No data available for the selected period.',
 }) {
   if (!data || data.length === 0) {
@@ -59,6 +60,18 @@ export default function ChartWidget({
     );
   }
 
+  const hasRightAxis = dataKeys.some((dk) => dk.yAxisId === 'right');
+
+  const formatYTick = (val) => (yAxisPrefix ? `${yAxisPrefix}${val.toLocaleString()}` : val);
+
+  const customTooltipStyle = {
+    ...TOOLTIP_STYLE,
+    formatter: (val, name) => [
+      typeof val === 'number' ? `${yAxisPrefix ? `${yAxisPrefix}` : ''}${val.toLocaleString()}` : val,
+      name,
+    ],
+  };
+
   const renderChart = () => {
     switch (type) {
       case 'line':
@@ -66,19 +79,27 @@ export default function ChartWidget({
           <LineChart data={data}>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
             <XAxis dataKey={xKey} tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} />
-            <YAxis tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} />
-            <Tooltip {...TOOLTIP_STYLE} />
-            <Legend wrapperStyle={{ fontSize: 12 }} />
+            {hasRightAxis ? (
+              <>
+                <YAxis yAxisId="left" tickFormatter={formatYTick} tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} />
+                <YAxis yAxisId="right" orientation="right" allowDecimals={false} tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} />
+              </>
+            ) : (
+              <YAxis tickFormatter={formatYTick} tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} />
+            )}
+            <Tooltip {...customTooltipStyle} />
+            {dataKeys.length > 1 && <Legend wrapperStyle={{ fontSize: 12 }} />}
             {dataKeys.map((dk, i) => (
               <Line
                 key={dk.key}
+                yAxisId={dk.yAxisId || (hasRightAxis ? 'left' : undefined)}
                 type="monotone"
                 dataKey={dk.key}
                 name={dk.label}
                 stroke={dk.color || PALETTE[i % PALETTE.length]}
                 strokeWidth={2}
-                dot={false}
-                activeDot={{ r: 5 }}
+                dot={data.length === 1 ? { r: 5, fill: dk.color || PALETTE[i % PALETTE.length] } : false}
+                activeDot={{ r: 6 }}
               />
             ))}
           </LineChart>
@@ -97,18 +118,28 @@ export default function ChartWidget({
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
             <XAxis dataKey={xKey} tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} />
-            <YAxis tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} />
-            <Tooltip {...TOOLTIP_STYLE} />
-            <Legend wrapperStyle={{ fontSize: 12 }} />
+            {hasRightAxis ? (
+              <>
+                <YAxis yAxisId="left" tickFormatter={formatYTick} tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} />
+                <YAxis yAxisId="right" orientation="right" allowDecimals={false} tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} />
+              </>
+            ) : (
+              <YAxis tickFormatter={formatYTick} tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} />
+            )}
+            <Tooltip {...customTooltipStyle} />
+            {dataKeys.length > 1 && <Legend wrapperStyle={{ fontSize: 12 }} />}
             {dataKeys.map((dk, i) => (
               <Area
                 key={dk.key}
+                yAxisId={dk.yAxisId || (hasRightAxis ? 'left' : undefined)}
                 type="monotone"
                 dataKey={dk.key}
                 name={dk.label}
                 stroke={dk.color || PALETTE[i % PALETTE.length]}
                 strokeWidth={2}
                 fill={`url(#grad-${dk.key})`}
+                dot={data.length === 1 ? { r: 5, fill: dk.color || PALETTE[i % PALETTE.length] } : false}
+                activeDot={{ r: 6 }}
               />
             ))}
           </AreaChart>
@@ -119,12 +150,20 @@ export default function ChartWidget({
           <BarChart data={data}>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
             <XAxis dataKey={xKey} tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} />
-            <YAxis tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} />
-            <Tooltip {...TOOLTIP_STYLE} />
-            <Legend wrapperStyle={{ fontSize: 12 }} />
+            {hasRightAxis ? (
+              <>
+                <YAxis yAxisId="left" tickFormatter={formatYTick} tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} />
+                <YAxis yAxisId="right" orientation="right" allowDecimals={false} tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} />
+              </>
+            ) : (
+              <YAxis tickFormatter={formatYTick} tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} />
+            )}
+            <Tooltip {...customTooltipStyle} />
+            {dataKeys.length > 1 && <Legend wrapperStyle={{ fontSize: 12 }} />}
             {dataKeys.map((dk, i) => (
               <Bar
                 key={dk.key}
+                yAxisId={dk.yAxisId || (hasRightAxis ? 'left' : undefined)}
                 dataKey={dk.key}
                 name={dk.label}
                 fill={dk.color || PALETTE[i % PALETTE.length]}
@@ -156,7 +195,7 @@ export default function ChartWidget({
                 <Cell key={i} fill={PALETTE[i % PALETTE.length]} />
               ))}
             </Pie>
-            <Tooltip {...TOOLTIP_STYLE} />
+            <Tooltip {...customTooltipStyle} />
           </PieChart>
         );
       }

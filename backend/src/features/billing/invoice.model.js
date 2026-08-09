@@ -37,7 +37,8 @@ const invoiceSchema = new Schema(
     cashier: {
       type: Schema.Types.ObjectId,
       ref: 'User',
-      required: true,
+      required: false,
+      default: null,
     },
     invoiceDate: {
       type: Date,

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   DollarSign, ShoppingBag, Users, CalendarCheck,
   AlertTriangle, UserCheck, Star, Package, TrendingUp, Calendar,
@@ -134,7 +134,27 @@ export default function ExecutiveDashboardPage() {
     avgTicket: Number((item.avgTicket || 0).toFixed(2)),
   }));
 
-  const revenueTotals = revenueSummary?.totals?.[0] || { totalRevenue: 0, totalOrders: 0, avgTicket: 0 };
+  const revenueTotals = useMemo(() => {
+    const rawTotals = Array.isArray(revenueSummary?.totals) ? revenueSummary?.totals?.[0] : revenueSummary?.totals;
+    if (rawTotals && (rawTotals.totalRevenue > 0 || rawTotals.totalOrders > 0)) {
+      return rawTotals;
+    }
+
+    const timeline = revenueSummary?.timeline || [];
+    if (timeline.length === 0) {
+      return { totalRevenue: 0, totalOrders: 0, avgTicket: 0 };
+    }
+
+    const sumRev = timeline.reduce((acc, curr) => acc + (curr.revenue || 0), 0);
+    const sumOrd = timeline.reduce((acc, curr) => acc + (curr.orders || 0), 0);
+    const avgTkt = sumOrd > 0 ? sumRev / sumOrd : 0;
+
+    return {
+      totalRevenue: sumRev,
+      totalOrders: sumOrd,
+      avgTicket: avgTkt,
+    };
+  }, [revenueSummary]);
 
   return (
     <RestaurantLayout
@@ -230,14 +250,13 @@ export default function ExecutiveDashboardPage() {
                 <Loader label="Computing revenue timeline data..." />
               ) : (
                 <ChartWidget
-                  type="area"
+                  type="bar"
                   data={timelineChartData}
                   xKey="_id"
                   dataKeys={[
                     { key: 'revenue', label: 'Revenue (₹)', color: '#82b34e' },
-                    { key: 'orders', label: 'Order Count', color: '#4a90d9' },
-                    { key: 'avgTicket', label: 'Avg Ticket (₹)', color: '#f5a623' },
                   ]}
+                  yAxisPrefix="₹"
                   height={280}
                   emptyLabel={`No revenue records found for the ${revenueGroupBy} breakdown selection.`}
                 />

@@ -6,6 +6,8 @@ import useCartStore from '../store/cart.store';
 export default function RecommendationCards({ recommendations = [], items = [] }) {
   const addItem = useCartStore((s) => s.addItem);
   const isViewOnly = useCartStore((s) => s.isViewOnly);
+  const isInactiveTable = useCartStore((s) => s.isInactiveTable || s.tableStatus === 'Inactive');
+  const canAdd = !isViewOnly && !isInactiveTable;
 
   if (!recommendations || recommendations.length === 0) return null;
 
@@ -54,7 +56,7 @@ export default function RecommendationCards({ recommendations = [], items = [] }
               <span className="text-xs font-bold text-primary font-display">
                 ₹{item.price ? item.price.toFixed(2) : '0.00'}
               </span>
-              {!isViewOnly && (
+              {canAdd && (
                 <Button
                   size="sm"
                   variant="outline"

@@ -2,11 +2,13 @@ import { useState } from 'react';
 import { Gift, Award, Star } from 'lucide-react';
 import useCartStore from '../store/cart.store';
 
-export default function LoyaltyWidget({ pointsBalance = 240, membershipTier = 'Gold' }) {
+export default function LoyaltyWidget({ pointsBalance, membershipTier }) {
   const loyaltyPointsRedeemed = useCartStore((s) => s.loyaltyPointsRedeemed);
   const setLoyaltyPointsRedeemed = useCartStore((s) => s.setLoyaltyPointsRedeemed);
 
   const discountVal = (loyaltyPointsRedeemed / 10).toFixed(2);
+  const activePoints = pointsBalance ?? 0;
+  const activeTier = membershipTier || 'Bronze';
 
   return (
     <div className="bg-card border border-border rounded-xl p-4 space-y-3">
@@ -15,20 +17,20 @@ export default function LoyaltyWidget({ pointsBalance = 240, membershipTier = 'G
           <Gift size={16} className="text-amber-500" />
           <span>Loyalty Rewards & Points</span>
         </div>
-        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
-          {membershipTier} Tier
+        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-500/10 dark:text-amber-300 border border-amber-300 dark:border-amber-500/20">
+          {activeTier} Tier
         </span>
       </div>
 
       <div className="flex items-center justify-between text-xs bg-muted/40 p-2.5 rounded-lg">
         <div>
           <span className="text-muted-foreground">Available Balance</span>
-          <p className="text-sm font-bold text-foreground font-display">{pointsBalance} Points</p>
+          <p className="text-sm font-bold text-foreground font-display">{activePoints} Points</p>
         </div>
         <span className="text-[10px] text-muted-foreground">10 points = ₹1</span>
       </div>
 
-      {pointsBalance > 0 && (
+      {activePoints > 0 && (
         <div className="space-y-1.5">
           <div className="flex justify-between text-xs">
             <span className="text-muted-foreground">Redeem Points: {loyaltyPointsRedeemed}</span>
@@ -37,7 +39,7 @@ export default function LoyaltyWidget({ pointsBalance = 240, membershipTier = 'G
           <input
             type="range"
             min="0"
-            max={pointsBalance}
+            max={activePoints}
             step="10"
             value={loyaltyPointsRedeemed}
             onChange={(e) => setLoyaltyPointsRedeemed(Number(e.target.value))}

@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { ShoppingBag, Menu as MenuIcon, User, Star, Lock, LogOut, CheckCircle2, ChevronRight, UserCheck, ShieldCheck, Receipt } from 'lucide-react';
+import { ShoppingBag, Menu as MenuIcon, User, Star, Lock, LogOut, CheckCircle2, ChevronRight, UserCheck, ShieldCheck, Receipt, Award, Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import useCartStore from '../store/cart.store';
+import useCustomerAuthStore from '../store/customerAuth.store';
 import useSocketStore from '@/store/socket.store';
 import CartDrawer from './CartDrawer';
 import CustomerAuthModal from './CustomerAuthModal';
@@ -20,13 +21,19 @@ export default function CustomerLayout({ title, children }) {
     itemCount = 0,
     tableNumber,
     tableId,
-    restaurantId = '66aa11112222333344445555',
+    restaurantId,
     orderType,
     tableHost,
     isViewOnly,
     placedOrders = [],
     signOutHost,
     activeTableSessions,
+    setSessionContext,
+    setSessionId,
+    setPlacedOrders,
+    hostToken,
+    setSessionOrderSummary,
+    sessionOrderSummary = [],
   } = useCartStore();
 
   const connectSocket = useSocketStore((state) => state.connect);
@@ -35,8 +42,15 @@ export default function CustomerLayout({ title, children }) {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [isCallingStaff, setIsCallingStaff] = useState(false);
+  const [callStaffSuccess, setCallStaffSuccess] = useState('');
+
+  const { customer, clearCustomerSession } = useCustomerAuthStore();
+  const [showSignOutToast, setShowSignOutToast] = useState(false);
 
   const activeSessionHostName = tableId && activeTableSessions[tableId]?.hostName;
+  const activeName = customer?.fullName || tableHost?.name || null;
+  const hasOrdersToReview = (placedOrders && placedOrders.length > 0) || (sessionOrderSummary && sessionOrderSummary.length > 0);
 
   // Auto-connect to Socket.IO restaurant tenant room
   useEffect(() => {
@@ -45,30 +59,127 @@ export default function CustomerLayout({ title, children }) {
     }
   }, [restaurantId, connectSocket]);
 
-  // Real-time listener for Force Logout / Table Release from Manager Dashboard
+  // Fetch real active table session from backend on load
+  useEffect(() => {
+    if (!tableId || !restaurantId) return;
+
+    customerApi.getActiveTableSession(restaurantId, tableId)
+      .then((res) => {
+        if (res && res.session) {
+          const session = res.session;
+          if (res.orderSummary) {
+            setSessionOrderSummary(res.orderSummary);
+          }
+
+          const myPhone = customer?.phoneNumber || tableHost?.phone;
+          const isHost = Boolean(hostToken || (myPhone && session.hostPhone && session.hostPhone === myPhone));
+
+          if (isHost) {
+            setSessionId(session._id || session.sessionId);
+            if (res.orders && res.orders.length > 0) {
+              setPlacedOrders(res.orders);
+            }
+            setSessionContext({
+              tableId,
+              tableStatus: 'Occupied',
+              currentHostName: session.hostName,
+              activeSessionId: session._id || session.sessionId,
+            });
+          } else {
+            setSessionContext({
+              tableId,
+              tableStatus: 'Occupied',
+              currentHostName: session.hostName,
+              activeSessionId: session._id || session.sessionId,
+            });
+          }
+        } else {
+          setSessionOrderSummary([]);
+        }
+      })
+      .catch(() => null);
+  }, [tableId, restaurantId, customer?.phoneNumber, tableHost?.phone, hostToken, setSessionId, setPlacedOrders, setSessionContext, setSessionOrderSummary]);
+
+  // Real-time listener for table session start, end & force release
   useEffect(() => {
     if (!socket || !tableId) return;
 
     const handleTableUpdate = (data) => {
-      if (String(data?.tableId) === String(tableId) && data?.status === 'Available') {
+      if (String(data?.tableId) === String(tableId)) {
+        if (data?.status === 'Available' || data?.forceLogout) {
+          signOutHost();
+          clearCustomerSession();
+        }
+      }
+    };
+
+    const handleSessionStarted = (data) => {
+      if (String(data?.tableId) === String(tableId)) {
+        const myPhone = customer?.phoneNumber || tableHost?.phone;
+        if (data.hostPhone && data.hostPhone !== myPhone) {
+          setSessionContext({
+            tableId,
+            tableStatus: 'Occupied',
+            currentHostName: data.hostName,
+            activeSessionId: data.sessionId,
+          });
+        }
+      }
+    };
+
+    const handleSessionEnded = (data) => {
+      if (String(data?.tableId) === String(tableId)) {
         signOutHost();
+        clearCustomerSession();
       }
     };
 
     socket.on('table:updated', handleTableUpdate);
-    return () => socket.off('table:updated', handleTableUpdate);
-  }, [socket, tableId, signOutHost]);
+    socket.on('table:session-started', handleSessionStarted);
+    socket.on('table:session-ended', handleSessionEnded);
+
+    return () => {
+      socket.off('table:updated', handleTableUpdate);
+      socket.off('table:session-started', handleSessionStarted);
+      socket.off('table:session-ended', handleSessionEnded);
+    };
+  }, [socket, tableId, customer?.phoneNumber, tableHost?.phone, setSessionContext, signOutHost, clearCustomerSession]);
+
+  const handleCallStaff = async () => {
+    if (isCallingStaff) return;
+    setIsCallingStaff(true);
+    setCallStaffSuccess('');
+    try {
+      await customerApi.requestAssistance(restaurantId, {
+        tableId,
+        note: tableNumber ? `Table #${tableNumber} requested staff assistance.` : 'Guest requested staff assistance.',
+      });
+      setCallStaffSuccess('Staff alerted! A waiter will assist you shortly.');
+      setTimeout(() => setCallStaffSuccess(''), 4000);
+    } catch (err) {
+      // Graceful fallback
+    } finally {
+      setIsCallingStaff(false);
+    }
+  };
 
   const handleSignOutClick = async () => {
+    const { sessionId } = useCartStore.getState();
     if (placedOrders && placedOrders.length > 0) {
       // SCENARIO A: Food was ordered -> Open Payment Settlement modal!
       setIsPaymentModalOpen(true);
     } else {
       // SCENARIO B: Logged in & logged out WITHOUT ordering -> Immediately release table & end session!
       if (tableId && restaurantId) {
-        await customerApi.releaseTableHost(restaurantId, { tableId }).catch(() => null);
+        if (sessionId) {
+          await customerApi.releaseTableSession(restaurantId, sessionId, { tableId }).catch(() => null);
+        } else {
+          await customerApi.releaseTableHost(restaurantId, { tableId }).catch(() => null);
+        }
       }
       signOutHost();
+      clearCustomerSession();
+      setShowSignOutToast(true);
     }
   };
 
@@ -92,10 +203,24 @@ export default function CustomerLayout({ title, children }) {
         </div>
 
         <div className="flex items-center gap-2">
-          {tableHost ? (
+          {tableNumber && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleCallStaff}
+              disabled={isCallingStaff}
+              className="text-xs gap-1 h-8 text-amber-700 border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 rounded-full font-semibold px-2.5"
+              title="Call Waiter / Staff to Table"
+            >
+              <Bell size={13} className="text-amber-600 animate-pulse" />
+              <span>{isCallingStaff ? 'Notifying...' : 'Call Staff'}</span>
+            </Button>
+          )}
+
+          {activeName ? (
             <div className="flex items-center gap-1.5 bg-primary/10 text-primary px-2.5 py-1 rounded-full text-xs font-semibold">
               <UserCheck size={14} />
-              <span className="max-w-[90px] truncate">{tableHost.name}</span>
+              <span className="max-w-[90px] truncate">{activeName}</span>
               <button
                 onClick={handleSignOutClick}
                 className="ml-1 text-muted-foreground hover:text-destructive"
@@ -132,14 +257,95 @@ export default function CustomerLayout({ title, children }) {
         </div>
       </header>
 
-      {/* SINGLE ACTIVE HOST LOCK ALERT BANNER */}
+      {/* CALL STAFF CONFIRMATION BANNER */}
+      {callStaffSuccess && (
+        <div className="bg-amber-500 text-white px-4 py-2 text-xs flex items-center justify-between font-semibold shadow-xs animate-in slide-in-from-top duration-200">
+          <div className="flex items-center gap-2">
+            <Bell size={15} className="animate-bounce" />
+            <span>{callStaffSuccess}</span>
+          </div>
+          <button onClick={() => setCallStaffSuccess('')} className="text-amber-100 hover:text-white text-xs font-bold">
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* SIGN OUT FEEDBACK BANNER FOR CUSTOMER */}
+      {showSignOutToast && (
+        <div className="bg-emerald-600 text-white px-4 py-2.5 text-xs flex items-center justify-between shadow-sm animate-in slide-in-from-top duration-200">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 size={16} className="shrink-0 text-white" />
+            <div>
+              <p className="font-bold">Signed out successfully!</p>
+              <p className="text-[11px] text-emerald-100">Thank you for dining with us. Share your experience to help us improve!</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button
+              size="sm"
+              onClick={() => {
+                setShowSignOutToast(false);
+                navigate('/menu/feedback');
+              }}
+              className="h-7 text-[11px] font-bold bg-white text-emerald-800 hover:bg-emerald-50 px-2.5 rounded-lg shadow-xs"
+            >
+              Rate Experience
+            </Button>
+            <button
+              onClick={() => setShowSignOutToast(false)}
+              className="text-emerald-200 hover:text-white font-bold text-sm px-1"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* VIEW-ONLY MODE ALERT BANNER */}
       {isViewOnly && (
         <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-2 text-xs text-amber-600 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Lock size={15} className="shrink-0" />
             <span>
-              Table session active with <strong>{activeSessionHostName || 'Table Host'}</strong>. You are in <strong>View-Only Mode</strong>.
+              Table currently active with <strong>{activeSessionHostName || 'another guest'}</strong>. You are in <strong>View-Only Mode</strong>.
             </span>
+          </div>
+        </div>
+      )}
+
+      {/* VIEW-ONLY CURRENT TABLE ORDER SUMMARY */}
+      {isViewOnly && sessionOrderSummary && sessionOrderSummary.length > 0 && (
+        <div className="bg-card border-b border-border px-4 py-3 text-xs space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="font-bold text-foreground flex items-center gap-1.5 font-display">
+              <Receipt size={15} className="text-primary" /> Current Table Order Summary
+            </span>
+            <span className="text-[10px] bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20 font-semibold px-2 py-0.5 rounded-full">
+              {sessionOrderSummary.reduce((acc, o) => acc + (o.items?.length || 0), 0)} Dish(es)
+            </span>
+          </div>
+
+          <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+            {sessionOrderSummary.map((ord, oIdx) => (
+              <div key={oIdx} className="bg-muted/40 border border-border/60 rounded-xl p-2.5 space-y-1.5">
+                <div className="flex items-center justify-between text-[11px] font-bold text-foreground">
+                  <span>Order #{ord.orderNumber}</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 font-semibold">
+                    {ord.orderStatus}
+                  </span>
+                </div>
+                <div className="space-y-1 pl-1 pt-0.5">
+                  {(ord.items || []).map((it, iIdx) => (
+                    <div key={iIdx} className="flex items-center justify-between text-[11px]">
+                      <span className="text-foreground font-medium">{it.quantity}x {it.name}</span>
+                      <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.2 rounded">
+                        {it.kitchenStatus || 'Pending'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -177,7 +383,7 @@ export default function CustomerLayout({ title, children }) {
       {/* Main Content Area */}
       <main className="flex-1 container max-w-2xl py-4 px-4">{children}</main>
 
-      {/* Mobile Sticky Bottom Navigation Bar */}
+      {/* Mobile Sticky Bottom Navigation Bar (Consolidated 4-tab bar) */}
       <nav className="fixed bottom-0 left-0 right-0 z-40 bg-card border-t border-border flex items-center justify-around h-16 sm:hidden">
         <NavLink
           to="/menu/browse"
@@ -190,29 +396,26 @@ export default function CustomerLayout({ title, children }) {
         </NavLink>
 
         <NavLink
-          to="/menu/cart"
-          className={({ isActive }) =>
-            `flex flex-col items-center gap-1 text-xs font-medium relative ${isActive ? 'text-primary' : 'text-muted-foreground'}`
-          }
-        >
-          <ShoppingBag size={18} />
-          <span>Cart</span>
-          {itemCount > 0 && (
-            <span className="absolute -top-1 right-2 bg-primary text-primary-foreground text-[9px] font-bold h-3.5 w-3.5 rounded-full flex items-center justify-center">
-              {itemCount}
-            </span>
-          )}
-        </NavLink>
-
-        <NavLink
-          to="/menu/feedback"
+          to="/customer/loyalty"
           className={({ isActive }) =>
             `flex flex-col items-center gap-1 text-xs font-medium ${isActive ? 'text-primary' : 'text-muted-foreground'}`
           }
         >
-          <Star size={18} />
-          <span>Review</span>
+          <Award size={18} />
+          <span>Loyalty</span>
         </NavLink>
+
+        {hasOrdersToReview && (
+          <NavLink
+            to="/menu/feedback"
+            className={({ isActive }) =>
+              `flex flex-col items-center gap-1 text-xs font-medium ${isActive ? 'text-primary' : 'text-muted-foreground'}`
+            }
+          >
+            <Star size={18} />
+            <span>Review</span>
+          </NavLink>
+        )}
 
         <NavLink
           to="/customer/dashboard"

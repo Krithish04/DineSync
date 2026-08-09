@@ -101,7 +101,9 @@ export default function ReservationForm({
     setError('');
 
     // Validations
-    if (!form.table) return setError('Table is required.');
+    if (!form.table && ['Confirmed', 'Seated'].includes(form.reservationStatus)) {
+      return setError('Table selection is required to confirm or seat a reservation.');
+    }
     if (!form.customerName.trim()) return setError('Customer name is required.');
     if (!form.customerPhone.trim()) return setError('Customer phone number is required.');
     if (form.numberOfGuests < 1) return setError('At least 1 guest is required.');
@@ -121,18 +123,19 @@ export default function ReservationForm({
 
       {/* Table Select */}
       <div className="space-y-2">
-        <Label htmlFor="table">Select Table *</Label>
+        <Label htmlFor="table">
+          Select Table {['Confirmed', 'Seated'].includes(form.reservationStatus) ? '*' : '(Optional for Pending)'}
+        </Label>
         <select
           id="table"
           name="table"
           value={form.table}
           onChange={handleChange}
           className="flex h-10 w-full appearance-none rounded-md border border-input bg-background px-3 py-2 pr-9 text-sm text-foreground shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
-          required
           disabled={isLoadingTables}
         >
-          <option value="" disabled>
-            {isLoadingTables ? 'Loading tables...' : 'Select table...'}
+          <option value="">
+            {isLoadingTables ? 'Loading tables...' : '-- Unassigned / Select Table --'}
           </option>
           {tables.map((t) => (
             <option key={t._id} value={t._id}>

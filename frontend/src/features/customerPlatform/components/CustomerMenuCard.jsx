@@ -26,13 +26,11 @@ const CustomerMenuCard = memo(function CustomerMenuCard({ item }) {
     Jain: 'bg-amber-100 text-amber-800 border-amber-300',
   };
 
-  const handleAddClick = () => {
-    if (isViewOnly) return;
+  const isInactiveTable = useCartStore((s) => s.isInactiveTable || s.tableStatus === 'Inactive');
+  const canAdd = !isViewOnly && !isInactiveTable;
 
-    if (!tableHost) {
-      setShowAuthPromptModal(true);
-      return;
-    }
+  const handleAddClick = () => {
+    if (!canAdd) return;
 
     if (item.modifiers && item.modifiers.length > 0) {
       setShowModifiersModal(true);
@@ -91,7 +89,7 @@ const CustomerMenuCard = memo(function CustomerMenuCard({ item }) {
         <div className="flex items-center justify-between pt-2">
           <p className="text-sm font-bold text-primary font-display">₹{item.price?.toFixed(2)}</p>
 
-          {!isViewOnly && (
+          {canAdd && (
             <Button size="sm" onClick={handleAddClick} className="h-8 text-xs gap-1 px-3">
               <Plus size={14} /> Add {cartQuantity > 0 && `(${cartQuantity})`}
             </Button>

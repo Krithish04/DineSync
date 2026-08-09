@@ -21,6 +21,9 @@ export default function CartDrawer({ isOpen, onClose }) {
     orderType,
   } = useCartStore();
 
+  const isViewOnly = useCartStore((s) => s.isViewOnly);
+  const activeSessionHostName = useCartStore((s) => s.activeSessionHostName);
+
   if (!isOpen) return null;
 
   const subtotal = getSubtotal();
@@ -143,10 +146,19 @@ export default function CartDrawer({ isOpen, onClose }) {
               </div>
             </div>
 
-            <Button onClick={handleCheckout} className="w-full gap-2 text-sm">
-              <span>Proceed to Checkout</span>
-              <ArrowRight size={16} />
-            </Button>
+            {isViewOnly ? (
+              <div className="bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300 rounded-xl p-3 text-xs space-y-1 text-center font-medium">
+                <p className="font-bold">View-Only Mode Active</p>
+                <p className="text-[11px] text-amber-600 dark:text-amber-400">
+                  This table is currently ordering under {activeSessionHostName || 'another diner'}. Only the table host can place orders.
+                </p>
+              </div>
+            ) : (
+              <Button onClick={handleCheckout} className="w-full gap-2 text-sm font-bold">
+                <span>Proceed to Checkout</span>
+                <ArrowRight size={16} />
+              </Button>
+            )}
           </div>
         )}
       </div>

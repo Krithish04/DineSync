@@ -2,14 +2,14 @@ import { useState } from 'react';
 import { Star, Heart, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
-export default function ReviewForm({ onSubmit, isSubmitting = false }) {
+export default function ReviewForm({ onSubmit, isSubmitting = false, customer = null }) {
   const [rating, setRating] = useState(5);
   const [foodRating, setFoodRating] = useState(5);
   const [serviceRating, setServiceRating] = useState(5);
   const [staffRating, setStaffRating] = useState(5);
   const [reviewText, setReviewText] = useState('');
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
+  const [name, setName] = useState(customer?.fullName || '');
+  const [phone, setPhone] = useState(customer?.phoneNumber || '');
 
   const handleSubmit = (e) => {
     e.preventDefault();

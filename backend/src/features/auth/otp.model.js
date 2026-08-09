@@ -5,15 +5,23 @@ const { Schema } = mongoose;
 const OTP_PURPOSES = Object.freeze({
   EMAIL_VERIFICATION: 'email_verification',
   PASSWORD_RESET: 'password_reset',
+  CUSTOMER_LOGIN: 'customer_login',
 });
 
 const otpSchema = new Schema(
   {
     email: {
       type: String,
-      required: true,
+      required: false,
       trim: true,
       lowercase: true,
+      default: null,
+    },
+    phone: {
+      type: String,
+      required: false,
+      trim: true,
+      default: null,
     },
     restaurant: {
       type: Schema.Types.ObjectId,
@@ -51,6 +59,7 @@ const otpSchema = new Schema(
 
 // Fast lookup for the most recent active OTP for a given identity + purpose.
 otpSchema.index({ email: 1, restaurant: 1, purpose: 1, createdAt: -1 });
+otpSchema.index({ phone: 1, restaurant: 1, purpose: 1, createdAt: -1 });
 
 // MongoDB TTL index — automatically deletes documents once expiresAt has passed,
 // so expired/used OTPs don't accumulate.

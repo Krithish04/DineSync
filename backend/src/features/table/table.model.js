@@ -15,6 +15,7 @@ const TABLE_STATUSES = Object.freeze({
   RESERVED: 'Reserved',
   CLEANING: 'Cleaning',
   MAINTENANCE: 'Maintenance',
+  INACTIVE: 'Inactive',
 });
 
 const tableSchema = new Schema(
@@ -59,11 +60,33 @@ const tableSchema = new Schema(
       type: Boolean,
       default: true,
     },
+    currentHostName: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    currentHostPhone: {
+      type: String,
+      trim: true,
+      default: '',
+    },
     notes: {
       type: String,
       trim: true,
       default: '',
     },
+    mergedInto: {
+      type: Schema.Types.ObjectId,
+      ref: 'Table',
+      default: null,
+      index: true,
+    },
+    mergedTables: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: 'Table',
+      },
+    ],
     isDeleted: {
       type: Boolean,
       default: false,
@@ -77,8 +100,11 @@ const tableSchema = new Schema(
   { timestamps: true }
 );
 
-// Unique table number within active tables of a specific restaurant
-tableSchema.index({ restaurant: 1, tableNumber: 1, isDeleted: 1 }, { unique: true });
+// Unique table number within active (non-deleted) tables of a specific restaurant
+tableSchema.index(
+  { restaurant: 1, tableNumber: 1 },
+  { unique: true, partialFilterExpression: { isDeleted: false } }
+);
 
 const TableModel = mongoose.model('Table', tableSchema);
 TableModel.TABLE_TYPES = TABLE_TYPES;

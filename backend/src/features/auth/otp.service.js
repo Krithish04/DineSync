@@ -16,17 +16,22 @@ const OTP_EMAIL_COPY = {
     heading: 'Reset your password',
     body: 'Use the code below to reset your DineSync AI account password.',
   },
+  [OTP_PURPOSES.CUSTOMER_LOGIN]: {
+    subject: 'Your DineSync AI Login Code',
+    heading: 'DineSync Diner Verification',
+    body: 'Use the code below to log in to your diner account.',
+  },
 };
 
 const buildOtpEmailHtml = (purpose, code) => {
-  const copy = OTP_EMAIL_COPY[purpose];
+  const copy = OTP_EMAIL_COPY[purpose] || OTP_EMAIL_COPY[OTP_PURPOSES.EMAIL_VERIFICATION];
   return `
     <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
       <h2 style="color:#b23c17;">${copy.heading}</h2>
       <p>${copy.body}</p>
       <p style="font-size: 32px; font-weight: 700; letter-spacing: 8px; margin: 24px 0;">${code}</p>
       <p style="color:#666; font-size: 13px;">
-        This code expires in ${env.OTP_EXPIRY_MINUTES} minutes. If you didn't request this, you can safely ignore this email.
+        This code expires in ${env.OTP_EXPIRY_MINUTES} minutes. If you didn't request this, you can safely ignore this code.
       </p>
     </div>
   `;
@@ -34,12 +39,15 @@ const buildOtpEmailHtml = (purpose, code) => {
 
 /**
  * Enforces a minimum cooldown between OTP requests for the same
- * email + restaurant + purpose, to prevent spamming the mail provider.
+ * email/phone + restaurant + purpose.
  */
-const assertResendCooldown = async ({ email, restaurantId, purpose }) => {
-  const latest = await Otp.findOne({ email, restaurant: restaurantId, purpose }).sort({
-    createdAt: -1,
-  });
+const assertResendCooldown = async ({ email = null, phone = null, restaurantId = null, purpose }) => {
+  const query = { restaurant: restaurantId, purpose };
+  if (phone) query.phone = phone;
+  else if (email) query.email = email;
+  else return;
+
+  const latest = await Otp.findOne(query).sort({ createdAt: -1 });
 
   if (!latest) return;
 
@@ -52,18 +60,23 @@ const assertResendCooldown = async ({ email, restaurantId, purpose }) => {
 
 /**
  * Generates a new OTP, persists its hash, invalidates any previous
- * unconsumed OTPs for the same identity + purpose, and emails the code.
+ * unconsumed OTPs for the same identity + purpose, and sends/logs the code.
  */
-const createAndSendOtp = async ({ email, restaurantId = null, purpose, skipCooldown = false }) => {
-  if (!skipCooldown) {
-    await assertResendCooldown({ email, restaurantId, purpose });
+const createAndSendOtp = async ({ email = null, phone = null, restaurantId = null, purpose, skipCooldown = false }) => {
+  if (!email && !phone) {
+    throw ApiError.badRequest('Either email or phone is required to generate an OTP.');
   }
 
+  if (!skipCooldown) {
+    await assertResendCooldown({ email, phone, restaurantId, purpose });
+  }
+
+  const invalidateQuery = { restaurant: restaurantId, purpose, consumed: false };
+  if (phone) invalidateQuery.phone = phone;
+  else if (email) invalidateQuery.email = email;
+
   // Invalidate any still-active OTPs of the same purpose for this identity.
-  await Otp.updateMany(
-    { email, restaurant: restaurantId, purpose, consumed: false },
-    { $set: { consumed: true } }
-  );
+  await Otp.updateMany(invalidateQuery, { $set: { consumed: true } });
 
   const code = generateOtpCode();
   const codeHash = hashOtpCode(code);
@@ -71,6 +84,7 @@ const createAndSendOtp = async ({ email, restaurantId = null, purpose, skipCoold
 
   await Otp.create({
     email,
+    phone,
     restaurant: restaurantId,
     purpose,
     codeHash,
@@ -78,14 +92,23 @@ const createAndSendOtp = async ({ email, restaurantId = null, purpose, skipCoold
     maxAttempts: env.OTP_MAX_ATTEMPTS,
   });
 
-  const copy = OTP_EMAIL_COPY[purpose];
-  await sendEmail({
-    to: email,
-    subject: copy.subject,
-    html: buildOtpEmailHtml(purpose, code),
-  });
+  if (phone) {
+    // SMS dispatch logic or dev-mode console logging
+    if (process.env.SMS_PROVIDER) {
+      // Future SMS gateway integration (e.g. Twilio / MSG91)
+    } else {
+      console.log(`[SMS DEV FALLBACK] Sent OTP code ${code} to phone ${phone} for purpose ${purpose}`);
+    }
+  } else if (email) {
+    const copy = OTP_EMAIL_COPY[purpose] || OTP_EMAIL_COPY[OTP_PURPOSES.EMAIL_VERIFICATION];
+    await sendEmail({
+      to: email,
+      subject: copy.subject,
+      html: buildOtpEmailHtml(purpose, code),
+    });
+  }
 
-  return { expiresAt };
+  return { expiresAt, devOtp: !process.env.SMS_PROVIDER ? code : undefined };
 };
 
 /**
@@ -93,13 +116,15 @@ const createAndSendOtp = async ({ email, restaurantId = null, purpose, skipCoold
  * Throws on: no active OTP, expired OTP, too many attempts, or mismatch.
  * On success, marks the OTP as consumed so it cannot be reused.
  */
-const verifyOtp = async ({ email, restaurantId = null, purpose, code }) => {
-  const otpRecord = await Otp.findOne({
-    email,
-    restaurant: restaurantId,
-    purpose,
-    consumed: false,
-  }).sort({ createdAt: -1 });
+const verifyOtp = async ({ email = null, phone = null, restaurantId = null, purpose, code }) => {
+  const query = { restaurant: restaurantId, purpose, consumed: false };
+  if (phone) query.phone = phone;
+  else if (email) query.email = email;
+  else {
+    throw ApiError.badRequest('Either email or phone is required to verify OTP.');
+  }
+
+  const otpRecord = await Otp.findOne(query).sort({ createdAt: -1 });
 
   if (!otpRecord) {
     throw ApiError.badRequest('No active verification code found. Please request a new one.');

@@ -16,23 +16,63 @@ const getPublicMenu = asyncHandler(async (req, res) => {
   return new ApiResponse(200, data, 'Public digital menu fetched successfully').send(res);
 });
 
+const getActiveTableSession = asyncHandler(async (req, res) => {
+  const hostToken = req.cookies?.hostToken || req.headers['x-host-token'];
+  const data = await customerExperienceService.getActiveTableSession(req.params.restaurantId, req.params.tableId, hostToken);
+  return new ApiResponse(200, data, 'Active table session fetched successfully').send(res);
+});
+
 const placeCustomerOrder = asyncHandler(async (req, res) => {
-  const order = await customerExperienceService.placeCustomerOrder(req.params.restaurantId, req.body);
+  const customerId = req.user ? req.user.id : null;
+  const hostToken = req.cookies?.hostToken || req.headers['x-host-token'] || req.body.hostToken;
+  const payload = {
+    ...req.body,
+    hostToken,
+  };
+  const order = await customerExperienceService.placeCustomerOrder(req.params.restaurantId, payload, customerId);
   return new ApiResponse(201, { order }, 'Customer order placed successfully').send(res);
 });
 
 const claimTableHost = asyncHandler(async (req, res) => {
-  const table = await customerExperienceService.claimTableHost(req.params.restaurantId, req.body);
-  return new ApiResponse(200, { table }, 'Table host claimed successfully').send(res);
+  const data = await customerExperienceService.claimTableHost(req.params.restaurantId, req.body, req.user);
+  if (data?.hostToken) {
+    res.cookie('hostToken', data.hostToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+    });
+  }
+  return new ApiResponse(200, data, 'Table session claimed successfully').send(res);
+});
+
+const settleTableSession = asyncHandler(async (req, res) => {
+  const data = await customerExperienceService.settleTableSession(req.params.restaurantId, req.params.sessionId, req.body);
+  res.clearCookie('hostToken');
+  return new ApiResponse(200, data, 'Table session settled successfully').send(res);
+});
+
+const releaseTableSession = asyncHandler(async (req, res) => {
+  const data = await customerExperienceService.releaseTableSession(req.params.restaurantId, {
+    sessionId: req.params.sessionId,
+    tableId: req.body?.tableId || req.query?.tableId,
+  });
+  res.clearCookie('hostToken');
+  return new ApiResponse(200, data, 'Table session released successfully').send(res);
 });
 
 const releaseTableHost = asyncHandler(async (req, res) => {
-  const table = await customerExperienceService.releaseTableHost(req.params.restaurantId, req.body);
-  return new ApiResponse(200, { table }, 'Table host released successfully').send(res);
+  const data = await customerExperienceService.releaseTableHost(req.params.restaurantId, req.body);
+  res.clearCookie('hostToken');
+  return new ApiResponse(200, data, 'Table host released successfully').send(res);
 });
 
 const trackLiveOrder = asyncHandler(async (req, res) => {
-  const data = await customerExperienceService.trackLiveOrder(req.params.restaurantId, req.params.orderId);
+  const customerId = req.user ? req.user.id : null;
+  const hostToken = req.cookies?.hostToken || req.headers['x-host-token'];
+  const data = await customerExperienceService.trackLiveOrder(req.params.restaurantId, req.params.orderId, {
+    customerId,
+    hostToken,
+  });
   return new ApiResponse(200, data, 'Order live tracking details fetched').send(res);
 });
 
@@ -56,15 +96,39 @@ const requestAssistance = asyncHandler(async (req, res) => {
   return new ApiResponse(200, data, 'Assistance requested successfully').send(res);
 });
 
+const getActiveTableOrders = asyncHandler(async (req, res) => {
+  const hostToken = req.cookies?.hostToken || req.headers['x-host-token'];
+  const data = await customerExperienceService.getActiveTableOrders(req.params.restaurantId, req.params.tableId, hostToken);
+  return new ApiResponse(200, data, 'Active table orders fetched successfully').send(res);
+});
+
+const createCustomerReservation = asyncHandler(async (req, res) => {
+  const customerId = req.user ? req.user.id : null;
+  const data = await customerExperienceService.createCustomerReservation(req.params.restaurantId, req.body, customerId);
+  return new ApiResponse(201, data, 'Table reservation request submitted successfully').send(res);
+});
+
+const getMyCustomerReservations = asyncHandler(async (req, res) => {
+  const customerId = req.user ? req.user.id : null;
+  const data = await customerExperienceService.getMyCustomerReservations(req.params.restaurantId, customerId);
+  return new ApiResponse(200, data, 'Customer reservations fetched successfully').send(res);
+});
+
 module.exports = {
   resolveQrCode,
   getPublicMenu,
+  getActiveTableSession,
   placeCustomerOrder,
   claimTableHost,
+  settleTableSession,
+  releaseTableSession,
   releaseTableHost,
   trackLiveOrder,
   payCustomerOrder,
   cancelCustomerOrder,
   submitCustomerFeedback,
   requestAssistance,
+  getActiveTableOrders,
+  createCustomerReservation,
+  getMyCustomerReservations,
 };

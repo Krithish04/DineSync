@@ -7,6 +7,11 @@ const { ROLES } = require('../constants/roles.constant');
 /**
  * Extracts a bearer token from the Authorization header or the httpOnly cookie.
  */
+const Customer = require('../features/customer/customer.model');
+
+/**
+ * Extracts a bearer token from the Authorization header or the httpOnly cookie.
+ */
 const extractToken = (req) => {
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith('Bearer ')) {
@@ -19,7 +24,7 @@ const extractToken = (req) => {
 };
 
 /**
- * Verifies the JWT, loads the user, and attaches it to req.user.
+ * Verifies the JWT, loads the user/customer, and attaches it to req.user.
  * Also attaches req.tenantId derived from the token for convenience.
  */
 const protect = asyncHandler(async (req, res, next) => {
@@ -30,6 +35,27 @@ const protect = asyncHandler(async (req, res, next) => {
   }
 
   const decoded = verifyToken(token);
+
+  if (decoded.role === ROLES.CUSTOMER || decoded.role === 'customer') {
+    const customer = await Customer.findById(decoded.id);
+    if (!customer) {
+      throw ApiError.unauthorized('Customer belonging to this token no longer exists.');
+    }
+    if (customer.isActive === false || customer.isDeleted) {
+      throw ApiError.forbidden('This customer account has been deactivated.');
+    }
+
+    req.user = {
+      id: customer._id.toString(),
+      _id: customer._id,
+      role: ROLES.CUSTOMER,
+      restaurant: customer.restaurant,
+      fullName: customer.fullName,
+      phoneNumber: customer.phoneNumber,
+    };
+    req.tenantId = customer.restaurant ? customer.restaurant.toString() : null;
+    return next();
+  }
 
   const user = await User.findById(decoded.id).select('-password');
   if (!user) {

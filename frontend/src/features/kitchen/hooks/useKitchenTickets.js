@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { io } from 'socket.io-client';
 import useAuthStore from '@/features/auth/store/auth.store';
+import { playKitchenAlertSound } from '@/utils/soundAlert.util';
 import * as kitchenApi from '../api/kitchen.api';
 
 export const STATIONS = ['Main Kitchen', 'Tandoor', 'Bar', 'Dessert', 'Beverage'];
@@ -69,31 +70,48 @@ export function useKitchenTickets() {
     });
 
     socket.on('kitchen:tickets_created', (newTickets) => {
-      const matched = newTickets.filter((t) => t.station === selectedStation);
+      playKitchenAlertSound();
+      const ticketsArray = Array.isArray(newTickets) ? newTickets : [newTickets];
+      const matched = ticketsArray.filter((t) => t.station === selectedStation && t.status !== 'Served');
 
       if (matched.length > 0) {
         setTickets((prev) => {
-          const filterNew = matched.filter((m) => !prev.some((p) => p._id === m._id));
-          return [...prev, ...filterNew];
+          const updated = [...prev];
+          matched.forEach((m) => {
+            const idx = updated.findIndex((p) => String(p._id) === String(m._id));
+            if (idx >= 0) {
+              updated[idx] = m;
+            } else {
+              updated.push(m);
+            }
+          });
+          return updated;
         });
 
         kitchenApi.getKitchenStats(restaurantId).then(setStats).catch(() => {});
       }
+      loadKDSData();
+    });
+
+    socket.on('order:created', () => {
+      playKitchenAlertSound();
+      loadKDSData();
     });
 
     socket.on('kitchen:ticket_updated', (updatedTicket) => {
       const isCorrectStation = updatedTicket.station === selectedStation;
+      const isServed = updatedTicket.status === 'Served';
 
       setTickets((prev) => {
-        const exists = prev.some((t) => t._id === updatedTicket._id);
+        const exists = prev.some((t) => String(t._id) === String(updatedTicket._id));
+
+        if (isServed || !isCorrectStation) {
+          return prev.filter((t) => String(t._id) !== String(updatedTicket._id));
+        }
 
         if (exists) {
-          if (['Served'].includes(updatedTicket.status) || !isCorrectStation) {
-            return prev.filter((t) => t._id !== updatedTicket._id);
-          } else {
-            return prev.map((t) => (t._id === updatedTicket._id ? updatedTicket : t));
-          }
-        } else if (['Pending', 'Preparing', 'Ready', 'Delayed'].includes(updatedTicket.status) && isCorrectStation) {
+          return prev.map((t) => (String(t._id) === String(updatedTicket._id) ? updatedTicket : t));
+        } else if (['Pending', 'Preparing', 'Ready', 'Delayed'].includes(updatedTicket.status)) {
           return [...prev, updatedTicket];
         }
         return prev;
@@ -105,7 +123,7 @@ export function useKitchenTickets() {
     return () => {
       socket.disconnect();
     };
-  }, [restaurantId, selectedStation]);
+  }, [restaurantId, selectedStation, loadKDSData]);
 
   // Full Screen toggle
   const toggleFullscreen = () => {
@@ -121,9 +139,9 @@ export function useKitchenTickets() {
     try {
       const updated = await kitchenApi.updateTicketStatus(restaurantId, ticketId, newStatus);
       if (newStatus === 'Served') {
-        setTickets((prev) => prev.filter((t) => t._id !== ticketId));
+        setTickets((prev) => prev.filter((t) => String(t._id) !== String(ticketId)));
       } else {
-        setTickets((prev) => prev.map((t) => (t._id === ticketId ? updated : t)));
+        setTickets((prev) => prev.map((t) => (String(t._id) === String(ticketId) ? updated : t)));
       }
 
       const newStats = await kitchenApi.getKitchenStats(restaurantId);
@@ -140,7 +158,15 @@ export function useKitchenTickets() {
   const handleItemStatusChange = async (ticketId, itemId, itemStatus) => {
     try {
       const updated = await kitchenApi.updateTicketItemStatus(restaurantId, ticketId, itemId, itemStatus);
-      setTickets((prev) => prev.map((t) => (t._id === ticketId ? updated : t)));
+      setTickets((prev) => {
+        if (updated.status === 'Served') {
+          return prev.filter((t) => String(t._id) !== String(ticketId));
+        }
+        return prev.map((t) => (String(t._id) === String(ticketId) ? updated : t));
+      });
+
+      const newStats = await kitchenApi.getKitchenStats(restaurantId);
+      setStats(newStats);
     } catch {
       // Non-fatal
     }

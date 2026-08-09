@@ -128,8 +128,10 @@ const kitchenTicketSchema = new Schema(
   { timestamps: true }
 );
 
-// Compound Index for KDS query acceleration
+// Compound Index for KDS query acceleration & duplicate prevention
 kitchenTicketSchema.index({ restaurant: 1, status: 1 });
+kitchenTicketSchema.index({ restaurant: 1, order: 1, station: 1 }, { unique: true });
+kitchenTicketSchema.index({ restaurant: 1, ticketNumber: 1 }, { unique: true });
 
 const KitchenTicketModel = mongoose.model('KitchenTicket', kitchenTicketSchema);
 KitchenTicketModel.STATIONS = STATIONS;

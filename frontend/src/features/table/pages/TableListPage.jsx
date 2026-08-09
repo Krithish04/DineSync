@@ -8,6 +8,9 @@ import { Button } from '@/components/ui/button';
 import Loader from '@/components/common/Loader';
 import TableCard from '../components/TableCard';
 import QrCodeModal from '../components/QrCodeModal';
+import TableOrderDetailModal from '../components/TableOrderDetailModal';
+import MergeTablesModal from '../components/MergeTablesModal';
+import { Layers } from 'lucide-react';
 import useAuthStore from '@/features/auth/store/auth.store';
 import useSocketStore from '@/store/socket.store';
 import * as tableApi from '../api/table.api';
@@ -33,8 +36,10 @@ export default function TableListPage() {
   const [page, setPage] = useState(1);
   const limit = 12;
 
-  // QR Modal state
+  // QR Modal, Order Detail Modal & Merge Modal state
   const [selectedQrTable, setSelectedQrTable] = useState(null);
+  const [selectedOrderTable, setSelectedOrderTable] = useState(null);
+  const [isMergeModalOpen, setIsMergeModalOpen] = useState(false);
 
   // Auto-connect to Socket.IO restaurant room
   useEffect(() => {
@@ -128,6 +133,34 @@ export default function TableListPage() {
     }
   };
 
+  // Handle Unmerge
+  const handleUnmerge = async (table) => {
+    if (!window.confirm(`Are you sure you want to unmerge Table #${table.tableNumber} seating group?`)) return;
+
+    try {
+      await tableApi.unmergeTables(restaurantId, table._id);
+      setSuccess(`Table #${table.tableNumber} seating group unmerged successfully.`);
+      loadTables();
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Failed to unmerge tables.';
+      if (msg.includes('active orders') || msg.includes('ongoing diner session')) {
+        if (window.confirm(`${msg}\n\nDo you want to FORCE unmerge this table group anyway?`)) {
+          try {
+            await tableApi.unmergeTables(restaurantId, table._id, true);
+            setSuccess(`Table #${table.tableNumber} force unmerged successfully.`);
+            loadTables();
+            setTimeout(() => setSuccess(''), 3000);
+          } catch (forceErr) {
+            setError(forceErr.response?.data?.message || 'Force unmerge failed.');
+          }
+        }
+      } else {
+        setError(msg);
+      }
+    }
+  };
+
   return (
     <RestaurantLayout
       title="Restaurant Management"
@@ -140,9 +173,14 @@ export default function TableListPage() {
             <CardDescription>Setup and monitor dining seating, status, and download QR codes.</CardDescription>
           </div>
           {canManage && (
-            <Button size="sm" onClick={() => navigate('/restaurant/tables/new')}>
-              <Plus className="mr-1.5 h-4 w-4" /> Add Table
-            </Button>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" onClick={() => setIsMergeModalOpen(true)} className="gap-1.5 border-purple-500/30 text-purple-600 dark:text-purple-400">
+                <Layers className="h-4 w-4" /> Merge Tables
+              </Button>
+              <Button size="sm" onClick={() => navigate('/restaurant/tables/new')}>
+                <Plus className="mr-1.5 h-4 w-4" /> Add Table
+              </Button>
+            </div>
           )}
         </CardHeader>
         <CardContent>
@@ -185,6 +223,7 @@ export default function TableListPage() {
                 <option value="Reserved">Reserved</option>
                 <option value="Cleaning">Cleaning</option>
                 <option value="Maintenance">Maintenance</option>
+                <option value="Inactive">Inactive</option>
               </select>
               <Filter className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             </div>
@@ -218,6 +257,8 @@ export default function TableListPage() {
                     onDelete={handleDelete}
                     onQrClick={(t) => setSelectedQrTable(t)}
                     onStatusChange={handleStatusChange}
+                    onViewOrder={(t) => setSelectedOrderTable(t)}
+                    onUnmerge={handleUnmerge}
                     canManage={canManage}
                   />
                 ))}
@@ -261,6 +302,25 @@ export default function TableListPage() {
           onClose={() => setSelectedQrTable(null)}
         />
       )}
+
+      {/* Table Active Session Order Detail Modal */}
+      {selectedOrderTable && (
+        <TableOrderDetailModal
+          isOpen={!!selectedOrderTable}
+          onClose={() => setSelectedOrderTable(null)}
+          table={selectedOrderTable}
+          restaurantId={restaurantId}
+        />
+      )}
+
+      {/* Merge Tables Modal */}
+      <MergeTablesModal
+        isOpen={isMergeModalOpen}
+        onClose={() => setIsMergeModalOpen(false)}
+        tables={tables}
+        restaurantId={restaurantId}
+        onSuccess={loadTables}
+      />
     </RestaurantLayout>
   );
 }

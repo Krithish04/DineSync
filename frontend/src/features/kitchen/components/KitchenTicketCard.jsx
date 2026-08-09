@@ -14,8 +14,10 @@ export default function KitchenTicketCard({
   onStatusChange,
   onItemStatusChange,
   isDraggable = true,
+  isReadOnly = false,
 }) {
   const [elapsed, setElapsed] = useState('');
+  const canDrag = isDraggable && !isReadOnly;
 
   // Helper to compute ticking time elapsed
   useEffect(() => {
@@ -35,7 +37,7 @@ export default function KitchenTicketCard({
   }, [ticket.createdAt]);
 
   const handleDragStart = (e) => {
-    if (isDraggable) {
+    if (canDrag) {
       e.dataTransfer.setData('text/plain', ticket._id);
     }
   };
@@ -51,11 +53,11 @@ export default function KitchenTicketCard({
 
   return (
     <Card
-      draggable={isDraggable}
+      draggable={canDrag}
       onDragStart={handleDragStart}
       className={`relative overflow-hidden transition-all duration-200 border border-border/80 shadow-sm ${
         PRIORITY_THEMES[currentHighestPriority]
-      } ${isDraggable ? 'cursor-grab active:cursor-grabbing' : ''}`}
+      } ${canDrag ? 'cursor-grab active:cursor-grabbing' : ''}`}
     >
       <CardContent className="p-4 space-y-4">
         {/* Ticket Header: No, Table & Timer */}
@@ -95,8 +97,8 @@ export default function KitchenTicketCard({
                   {item.itemName} <span className="font-mono text-primary font-bold">x{item.quantity}</span>
                 </span>
                 
-                {/* Individual item check triggers */}
-                {onItemStatusChange && (
+                {/* Individual item check triggers (Hidden in read-only mode) */}
+                {!isReadOnly && onItemStatusChange && (
                   <div className="flex items-center gap-1">
                     {item.kitchenStatus === 'Pending' && (
                       <button
@@ -142,68 +144,70 @@ export default function KitchenTicketCard({
           ))}
         </div>
 
-        {/* Footer actions: advancing entire ticket status */}
-        <div className="flex gap-1.5 border-t border-border/40 pt-2.5">
-          {ticket.status === 'Pending' && (
-            <Button
-              size="xs"
-              className="w-full text-[10px] h-7 gap-1"
-              onClick={() => onStatusChange(ticket._id, 'Preparing')}
-            >
-              <Play className="h-3 w-3" /> Start Cooking
-            </Button>
-          )}
-
-          {ticket.status === 'Preparing' && (
-            <>
+        {/* Footer actions: advancing entire ticket status (Hidden in read-only mode) */}
+        {!isReadOnly && onStatusChange && (
+          <div className="flex gap-1.5 border-t border-border/40 pt-2.5">
+            {ticket.status === 'Pending' && (
               <Button
                 size="xs"
-                className="flex-1 text-[10px] h-7 gap-1 bg-purple-600 hover:bg-purple-700"
-                onClick={() => onStatusChange(ticket._id, 'Ready')}
-              >
-                <CheckCircle2 className="h-3 w-3" /> Mark Ready
-              </Button>
-              <Button
-                size="xs"
-                variant="outline"
-                className="text-[10px] h-7 border-rose-200 text-rose-700 hover:bg-rose-50"
-                onClick={() => onStatusChange(ticket._id, 'Delayed')}
-              >
-                <AlertTriangle className="h-3 w-3" /> Delay
-              </Button>
-            </>
-          )}
-
-          {ticket.status === 'Delayed' && (
-            <Button
-              size="xs"
-              className="w-full text-[10px] h-7 gap-1"
-              onClick={() => onStatusChange(ticket._id, 'Preparing')}
-            >
-              <Play className="h-3 w-3" /> Resume Cooking
-            </Button>
-          )}
-
-          {ticket.status === 'Ready' && (
-            <>
-              <Button
-                size="xs"
-                className="flex-1 text-[10px] h-7 gap-1 bg-teal-600 hover:bg-teal-700"
-                onClick={() => onStatusChange(ticket._id, 'Served')}
-              >
-                <UserCheck className="h-3 w-3" /> Serve
-              </Button>
-              <Button
-                size="xs"
-                variant="ghost"
-                className="text-[10px] h-7"
+                className="w-full text-[10px] h-7 gap-1"
                 onClick={() => onStatusChange(ticket._id, 'Preparing')}
               >
-                Recall
+                <Play className="h-3 w-3" /> Start Cooking
               </Button>
-            </>
-          )}
-        </div>
+            )}
+
+            {ticket.status === 'Preparing' && (
+              <>
+                <Button
+                  size="xs"
+                  className="flex-1 text-[10px] h-7 gap-1 bg-purple-600 hover:bg-purple-700"
+                  onClick={() => onStatusChange(ticket._id, 'Ready')}
+                >
+                  <CheckCircle2 className="h-3 w-3" /> Mark Ready
+                </Button>
+                <Button
+                  size="xs"
+                  variant="outline"
+                  className="text-[10px] h-7 border-rose-200 text-rose-700 hover:bg-rose-50"
+                  onClick={() => onStatusChange(ticket._id, 'Delayed')}
+                >
+                  <AlertTriangle className="h-3 w-3" /> Delay
+                </Button>
+              </>
+            )}
+
+            {ticket.status === 'Delayed' && (
+              <Button
+                size="xs"
+                className="w-full text-[10px] h-7 gap-1"
+                onClick={() => onStatusChange(ticket._id, 'Preparing')}
+              >
+                <Play className="h-3 w-3" /> Resume Cooking
+              </Button>
+            )}
+
+            {ticket.status === 'Ready' && (
+              <>
+                <Button
+                  size="xs"
+                  className="flex-1 text-[10px] h-7 gap-1 bg-teal-600 hover:bg-teal-700"
+                  onClick={() => onStatusChange(ticket._id, 'Served')}
+                >
+                  <UserCheck className="h-3 w-3" /> Serve
+                </Button>
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  className="text-[10px] h-7"
+                  onClick={() => onStatusChange(ticket._id, 'Preparing')}
+                >
+                  Recall
+                </Button>
+              </>
+            )}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

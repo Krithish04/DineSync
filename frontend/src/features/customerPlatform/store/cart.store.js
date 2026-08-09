@@ -32,10 +32,14 @@ const useCartStore = create(
       loyaltyPointsRedeemed: 0,
 
       // Customer Table Host & Session Locking State
+      sessionId: null,
+      hostToken: null,
       tableHost: null, // { name, phone, verified: true }
-      activeTableSessions: {}, // { [tableId]: { hostName, hostPhone, startedAt } }
+      activeTableSessions: {}, // { [tableId]: { hostName, hostPhone, startedAt, sessionId } }
       isViewOnly: false,
+      isInactiveTable: false,
       placedOrders: [], // [{ _id, orderNumber, grandTotal, itemsCount, createdAt }]
+      sessionOrderSummary: [], // [{ orderId, orderNumber, orderStatus, createdAt, items }]
 
       // Geolocation Safety State (In-Restaurant Verification)
       userLocation: {
@@ -48,26 +52,28 @@ const useCartStore = create(
       restaurantCoords: { lat: 19.076, lng: 72.8777 }, // Default restaurant location (Mumbai center)
       allowedRadiusMeters: 500, // 500-meter safety geofence radius
 
-      setSessionContext: ({ restaurantId, tableId, tableNumber, tableStatus, orderType }) =>
+      setSessionContext: (payload = {}) =>
         set((state) => {
+          const { restaurantId, tableId, tableNumber, tableStatus, orderType, isInactive, currentHostName, currentHostPhone, activeSessionId } = payload;
           const nextTableId = tableId !== undefined ? tableId : state.tableId;
           const nextTableNumber = tableNumber !== undefined ? tableNumber : state.tableNumber;
           const nextTableStatus = tableStatus || state.tableStatus;
+          const isInactiveTable = nextTableStatus === 'Inactive' || !!isInactive;
+
+          // Check if table is occupied by a different diner host or if diner lacks host token for nextTableId
+          const hostPhone = currentHostPhone || (nextTableId ? state.activeTableSessions[nextTableId]?.hostPhone : null);
+          const isOccupiedByOther = nextTableStatus === 'Occupied' &&
+            (!state.tableHost || (hostPhone && state.tableHost.phone !== hostPhone));
+          
+          // URL edit check: If diner changed tableId away from their claimed table session, force view-only mode
+          const isTamperedTableId = state.tableId && nextTableId && String(state.tableId) !== String(nextTableId) && !state.activeTableSessions[nextTableId];
 
           // Calculate view-only mode
-          let isViewOnly = state.userLocation.isOutside;
+          let isViewOnly = state.userLocation.isOutside || isInactiveTable || isOccupiedByOther || isTamperedTableId;
 
-          if (!state.userLocation.isOutside) {
+          if (!state.userLocation.isOutside && !isInactiveTable && !isOccupiedByOther && !isTamperedTableId) {
             if (state.tableHost) {
-              // Current diner IS the logged-in Table Host -> ALWAYS allow ordering loop!
               isViewOnly = false;
-            } else if (nextTableId && state.activeTableSessions[nextTableId]) {
-              const activeSession = state.activeTableSessions[nextTableId];
-              if (state.tableHost?.phone !== activeSession.hostPhone) {
-                isViewOnly = true;
-              }
-            } else if (nextTableStatus === 'Occupied') {
-              isViewOnly = true;
             }
           }
 
@@ -76,16 +82,39 @@ const useCartStore = create(
             tableId: nextTableId,
             tableNumber: nextTableNumber,
             tableStatus: nextTableStatus,
+            isInactiveTable,
             orderType: orderType || state.orderType,
             isViewOnly,
+            sessionId: activeSessionId || state.sessionId,
+            activeSessionHostName: currentHostName || (nextTableId ? state.activeTableSessions[nextTableId]?.hostName : null),
           };
+        }),
+
+      hasValidContext: () => {
+        const { restaurantId, tableId } = get();
+        return Boolean(restaurantId && tableId);
+      },
+
+      setSessionId: (sessionId) => set({ sessionId }),
+      setHostToken: (hostToken) => set({ hostToken }),
+      setSessionOrderSummary: (summary = []) => set({ sessionOrderSummary: summary }),
+
+      setPlacedOrders: (orders = []) =>
+        set({
+          placedOrders: orders.map((o) => ({
+            _id: o._id,
+            orderNumber: o.orderNumber,
+            grandTotal: o.grandTotal,
+            itemsCount: o.items ? o.items.length : 1,
+            createdAt: o.createdAt,
+          })),
         }),
 
       setLocationStatus: ({ lat, lng, isOutside, distanceMeters }) =>
         set((state) => {
-          let isViewOnly = isOutside;
+          let isViewOnly = isOutside || state.isInactiveTable;
 
-          if (!isOutside) {
+          if (!isOutside && !state.isInactiveTable) {
             if (state.tableHost) {
               isViewOnly = false;
             } else if (state.tableId && state.activeTableSessions[state.tableId]) {
@@ -110,16 +139,17 @@ const useCartStore = create(
           };
         }),
 
-      loginTableHost: ({ name, phone }) =>
+      loginTableHost: ({ name, phone, sessionId, hostToken }) =>
         set((state) => {
-          const { tableId, userLocation } = state;
-          if (userLocation.isOutside) return state;
+          const { tableId, userLocation, isInactiveTable } = state;
+          if (userLocation.isOutside || isInactiveTable) return state;
 
           const hostData = { name, phone, verified: true, loggedInAt: new Date().toISOString() };
 
           let activeTableSessions = { ...state.activeTableSessions };
           if (tableId) {
             activeTableSessions[tableId] = {
+              sessionId: sessionId || state.sessionId,
               hostName: name,
               hostPhone: phone,
               startedAt: new Date().toISOString(),
@@ -127,6 +157,8 @@ const useCartStore = create(
           }
 
           return {
+            sessionId: sessionId || state.sessionId,
+            hostToken: hostToken || state.hostToken,
             tableHost: hostData,
             tableStatus: 'Occupied',
             activeTableSessions,
@@ -143,6 +175,8 @@ const useCartStore = create(
           }
 
           return {
+            sessionId: null,
+            hostToken: null,
             tableHost: null,
             tableStatus: 'Available',
             items: [],
@@ -150,7 +184,8 @@ const useCartStore = create(
             appliedCoupon: null,
             loyaltyPointsRedeemed: 0,
             placedOrders: [],
-            isViewOnly: state.userLocation.isOutside,
+            sessionOrderSummary: [],
+            isViewOnly: state.userLocation.isOutside || state.isInactiveTable,
             activeTableSessions,
           };
         }),
@@ -158,7 +193,7 @@ const useCartStore = create(
       addPlacedOrder: (order) =>
         set((state) => ({
           tableStatus: 'Occupied',
-          isViewOnly: state.userLocation.isOutside ? true : false, // Keep ordering active for logged in host!
+          isViewOnly: state.userLocation.isOutside || state.isInactiveTable ? true : false,
           placedOrders: [
             ...state.placedOrders,
             {
@@ -173,7 +208,7 @@ const useCartStore = create(
 
       addItem: (menuItem, quantity = 1, selectedModifiers = [], instructions = '') =>
         set((state) => {
-          if (state.isViewOnly) return state; // Lock ordering for view-only or outside users
+          if (state.isViewOnly || state.isInactiveTable || state.userLocation.isOutside) return state; // Lock ordering only for users outside geofence
 
           const modifierTotal = selectedModifiers.reduce((s, m) => s + (m.price || 0), 0);
           const unitPrice = menuItem.price + modifierTotal;

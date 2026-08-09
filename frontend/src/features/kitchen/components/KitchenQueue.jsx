@@ -7,16 +7,19 @@ export default function KitchenQueue({
   onTicketDrop,
   onStatusChange,
   onItemStatusChange,
+  isReadOnly = false,
 }) {
   const handleDragOver = (e) => {
-    e.preventDefault(); // Required to allow dropping!
+    if (!isReadOnly) e.preventDefault();
   };
 
   const handleDrop = (e) => {
-    e.preventDefault();
-    const ticketId = e.dataTransfer.getData('text/plain');
-    if (ticketId && onTicketDrop) {
-      onTicketDrop(ticketId, status);
+    if (!isReadOnly) {
+      e.preventDefault();
+      const ticketId = e.dataTransfer.getData('text/plain');
+      if (ticketId && onTicketDrop) {
+        onTicketDrop(ticketId, status);
+      }
     }
   };
 
@@ -42,7 +45,8 @@ export default function KitchenQueue({
             ticket={t}
             onStatusChange={onStatusChange}
             onItemStatusChange={onItemStatusChange}
-            isDraggable={true}
+            isDraggable={!isReadOnly}
+            isReadOnly={isReadOnly}
           />
         ))}
 

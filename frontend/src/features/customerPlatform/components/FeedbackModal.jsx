@@ -10,7 +10,7 @@ import * as customerApi from '../api/customerPlatform.api';
  */
 export default function FeedbackModal({ isOpen, onClose }) {
   const {
-    restaurantId = '66aa11112222333344445555',
+    restaurantId,
     tableId,
     tableNumber,
     tableHost,

@@ -42,7 +42,8 @@ export default function QrLandingPage() {
         const res = await customerApi.resolveQrCode(restaurantId, { branchId: queryBranchId, tableId, type });
         setSession(res);
 
-        const tableStatus = res.table?.status || res.tableStatus || 'Available';
+        const isInactive = res.isInactive || res.tableStatus === 'Inactive' || res.table?.isActive === false;
+        const tableStatus = isInactive ? 'Inactive' : (res.table?.status || res.tableStatus || 'Available');
 
         setSessionContext({
           restaurantId: res.restaurantId,
@@ -50,6 +51,9 @@ export default function QrLandingPage() {
           tableId: res.tableId || res.table?._id || tableId,
           tableNumber: res.tableNumber || res.table?.tableNumber || null,
           tableStatus,
+          isInactive,
+          currentHostName: res.currentHostName || res.table?.currentHostName,
+          currentHostPhone: res.currentHostPhone || res.table?.currentHostPhone,
           orderType: res.type || 'Dine-In',
         });
       } catch (err) {
@@ -62,11 +66,14 @@ export default function QrLandingPage() {
     resolve();
   }, [restaurantId, queryBranchId, tableId, type, setSessionContext, navigate]);
 
-  const isTableOccupied = session?.table?.status === 'Occupied' || session?.tableStatus === 'Occupied';
+  const isTableInactive = session?.isInactive || session?.tableStatus === 'Inactive' || session?.table?.isActive === false;
+  const isTableOccupied = !isTableInactive && (session?.table?.status === 'Occupied' || session?.tableStatus === 'Occupied');
   const isCurrentHost = tableHost && isTableOccupied;
 
   const handleStartOrdering = () => {
-    if (isTableOccupied && !isCurrentHost) {
+    if (isTableInactive) {
+      navigate('/menu/browse');
+    } else if (isTableOccupied && !isCurrentHost) {
       // Navigate to digital menu in View-Only mode
       navigate('/menu/browse');
     } else {
@@ -111,7 +118,7 @@ export default function QrLandingPage() {
                 {session.restaurant?.name || 'Welcome to DineSync AI'}
               </h2>
               <p className="text-xs text-muted-foreground mt-1">
-                {session.branch ? `${session.branch.name} Branch` : 'Digital Ordering'}
+                {session.branch ? `${session.branch.name} Branch` : 'Digital Menu'}
               </p>
             </div>
 
@@ -122,7 +129,17 @@ export default function QrLandingPage() {
                   <span>Table #{session.table?.tableNumber || session.tableNumber} ({session.table?.tableName || 'Dining Table'})</span>
                 </div>
 
-                {isTableOccupied && !isCurrentHost ? (
+                {isTableInactive ? (
+                  <div className="bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 rounded-lg p-2.5 text-xs text-left space-y-1">
+                    <div className="flex items-center gap-1.5 font-bold text-amber-800 dark:text-amber-300">
+                      <AlertTriangle size={15} className="shrink-0" />
+                      <span>Table Inactive</span>
+                    </div>
+                    <p className="text-[11px] leading-relaxed">
+                      Ordering for Table #{session.table?.tableNumber || session.tableNumber} is currently turned off. You can browse our digital menu and explore items.
+                    </p>
+                  </div>
+                ) : isTableOccupied && !isCurrentHost ? (
                   <div className="bg-amber-500/10 border border-amber-500/20 text-amber-600 rounded-lg p-2 text-[11px] font-semibold flex items-center justify-center gap-1.5">
                     <Lock size={13} />
                     <span>Table Occupied — View-Only Mode Active</span>
@@ -136,7 +153,13 @@ export default function QrLandingPage() {
               </div>
             )}
 
-            {isTableOccupied && !isCurrentHost ? (
+            {isTableInactive ? (
+              <Button onClick={handleStartOrdering} className="w-full gap-2 text-sm font-semibold">
+                <Utensils size={16} />
+                <span>Browse Digital Menu &amp; Add Items</span>
+                <ArrowRight size={16} />
+              </Button>
+            ) : isTableOccupied && !isCurrentHost ? (
               <Button onClick={handleStartOrdering} variant="secondary" className="w-full gap-2 text-xs font-semibold">
                 <Eye size={15} />
                 <span>Browse Menu (View Only)</span>
@@ -147,6 +170,14 @@ export default function QrLandingPage() {
                 <ArrowRight size={16} />
               </Button>
             )}
+
+            <Button
+              variant="outline"
+              onClick={() => navigate('/menu/reservations')}
+              className="w-full text-xs gap-1.5 border-primary/20 text-primary hover:bg-primary/5"
+            >
+              <span>Book Table in Advance</span>
+            </Button>
           </div>
         )}
       </div>

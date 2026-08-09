@@ -12,6 +12,11 @@ export const getPublicMenu = async (restaurantId, params = {}) => {
   return data.data;
 };
 
+export const getActiveTableSession = async (restaurantId, tableId) => {
+  const { data } = await api.get(`${publicUrl(restaurantId)}/tables/${tableId}/session`);
+  return data.data;
+};
+
 export const placeCustomerOrder = async (restaurantId, payload) => {
   const { data } = await api.post(`${publicUrl(restaurantId)}/orders`, payload);
   return data.data.order;
@@ -22,8 +27,23 @@ export const claimTableHost = async (restaurantId, payload) => {
   return data.data;
 };
 
+export const settleTableSession = async (restaurantId, sessionId, payload = {}) => {
+  const { data } = await api.post(`${publicUrl(restaurantId)}/sessions/${sessionId}/settle`, payload);
+  return data.data;
+};
+
+export const releaseTableSession = async (restaurantId, sessionId, payload = {}) => {
+  const { data } = await api.post(`${publicUrl(restaurantId)}/sessions/${sessionId}/release`, payload);
+  return data.data;
+};
+
 export const releaseTableHost = async (restaurantId, payload) => {
   const { data } = await api.post(`${publicUrl(restaurantId)}/release-table`, payload);
+  return data.data;
+};
+
+export const getActiveTableOrders = async (restaurantId, tableId) => {
+  const { data } = await api.get(`${publicUrl(restaurantId)}/table-orders/${tableId}`);
   return data.data;
 };
 
@@ -55,4 +75,35 @@ export const submitFeedback = async (restaurantId, payload) => {
 export const requestAssistance = async (restaurantId, payload) => {
   const { data } = await api.post(`${publicUrl(restaurantId)}/assist-request`, payload);
   return data.data;
+};
+
+// Customer OTP Authentication & Profile API
+export const sendCustomerOtp = async (restaurantId, payload) => {
+  const { data } = await api.post(`${publicUrl(restaurantId)}/customer-auth/send-otp`, payload);
+  return data.data;
+};
+
+export const verifyCustomerOtp = async (restaurantId, payload) => {
+  const { data } = await api.post(`${publicUrl(restaurantId)}/customer-auth/verify-otp`, payload);
+  return data.data;
+};
+
+export const getCustomerProfile = async (restaurantId) => {
+  const { data } = await api.get(`${publicUrl(restaurantId)}/customer-auth/me`);
+  return data.data.customer;
+};
+
+export const getCustomerOrders = async (restaurantId, params = {}) => {
+  const { data } = await api.get(`${publicUrl(restaurantId)}/customer-auth/my-orders`, { params });
+  return data.data;
+};
+
+export const createReservation = async (restaurantId, payload) => {
+  const { data } = await api.post(`${publicUrl(restaurantId)}/reservations`, payload);
+  return data.data;
+};
+
+export const getMyReservations = async (restaurantId) => {
+  const { data } = await api.get(`${publicUrl(restaurantId)}/reservations/mine`);
+  return data.data.reservations;
 };

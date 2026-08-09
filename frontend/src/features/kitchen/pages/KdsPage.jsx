@@ -1,9 +1,11 @@
-import { ChefHat, Clock, Play, CheckSquare, AlertOctagon } from 'lucide-react';
+import { ChefHat, Clock, Play, CheckSquare, AlertOctagon, Volume2 } from 'lucide-react';
 import KdsShell from '../components/KdsShell';
 import KitchenQueue from '../components/KitchenQueue';
 import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import Loader from '@/components/common/Loader';
 import { useKitchenTickets, STATIONS } from '../hooks/useKitchenTickets';
+import { playKitchenAlertSound } from '@/utils/soundAlert.util';
 
 /**
  * KdsPage — Dedicated standalone Kitchen Display System (KDS) for Chefs.
@@ -50,6 +52,16 @@ export default function KdsPage() {
               </button>
             ))}
           </div>
+
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => playKitchenAlertSound()}
+            className="text-xs gap-1.5 border-amber-500/30 text-amber-600 bg-amber-500/10 hover:bg-amber-500/20 shrink-0 font-semibold"
+            title="Test Kitchen Order Bell Sound"
+          >
+            <Volume2 className="h-4 w-4 text-amber-600" /> Test Bell Sound
+          </Button>
         </div>
 
         {error && (

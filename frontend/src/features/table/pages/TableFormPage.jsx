@@ -76,7 +76,11 @@ export default function TableFormPage() {
   };
 
   const handleSwitchChange = (checked) => {
-    setForm((prev) => ({ ...prev, isActive: checked }));
+    setForm((prev) => ({
+      ...prev,
+      isActive: checked,
+      status: checked ? (prev.status === 'Inactive' ? 'Available' : prev.status) : 'Inactive',
+    }));
   };
 
   const handleSubmit = async (e) => {

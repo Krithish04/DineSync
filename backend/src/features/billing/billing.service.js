@@ -41,7 +41,9 @@ const generateInvoice = async (restaurantId, payload, cashierId) => {
 
   if (invoice) {
     // Update existing invoice parameters
-    invoice.cashier = cashierId;
+    if (cashierId !== undefined) {
+      invoice.cashier = cashierId || null;
+    }
     invoice.subtotal = subtotal;
     invoice.discount = discount;
     invoice.couponDiscount = couponDiscount;
@@ -62,7 +64,7 @@ const generateInvoice = async (restaurantId, payload, cashierId) => {
       order: order._id,
       customer: order.customer || null,
       table: order.table || null,
-      cashier: cashierId,
+      cashier: cashierId || null,
       invoiceStatus: 'Generated',
       subtotal,
       discount,
@@ -200,7 +202,10 @@ const processPayment = async (restaurantId, payload, cashierId) => {
         await customerService.earnPointsForOrder(restaurantId, order.customer, order);
       } catch (err) {
         // eslint-disable-next-line no-console
-        console.error('[Loyalty] Accrual during invoice pay failed:', err.message);
+        console.error('[Loyalty] Accrual during invoice pay failed:', err.stack || err);
+        if (process.env.NODE_ENV !== 'production') {
+          throw err;
+        }
       }
     }
 
@@ -337,6 +342,59 @@ const getFinanceReports = async (restaurantId) => {
   };
 };
 
+const ensurePaidInvoiceForOrder = async (restaurantId, order, paymentMethod = 'UPI', transactionReference = '') => {
+  if (!order) return null;
+
+  const subtotal = order.subtotal || 0;
+  const discount = order.discount || 0;
+  const serviceCharge = order.serviceCharge || Math.round(subtotal * 0.05 * 100) / 100;
+  const tax = order.tax || Math.round(subtotal * 0.05 * 100) / 100;
+  const grandTotal = order.grandTotal || Math.max(0, Math.round(subtotal + serviceCharge + tax - discount));
+
+  let invoice = await Invoice.findOne({ order: order._id, restaurant: restaurantId });
+
+  if (!invoice) {
+    invoice = await Invoice.create({
+      restaurant: restaurantId,
+      order: order._id,
+      customer: order.customer || null,
+      table: order.table || null,
+      invoiceStatus: 'Paid',
+      subtotal,
+      discount,
+      serviceCharge,
+      cgst: Math.round(tax * 0.5 * 100) / 100,
+      sgst: Math.round(tax * 0.5 * 100) / 100,
+      igst: 0,
+      grandTotal,
+      notes: order.notes || '',
+      invoiceDate: order.createdAt || new Date(),
+    });
+  } else {
+    invoice.invoiceStatus = 'Paid';
+    invoice.grandTotal = grandTotal;
+    invoice.subtotal = subtotal;
+    invoice.serviceCharge = serviceCharge;
+    invoice.notes = order.notes || invoice.notes;
+    await invoice.save();
+  }
+
+  const existingPayment = await Payment.findOne({ invoice: invoice._id, restaurant: restaurantId });
+  if (!existingPayment) {
+    await Payment.create({
+      restaurant: restaurantId,
+      invoice: invoice._id,
+      paymentMethod: paymentMethod || order.paymentMethod || 'UPI',
+      amount: grandTotal,
+      transactionReference: transactionReference || '',
+      paymentStatus: 'Success',
+      createdAt: order.createdAt || new Date(),
+    });
+  }
+
+  return invoice;
+};
+
 module.exports = {
   generateInvoice,
   listInvoices,
@@ -345,4 +403,5 @@ module.exports = {
   refundInvoice,
   getBillingStats,
   getFinanceReports,
+  ensurePaidInvoiceForOrder,
 };

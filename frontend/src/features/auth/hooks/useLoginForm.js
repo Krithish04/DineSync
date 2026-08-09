@@ -49,6 +49,8 @@ export function useLoginForm(options = {}) {
         onSuccess(result);
       } else if (result?.user?.role === 'chef') {
         navigate('/kds', { replace: true });
+      } else if (result?.user?.role === 'staff') {
+        navigate('/restaurant/staff-orders', { replace: true });
       } else if (result?.user?.role === 'super_admin') {
         navigate('/super-admin/dashboard', { replace: true });
       } else {

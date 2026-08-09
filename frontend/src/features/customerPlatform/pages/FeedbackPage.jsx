@@ -3,11 +3,13 @@ import { CheckCircle2, Heart } from 'lucide-react';
 import CustomerLayout from '../components/CustomerLayout';
 import ReviewForm from '../components/ReviewForm';
 import useCartStore from '../store/cart.store';
+import useCustomerAuthStore from '../store/customerAuth.store';
 import * as customerApi from '../api/customerPlatform.api';
 
 export default function FeedbackPage() {
-  const restaurantId = useCartStore((s) => s.restaurantId) || '66aa11112222333344445555';
+  const restaurantId = useCartStore((s) => s.restaurantId);
   const branchId = useCartStore((s) => s.branchId);
+  const customer = useCustomerAuthStore((s) => s.customer);
 
   const [submitted, setSubmitted] = useState(false);
   const [feedbackResult, setFeedbackResult] = useState(null);
@@ -54,7 +56,7 @@ export default function FeedbackPage() {
             )}
           </div>
         ) : (
-          <ReviewForm onSubmit={handleSubmit} isSubmitting={isSubmitting} />
+          <ReviewForm onSubmit={handleSubmit} isSubmitting={isSubmitting} customer={customer} />
         )}
       </div>
     </CustomerLayout>
