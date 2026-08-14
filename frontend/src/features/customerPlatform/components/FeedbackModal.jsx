@@ -13,7 +13,7 @@ export default function FeedbackModal({ isOpen, onClose }) {
     restaurantId,
     tableId,
     tableNumber,
-    tableHost,
+    currentOrderId,
     signOutHost,
   } = useCartStore();
 
@@ -29,10 +29,9 @@ export default function FeedbackModal({ isOpen, onClose }) {
     setIsSubmitting(true);
 
     try {
-      // 1. Submit feedback entry
+      // 1. Submit feedback entry (Backend resolves Customer identity from auth session & links order)
       await customerApi.submitFeedback(restaurantId, {
-        customerName: tableHost?.name || 'Guest Diner',
-        customerPhone: tableHost?.phone || '9999999999',
+        orderId: currentOrderId || null,
         rating,
         comment,
       }).catch(() => null);
@@ -58,7 +57,7 @@ export default function FeedbackModal({ isOpen, onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-card border border-border rounded-2xl p-6 max-w-sm w-full shadow-2xl space-y-5 animate-in fade-in zoom-in duration-200">
+      <div className="bg-card border border-border rounded-2xl p-5 sm:p-6 max-w-sm w-full shadow-2xl space-y-4 animate-in fade-in zoom-in duration-200 max-h-[90vh] overflow-y-auto">
         {isSuccess ? (
           <div className="py-8 text-center space-y-3">
             <div className="w-16 h-16 rounded-full bg-emerald-500/10 text-emerald-600 flex items-center justify-center mx-auto animate-bounce">
@@ -88,10 +87,10 @@ export default function FeedbackModal({ isOpen, onClose }) {
                   type="button"
                   key={star}
                   onClick={() => setRating(star)}
-                  className="p-1.5 transition-transform hover:scale-110 focus:outline-none"
+                  className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center transition-transform hover:scale-110 focus:outline-none touch-manipulation"
                 >
                   <Star
-                    size={28}
+                    size={30}
                     className={
                       star <= rating
                         ? 'fill-amber-400 text-amber-400'
@@ -112,7 +111,7 @@ export default function FeedbackModal({ isOpen, onClose }) {
                 placeholder="Tell us what you loved or how we can improve..."
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
-                className="w-full border border-border rounded-xl p-3 text-xs bg-background resize-none min-h-[70px] focus:outline-none focus:ring-2 focus:ring-primary/30"
+                className="w-full border border-border rounded-xl p-3 text-base sm:text-xs bg-background resize-none min-h-[75px] focus:outline-none focus:ring-2 focus:ring-primary/30"
               />
             </div>
 
@@ -120,7 +119,7 @@ export default function FeedbackModal({ isOpen, onClose }) {
             <Button
               type="submit"
               disabled={isSubmitting}
-              className="w-full text-xs font-bold gap-2 py-2.5"
+              className="w-full text-xs font-bold gap-2 h-11 rounded-xl"
             >
               <span>{isSubmitting ? 'Submitting...' : 'Submit & Release Table'}</span>
               <ArrowRight size={14} />

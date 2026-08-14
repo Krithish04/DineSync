@@ -12,6 +12,7 @@ const ORDER_STATUSES = Object.freeze({
   SERVED: 'Served',
   COMPLETED: 'Completed',
   CANCELLED: 'Cancelled',
+  DELAYED: 'Delayed',
 });
 
 const PAYMENT_STATUSES = Object.freeze({
@@ -20,7 +21,7 @@ const PAYMENT_STATUSES = Object.freeze({
   REFUNDED: 'Refunded',
 });
 
-const KITCHEN_STATUSES = Object.freeze(['Pending', 'Preparing', 'Ready', 'Served']);
+const KITCHEN_STATUSES = Object.freeze(['Pending', 'Preparing', 'Ready', 'Served', 'Delayed']);
 
 const modifierSelectionSchema = new Schema(
   {

@@ -49,7 +49,7 @@ router.get('/table-orders/:tableId', customerExperienceController.getActiveTable
 router.get('/orders/:orderId/track', customerExperienceController.trackLiveOrder);
 router.post('/orders/:orderId/pay', customerExperienceController.payCustomerOrder);
 router.post('/orders/:orderId/cancel', customerExperienceController.cancelCustomerOrder);
-router.post('/feedback', customerExperienceController.submitCustomerFeedback);
+router.post('/feedback', optionalProtect, customerExperienceController.submitCustomerFeedback);
 router.post('/assist-request', customerExperienceController.requestAssistance);
 
 module.exports = router;

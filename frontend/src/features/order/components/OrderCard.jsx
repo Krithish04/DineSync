@@ -36,6 +36,12 @@ export default function OrderCard({ order, onClick, onStatusChange, canManage = 
     }
   };
 
+  const tableNum =
+    order.table?.tableNumber ??
+    order.table?.tableName ??
+    (typeof order.table === 'number' || (typeof order.table === 'string' && !order.table.match(/^[0-9a-fA-F]{24}$/)) ? order.table : null) ??
+    order.tableNumber;
+
   return (
     <Card
       onClick={onClick}
@@ -54,9 +60,9 @@ export default function OrderCard({ order, onClick, onStatusChange, canManage = 
               }`}>
                 {order.orderType}
               </span>
-              {order.table && (
+              {tableNum && (
                 <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-foreground bg-muted/40 rounded px-1.5 py-0.5">
-                  Table {order.table.tableNumber}
+                  Table {tableNum}
                 </span>
               )}
             </div>

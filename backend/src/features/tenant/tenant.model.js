@@ -63,6 +63,10 @@ const settingsSchema = new Schema(
       type: Boolean,
       default: false,
     },
+    kitchenStations: {
+      type: [String],
+      default: ['Main Kitchen', 'Tandoor', 'Bar', 'Dessert', 'Beverage'],
+    },
   },
   { _id: false }
 );

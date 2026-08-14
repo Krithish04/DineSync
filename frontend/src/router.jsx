@@ -403,8 +403,8 @@ const router = createBrowserRouter([
     ],
   },
   {
-    /* Kitchen Monitor & Operations (Manager, Chef & Super Admin) */
-    element: <ProtectedRoute allowedRoles={['super_admin', 'manager', 'chef']} />,
+    /* Kitchen Monitor & Operations (Manager, Chef, Staff, Owner & Super Admin) */
+    element: <ProtectedRoute allowedRoles={['super_admin', 'owner', 'manager', 'chef', 'staff']} />,
     children: [
       {
         path: '/restaurant/kitchen',

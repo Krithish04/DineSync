@@ -51,6 +51,14 @@ export default function KitchenTicketCard({
 
   const currentHighestPriority = getHighestPriority();
 
+  const tableNum =
+    ticket.table?.tableNumber ??
+    ticket.table?.tableName ??
+    (typeof ticket.table === 'number' || (typeof ticket.table === 'string' && !ticket.table.match(/^[0-9a-fA-F]{24}$/)) ? ticket.table : null) ??
+    ticket.tableNumber ??
+    ticket.order?.table?.tableNumber ??
+    ticket.order?.tableNumber;
+
   return (
     <Card
       draggable={canDrag}
@@ -68,7 +76,7 @@ export default function KitchenTicketCard({
             </span>
             <h4 className="font-bold text-xs text-foreground mt-1.5">
               {ticket.orderType}
-              {ticket.table && ` • Table ${ticket.table.tableNumber}`}
+              {tableNum ? ` • Table ${tableNum}` : ''}
             </h4>
           </div>
 

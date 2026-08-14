@@ -74,11 +74,10 @@ const verifyCustomerOtp = asyncHandler(async (req, res) => {
     code,
   });
 
-  // Find or create customer document for this restaurant + phone
+  // Find or create customer document for this restaurant + phone (including restoring soft-deleted accounts)
   let customer = await Customer.findOne({
     restaurant: restaurantId,
     phoneNumber: phone,
-    isDeleted: false,
   });
 
   if (!customer) {
@@ -87,9 +86,20 @@ const verifyCustomerOtp = asyncHandler(async (req, res) => {
       phoneNumber: phone,
       fullName: fullName && fullName.trim() ? fullName.trim() : 'Guest',
     });
-  } else if (fullName && fullName.trim() && customer.fullName === 'Guest') {
-    customer.fullName = fullName.trim();
-    await customer.save();
+  } else {
+    let needsSave = false;
+    if (customer.isDeleted) {
+      customer.isDeleted = false;
+      customer.deletedAt = null;
+      needsSave = true;
+    }
+    if (fullName && fullName.trim() && (!customer.fullName || customer.fullName === 'Guest')) {
+      customer.fullName = fullName.trim();
+      needsSave = true;
+    }
+    if (needsSave) {
+      await customer.save();
+    }
   }
 
   const token = signToken({

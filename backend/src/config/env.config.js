@@ -35,7 +35,9 @@ const env = {
   OTP_LENGTH: parseInt(process.env.OTP_LENGTH, 10) || 6,
   OTP_EXPIRY_MINUTES: parseInt(process.env.OTP_EXPIRY_MINUTES, 10) || 10,
   OTP_MAX_ATTEMPTS: parseInt(process.env.OTP_MAX_ATTEMPTS, 10) || 5,
-  OTP_RESEND_COOLDOWN_SECONDS: parseInt(process.env.OTP_RESEND_COOLDOWN_SECONDS, 10) || 60,
+  OTP_RESEND_COOLDOWN_SECONDS:
+    parseInt(process.env.OTP_RESEND_COOLDOWN_SECONDS, 10) ||
+    (process.env.NODE_ENV === 'development' ? 10 : 60),
 
   // Password reset
   RESET_TOKEN_EXPIRY_MINUTES: parseInt(process.env.RESET_TOKEN_EXPIRY_MINUTES, 10) || 15,

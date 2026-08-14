@@ -94,23 +94,30 @@ export default function ReviewForm({ onSubmit, isSubmitting = false, customer = 
         />
       </div>
 
-      {/* Optional Contact */}
-      <div className="grid grid-cols-2 gap-2">
-        <input
-          type="text"
-          placeholder="Your Name (optional)"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="border border-border rounded-lg px-2.5 py-1.5 text-xs bg-background"
-        />
-        <input
-          type="tel"
-          placeholder="Phone Number (optional)"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          className="border border-border rounded-lg px-2.5 py-1.5 text-xs bg-background"
-        />
-      </div>
+      {/* Contact identity */}
+      {customer ? (
+        <div className="bg-primary/5 border border-primary/20 rounded-lg px-3 py-2 text-xs flex items-center justify-between text-muted-foreground">
+          <span>Submitting as <strong className="text-foreground font-semibold">{customer.fullName || 'Customer'}</strong></span>
+          <span className="font-mono text-[11px] text-foreground font-medium">{customer.phoneNumber}</span>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-2">
+          <input
+            type="text"
+            placeholder="Your Name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="border border-border rounded-lg px-2.5 py-1.5 text-xs bg-background"
+          />
+          <input
+            type="tel"
+            placeholder="Phone Number"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            className="border border-border rounded-lg px-2.5 py-1.5 text-xs bg-background"
+          />
+        </div>
+      )}
 
       <Button type="submit" disabled={isSubmitting} className="w-full gap-1.5 text-xs">
         <Send size={14} />

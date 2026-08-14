@@ -31,9 +31,10 @@ const createTicketsFromOrder = async (restaurantId, order) => {
       quantity: item.quantity,
       modifiers: item.modifiers,
       specialInstructions: item.specialInstructions,
-      kitchenStatus: 'Pending',
+      kitchenStatus: 'Preparing',
       priority,
       preparationTime: prepTime,
+      preparingAt: new Date(),
     });
   }
 
@@ -55,7 +56,7 @@ const createTicketsFromOrder = async (restaurantId, order) => {
           table: order.table,
           orderType: order.orderType,
           station,
-          status: 'Pending',
+          status: 'Preparing',
           items: stationGroups[station],
           notes: order.notes || '',
         });
@@ -108,6 +109,11 @@ const listTickets = async (restaurantId, { station, status, priority, search = '
   // Active tickets sorted by priority and age
   const tickets = await KitchenTicket.find(query)
     .populate('table', 'tableNumber tableName')
+    .populate({
+      path: 'order',
+      select: 'orderNumber table orderType',
+      populate: { path: 'table', select: 'tableNumber tableName' },
+    })
     .sort({
       createdAt: 1,
     });
@@ -126,6 +132,7 @@ const listTickets = async (restaurantId, { station, status, priority, search = '
 /**
  * Syncs ticket items state to parent Order document.
  * Advances order status to "Ready" if all items are Ready, or "Served" if all items are Served.
+ * Also handles "Delayed" status updates and dispatches customer delay notifications.
  */
 const syncTicketStateToOrder = async (restaurantId, orderId) => {
   const order = await Order.findOne({ _id: orderId, restaurant: restaurantId, isDeleted: false });
@@ -134,11 +141,15 @@ const syncTicketStateToOrder = async (restaurantId, orderId) => {
   // Retrieve all kitchen tickets for this order
   const tickets = await KitchenTicket.find({ order: orderId, restaurant: restaurantId });
 
-  // Map item statuses
+  // Map item statuses and check for ticket delays
   const itemStatusMap = {};
+  let anyDelayed = false;
+
   tickets.forEach((ticket) => {
+    if (ticket.status === 'Delayed') anyDelayed = true;
     ticket.items.forEach((item) => {
       itemStatusMap[item.orderItemId.toString()] = item.kitchenStatus;
+      if (item.kitchenStatus === 'Delayed') anyDelayed = true;
     });
   });
 
@@ -164,14 +175,40 @@ const syncTicketStateToOrder = async (restaurantId, orderId) => {
     order.orderStatus = 'Served';
   } else if (allReady) {
     order.orderStatus = 'Ready';
+  } else if (anyDelayed) {
+    order.orderStatus = 'Delayed';
   } else if (anyPreparing && oldStatus === 'Accepted') {
     order.orderStatus = 'Preparing';
   }
 
   await order.save();
 
-  if (order.orderStatus !== oldStatus) {
-    socketConfig.broadcastEvent(restaurantId, 'order:updated', order);
+  // Broadcast real-time Socket.IO events to customer and staff
+  socketConfig.broadcastEvent(restaurantId, 'order:updated', order);
+  socketConfig.broadcastEvent(restaurantId, 'order:kitchen_status', order);
+
+  // Dispatch Delay notification & alert if kitchen marked order Delayed
+  if (order.orderStatus === 'Delayed' && oldStatus !== 'Delayed') {
+    try {
+      const notificationService = require('../notification/notification.service');
+      await notificationService.dispatchNotification(restaurantId, {
+        title: 'Order Preparation Delayed ⏳',
+        message: `Notice for Order #${order.orderNumber}: The kitchen is experiencing a slight delay preparing your items. Thank you for your patience!`,
+        category: 'Order',
+        priority: 'Warning',
+        channels: ['In-App'],
+      }).catch(() => null);
+
+      socketConfig.broadcastEvent(restaurantId, 'order:delay_alert', {
+        orderId: order._id.toString(),
+        orderNumber: order.orderNumber,
+        tableId: order.table ? order.table.toString() : null,
+        message: `Chef reported a slight preparation delay for Order #${order.orderNumber}.`,
+      });
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('[KDS] Delay notification error:', err);
+    }
   }
 };
 
@@ -297,8 +334,7 @@ const updateTicketItemStatus = async (restaurantId, ticketId, itemId, newStatus)
 const getKitchenStats = async (restaurantId) => {
   const query = { restaurant: restaurantId };
 
-  const [pending, preparing, ready, delayed, readyItems] = await Promise.all([
-    KitchenTicket.countDocuments({ ...query, status: 'Pending' }),
+  const [preparing, ready, delayed, readyItems] = await Promise.all([
     KitchenTicket.countDocuments({ ...query, status: 'Preparing' }),
     KitchenTicket.countDocuments({ ...query, status: 'Ready' }),
     KitchenTicket.countDocuments({ ...query, status: 'Delayed' }),
@@ -327,7 +363,6 @@ const getKitchenStats = async (restaurantId) => {
   const avgPrepTime = countItems > 0 ? Math.round((sumDuration / countItems) * 100) / 100 : 0;
 
   return {
-    pendingTickets: pending,
     preparingTickets: preparing,
     readyTickets: ready,
     delayedTickets: delayed,

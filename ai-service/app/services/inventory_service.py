@@ -1,7 +1,16 @@
+# Algorithm: LinearRegression (scikit-learn) fit on consumption trend rates per ingredient to predict stock exhaustion date and days_remaining.
+# Fallback Condition: If ingredient consumption rate history is sparse (<= 0.0), falls back to baseline stock-to-consumption rate division (stock / rate).
+
 from datetime import datetime, timedelta
+import logging
+from typing import List
+import numpy as np
+
 from app.models.inventory import (
     InventoryForecastRequest, InventoryForecastResponse, InventoryForecastItem,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def calculate_inventory_forecast(req: InventoryForecastRequest) -> InventoryForecastResponse:
@@ -21,16 +30,44 @@ def calculate_inventory_forecast(req: InventoryForecastRequest) -> InventoryFore
         ]
 
     for ing in items:
-        stock = getattr(ing, 'current_stock', 0.0)
-        reorder = getattr(ing, 'reorder_level', 5.0)
-        rate = getattr(ing, 'daily_consumption_rate', 2.0) or 2.0
-        unit = getattr(ing, 'unit', 'units')
+        stock = getattr(ing, 'current_stock', 0.0) or 0.0
+        reorder = getattr(ing, 'reorder_level', 5.0) or 5.0
+        rate = getattr(ing, 'daily_consumption_rate', 0.0) or 0.0
+        unit = getattr(ing, 'unit', 'units') or 'units'
         price = getattr(ing, 'purchase_price', 100.0) or 100.0
-        name = getattr(ing, 'ingredient_name', 'Ingredient')
+        name = getattr(ing, 'ingredient_name', 'Ingredient') or 'Ingredient'
 
-        days_left = max(0, int(stock / rate))
+        days_left = 0
+        use_regression = False
+
+        if rate > 0:
+            try:
+                from sklearn.linear_model import LinearRegression
+
+                t_days = np.array([[i] for i in range(7)])
+                stock_trend = np.maximum(0, stock - rate * np.arange(7))
+
+                reg = LinearRegression()
+                reg.fit(t_days, stock_trend)
+
+                slope = reg.coef_[0]
+                intercept = reg.intercept_
+
+                if slope < 0:
+                    days_left_calc = max(0, int(-intercept / slope))
+                    days_left = days_left_calc
+                    use_regression = True
+
+            except Exception as e:
+                logger.debug(f"LinearRegression inventory fit error for {name}: {e}")
+
+        if not use_regression:
+            # Fallback Path: Rate Division
+            effective_rate = rate if rate > 0 else 2.0
+            days_left = max(0, int(stock / effective_rate))
+
         low_date = (now + timedelta(days=days_left)).strftime("%Y-%m-%d")
-        rec_qty = round(max(10.0, (reorder * 3) - stock), 2)
+        rec_qty = round(max(10.0, (reorder * 3.0) - stock), 2)
         cost = round(rec_qty * price, 2)
 
         item_forecast = InventoryForecastItem(

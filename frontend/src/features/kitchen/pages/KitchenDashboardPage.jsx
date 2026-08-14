@@ -1,13 +1,14 @@
-import { ChefHat, Maximize, Minimize, Clock, Play, CheckSquare, AlertOctagon } from 'lucide-react';
+import { Maximize, Minimize, Clock, Play, CheckSquare, AlertOctagon } from 'lucide-react';
 import RestaurantLayout from '@/features/restaurant/components/RestaurantLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Loader from '@/components/common/Loader';
 import KitchenQueue from '../components/KitchenQueue';
-import { useKitchenTickets, STATIONS } from '../hooks/useKitchenTickets';
+import { useKitchenTickets } from '../hooks/useKitchenTickets';
 
 export default function KitchenDashboardPage() {
   const {
+    stations,
     selectedStation,
     setSelectedStation,
     stats,
@@ -48,19 +49,7 @@ export default function KitchenDashboardPage() {
 
         {/* KDS Stats widgets */}
         {!isLoading && stats && (
-          <div className="grid gap-4 grid-cols-2 lg:grid-cols-5">
-            <Card className="border-l-4 border-l-amber-500">
-              <CardContent className="p-3 flex items-center justify-between text-xs">
-                <div>
-                  <span className="font-semibold text-muted-foreground uppercase">Pending Tickets</span>
-                  <p className="text-xl font-bold font-mono text-foreground mt-0.5">{stats.pendingTickets || 0}</p>
-                </div>
-                <div className="h-7 w-7 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center">
-                  <ChefHat className="h-3.5 w-3.5" />
-                </div>
-              </CardContent>
-            </Card>
-
+          <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
             <Card className="border-l-4 border-l-orange-500">
               <CardContent className="p-3 flex items-center justify-between text-xs">
                 <div>
@@ -97,7 +86,7 @@ export default function KitchenDashboardPage() {
               </CardContent>
             </Card>
 
-            <Card className="border-l-4 border-l-blue-500 col-span-2 lg:col-span-1">
+            <Card className="border-l-4 border-l-blue-500">
               <CardContent className="p-3 flex items-center justify-between text-xs">
                 <div>
                   <span className="font-semibold text-muted-foreground uppercase">Avg Prep Duration</span>
@@ -115,7 +104,7 @@ export default function KitchenDashboardPage() {
 
         {/* Station Filter Tabs */}
         <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none border-b border-border/40">
-          {STATIONS.map((station) => (
+          {(stations || []).map((station) => (
             <button
               key={station}
               onClick={() => setSelectedStation(station)}

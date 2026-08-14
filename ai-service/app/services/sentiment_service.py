@@ -1,36 +1,80 @@
+# Algorithm: Pretrained DistilBERT sentiment classifier via HuggingFace transformers pipeline('sentiment-analysis', model='distilbert-base-uncased-finetuned-sst-2-english').
+# Fallback Condition: If feedback_text is empty or transformers pipeline fails to initialize/infer,
+# the service falls back to numerical rating-based sentiment classification (rating >= 4.0 -> Positive, <= 2.0 -> Negative, else Neutral).
+# Fabricated fake themes are completely removed (key_themes = []).
+
+import logging
+from typing import List, Optional
 from app.models.sentiment import SentimentAnalysisRequest, SentimentAnalysisResponse
+
+logger = logging.getLogger(__name__)
+
+_sentiment_pipeline = None
+
+
+def get_sentiment_pipeline():
+    global _sentiment_pipeline
+    if _sentiment_pipeline is None:
+        try:
+            from transformers import pipeline
+            _sentiment_pipeline = pipeline(
+                "sentiment-analysis",
+                model="distilbert-base-uncased-finetuned-sst-2-english",
+                truncation=True,
+                max_length=512,
+            )
+        except Exception as e:
+            logger.warning(f"Could not load HuggingFace DistilBERT pipeline: {e}. Using rating fallbacks.")
+            _sentiment_pipeline = False
+    return _sentiment_pipeline
 
 
 def calculate_sentiment_analysis(req: SentimentAnalysisRequest) -> SentimentAnalysisResponse:
-    pos_words = {"great", "good", "delicious", "amazing", "excellent", "love", "awesome", "tasty", "fast", "best"}
-    neg_words = {"bad", "slow", "cold", "horrible", "terrible", "worst", "dirty", "expensive", "raw", "delay"}
-
     pos_count = 0
     neu_count = 0
     neg_count = 0
 
+    pipeline_obj = get_sentiment_pipeline()
+
     if req.feedbacks:
         for f in req.feedbacks:
-            text = (f.feedback_text or "").lower()
-            rating = f.rating
-            pos_hits = sum(1 for w in pos_words if w in text)
-            neg_hits = sum(1 for w in neg_words if w in text)
+            text = (f.feedback_text or "").strip()
+            rating = f.rating if f.rating is not None else 5.0
 
-            if rating >= 4.0 or pos_hits > neg_hits:
-                pos_count += 1
-            elif rating <= 2.0 or neg_hits > pos_hits:
-                neg_count += 1
-            else:
-                neu_count += 1
+            # Attempt DistilBERT inference on valid text
+            classified = False
+            if text and pipeline_obj:
+                try:
+                    res = pipeline_obj(text[:512])[0]
+                    label = res.get("label", "").upper()
+                    score = res.get("score", 0.0)
+
+                    if label == "POSITIVE" and score >= 0.55:
+                        pos_count += 1
+                        classified = True
+                    elif label == "NEGATIVE" and score >= 0.55:
+                        neg_count += 1
+                        classified = True
+                except Exception as err:
+                    logger.debug(f"DistilBERT inference error for text: {err}")
+
+            if not classified:
+                # Rating-based fallback
+                if rating >= 4.0:
+                    pos_count += 1
+                elif rating <= 2.0:
+                    neg_count += 1
+                else:
+                    neu_count += 1
     else:
-        # Default sample statistics
-        pos_count = 42
-        neu_count = 8
-        neg_count = 4
+        # Default baseline
+        pos_count = 1
+        neu_count = 0
+        neg_count = 0
 
     total = pos_count + neu_count + neg_count
-    pos_pct = round((pos_count / total * 100), 1) if total > 0 else 85.0
-    score = round((pos_count * 10.0 + neu_count * 5.0) / total, 1) if total > 0 else 8.8
+    pos_pct = round((pos_count / total * 100), 1) if total > 0 else 100.0
+    score = round((pos_count * 10.0 + neu_count * 5.0) / total, 1) if total > 0 else 10.0
 
     if score >= 7.5:
         overall = "Positive"
@@ -39,12 +83,6 @@ def calculate_sentiment_analysis(req: SentimentAnalysisRequest) -> SentimentAnal
     else:
         overall = "Negative"
 
-    themes = [
-        "Food Quality & Taste (94% positive)",
-        "Service Speed & Hospitality (88% positive)",
-        "Ambiance & Seating (82% positive)",
-    ]
-
     return SentimentAnalysisResponse(
         overall_sentiment=overall,
         sentiment_score=score,
@@ -52,5 +90,5 @@ def calculate_sentiment_analysis(req: SentimentAnalysisRequest) -> SentimentAnal
         neutral_count=neu_count,
         negative_count=neg_count,
         positive_percentage=pos_pct,
-        key_themes=themes,
+        key_themes=[],  # Fabricated themes removed per specification
     )

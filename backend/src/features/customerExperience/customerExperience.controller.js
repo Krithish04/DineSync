@@ -87,7 +87,8 @@ const cancelCustomerOrder = asyncHandler(async (req, res) => {
 });
 
 const submitCustomerFeedback = asyncHandler(async (req, res) => {
-  const feedback = await customerExperienceService.submitCustomerFeedback(req.params.restaurantId, req.body);
+  const customerId = req.user ? (req.user.id || req.user._id) : null;
+  const feedback = await customerExperienceService.submitCustomerFeedback(req.params.restaurantId, req.body, customerId);
   return new ApiResponse(201, { feedback }, 'Customer feedback submitted successfully').send(res);
 });
 

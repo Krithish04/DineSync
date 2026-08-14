@@ -18,9 +18,19 @@ const normalizeError = (err) => {
 
   // Mongoose duplicate key error
   if (err.code === 11000) {
-    const field = Object.keys(err.keyValue || {})[0] || 'field';
-    return new ApiError(409, `${field} already exists`, [
-      { field, message: `${field} must be unique` },
+    const keys = Object.keys(err.keyValue || {});
+    // Ignore tenant scoping field 'restaurant' if present alongside specific identifiers
+    const duplicateFields = keys.filter((k) => k !== 'restaurant');
+    const targetField = duplicateFields[0] || keys[0] || 'field';
+
+    let label = targetField;
+    if (targetField === 'phoneNumber') label = 'Phone number';
+    else if (targetField === 'email') label = 'Email';
+    else if (targetField === 'customerId') label = 'Customer ID';
+    else if (targetField === 'referralCode') label = 'Referral code';
+
+    return new ApiError(409, `${label} already exists`, [
+      { field: targetField, message: `${label} must be unique` },
     ]);
   }
 

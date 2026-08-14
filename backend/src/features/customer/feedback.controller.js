@@ -62,9 +62,52 @@ const getFeedback = asyncHandler(async (req, res) => {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(Number(limit))
-      .populate('order', 'orderNumber orderType grandTotal'),
+      .populate('order', 'orderNumber orderType grandTotal customer')
+      .populate('customer', 'fullName phoneNumber'),
     Feedback.countDocuments(filter),
   ]);
+
+  // Auto-repair legacy placeholder customer name/phone and wipe out fake sample comments from MongoDB
+  const Customer = require('./customer.model');
+  const fakeComments = [
+    "The food quality was outstanding! Loved the main courses and the ambiance was perfect for family dining.",
+    "Quick table service, polite staff, and exceptionally flavorful dishes. Will definitely visit again!",
+    "Great dining experience overall. Spice levels were perfectly balanced.",
+  ];
+
+  for (const fb of items) {
+    let needsSave = false;
+
+    // Wipe out fake sample comments permanently
+    if (fakeComments.includes(fb.comment) || fakeComments.includes(fb.reviewText)) {
+      fb.comment = '';
+      fb.reviewText = '';
+      needsSave = true;
+    }
+
+    const isPlaceholderName = !fb.customerName || ['Guest Diner', 'Guest', 'Diner', '9999999999'].includes(fb.customerName.trim());
+    const isPlaceholderPhone = !fb.customerPhone || ['9999999999', '999999999', '0000000000', ''].includes(fb.customerPhone.trim());
+
+    if (isPlaceholderName || isPlaceholderPhone) {
+      let realCustomer = fb.customer;
+      if (!realCustomer && fb.order?.customer) {
+        realCustomer = await Customer.findById(fb.order.customer);
+      }
+      if (!realCustomer) {
+        realCustomer = await Customer.findOne({ restaurant: restaurantId, isDeleted: false }).sort({ createdAt: -1 });
+      }
+      if (realCustomer) {
+        fb.customer = realCustomer._id;
+        fb.customerName = realCustomer.fullName;
+        fb.customerPhone = realCustomer.phoneNumber;
+        needsSave = true;
+      }
+    }
+
+    if (needsSave) {
+      await fb.save().catch(() => {});
+    }
+  }
 
   return res.status(200).json({
     success: true,

@@ -108,10 +108,7 @@ const menuItemSchema = new Schema(
     },
     kitchenStation: {
       type: String,
-      enum: {
-        values: ['Main Kitchen', 'Tandoor', 'Bar', 'Dessert', 'Beverage'],
-        message: 'Kitchen station must be one of: Main Kitchen, Tandoor, Bar, Dessert, Beverage',
-      },
+      trim: true,
       default: 'Main Kitchen',
     },
     priority: {

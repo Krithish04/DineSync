@@ -122,25 +122,25 @@ export default function DigitalMenuPage() {
         {/* Search Bar & Dietary Filter Pills */}
         <div className="space-y-2">
           <div className="relative">
-            <Search size={16} className="absolute left-3 top-3 text-muted-foreground" />
+            <Search size={18} className="absolute left-3.5 top-3 text-muted-foreground" />
             <input
               type="text"
               placeholder="Search dishes, drinks, desserts..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-xs border border-border rounded-xl bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+              className="w-full pl-10 pr-3.5 py-2.5 text-base sm:text-sm border border-border rounded-xl bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 shadow-xs"
             />
           </div>
 
-          <div className="flex items-center gap-1.5 overflow-x-auto text-[11px]">
-            <Filter size={13} className="text-muted-foreground shrink-0" />
+          <div className="flex items-center gap-2 overflow-x-auto text-xs py-1 scrollbar-none">
+            <Filter size={14} className="text-muted-foreground shrink-0" />
             {['', 'Veg', 'Non Veg', 'Vegan', 'Jain'].map((diet) => (
               <button
                 key={diet}
                 onClick={() => setDietaryFilter(diet)}
-                className={`px-2.5 py-1 rounded-full border transition-colors shrink-0 ${
+                className={`px-3 py-1.5 min-h-[36px] rounded-full border transition-colors shrink-0 font-medium touch-manipulation ${
                   dietaryFilter === diet
-                    ? 'bg-primary text-primary-foreground border-primary font-semibold'
+                    ? 'bg-primary text-primary-foreground border-primary font-bold shadow-xs'
                     : 'bg-card text-muted-foreground border-border hover:bg-muted'
                 }`}
               >

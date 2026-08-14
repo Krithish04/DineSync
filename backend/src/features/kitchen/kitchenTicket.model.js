@@ -106,8 +106,8 @@ const kitchenTicketSchema = new Schema(
     },
     station: {
       type: String,
-      enum: STATIONS,
       required: true,
+      trim: true,
       index: true,
     },
     status: {

@@ -97,17 +97,70 @@ const updateProfile = async (id, updates, requestingUser) => {
   return getProfile(id, requestingUser);
 };
 
+const DEFAULT_STATIONS = ['Main Kitchen', 'Tandoor', 'Bar', 'Dessert', 'Beverage'];
+
 // --- Settings ---
 const getSettings = async (id, requestingUser) => {
   const restaurant = await getById(id, requestingUser);
+  if (!restaurant.settings.kitchenStations || restaurant.settings.kitchenStations.length === 0) {
+    restaurant.settings.kitchenStations = DEFAULT_STATIONS;
+    await restaurant.save();
+  }
   return restaurant.settings;
 };
 
 const updateSettings = async (id, updates, requestingUser) => {
   const restaurant = await getById(id, requestingUser);
+  const MenuItem = require('../menu/menuItem.model');
+
+  let reassignedCount = 0;
+  let fallbackStation = 'Main Kitchen';
+
+  if (updates.kitchenStations && Array.isArray(updates.kitchenStations)) {
+    const sanitizedStations = updates.kitchenStations
+      .map((s) => (typeof s === 'string' ? s.trim() : ''))
+      .filter((s) => s.length > 0);
+
+    if (sanitizedStations.length === 0) {
+      throw ApiError.badRequest('At least one kitchen station is required.');
+    }
+
+    updates.kitchenStations = [...new Set(sanitizedStations)];
+    fallbackStation = updates.kitchenStations[0];
+
+    const unassignedItems = await MenuItem.find({
+      restaurant: id,
+      kitchenStation: { $nin: updates.kitchenStations },
+    });
+
+    if (unassignedItems.length > 0) {
+      reassignedCount = unassignedItems.length;
+      await MenuItem.updateMany(
+        { restaurant: id, kitchenStation: { $nin: updates.kitchenStations } },
+        { kitchenStation: fallbackStation }
+      );
+    }
+  }
+
   restaurant.settings = { ...restaurant.settings.toObject(), ...updates };
   await restaurant.save();
-  return restaurant.settings;
+
+  const settingsObj = restaurant.settings.toObject();
+  if (reassignedCount > 0) {
+    settingsObj.reassignedCount = reassignedCount;
+    settingsObj.fallbackStation = fallbackStation;
+  }
+
+  // Real-time broadcast to connected KDS, Kitchen Dashboard, and Staff clients
+  try {
+    const socketConfig = require('../../config/socket.config');
+    socketConfig.broadcastEvent(id, 'restaurant:settings_updated', settingsObj);
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('[Tenant] Settings broadcast failed:', err);
+  }
+
+  return settingsObj;
 };
 
 // --- GST ---
@@ -136,6 +189,24 @@ const updateOpeningHours = async (id, openingHours, requestingUser) => {
   return restaurant.openingHours;
 };
 
+const backfillKitchenStations = async () => {
+  try {
+    await Restaurant.updateMany(
+      {
+        $or: [
+          { 'settings.kitchenStations': { $exists: false } },
+          { 'settings.kitchenStations': { $eq: [] } },
+          { 'settings.kitchenStations': null },
+        ],
+      },
+      { $set: { 'settings.kitchenStations': DEFAULT_STATIONS } }
+    );
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn('[Tenant] Failed to backfill kitchenStations:', err.message);
+  }
+};
+
 module.exports = {
   getById,
   getPublicBySlug,
@@ -149,4 +220,5 @@ module.exports = {
   updateGst,
   getOpeningHours,
   updateOpeningHours,
+  backfillKitchenStations,
 };

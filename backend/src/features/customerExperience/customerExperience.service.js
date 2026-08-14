@@ -670,13 +670,86 @@ const cancelCustomerOrder = async (restaurantId, orderId) => {
 // ==========================================
 // 7. CUSTOMER FEEDBACK SUBMISSION
 // ==========================================
-const submitCustomerFeedback = async (restaurantId, { customerName, customerPhone, rating, comment }) => {
+const submitCustomerFeedback = async (restaurantId, payload = {}, authenticatedCustomerId = null) => {
+  const {
+    rating,
+    comment,
+    reviewText,
+    foodRating,
+    serviceRating,
+    staffRating,
+    orderId,
+    branchId,
+  } = payload;
+
+  let customerDoc = null;
+
+  // 1. Resolve customer from authenticated session
+  if (authenticatedCustomerId) {
+    customerDoc = await Customer.findOne({ _id: authenticatedCustomerId, isDeleted: false });
+  }
+
+  // 2. Resolve order if orderId provided
+  let orderDoc = null;
+  if (orderId) {
+    orderDoc = await Order.findOne({ _id: orderId, restaurant: restaurantId });
+    if (orderDoc && !customerDoc && orderDoc.customer) {
+      customerDoc = await Customer.findOne({ _id: orderDoc.customer, isDeleted: false });
+    }
+  }
+
+  // 3. Fallback: Search by phone if provided in payload
+  if (!customerDoc && payload.customerPhone) {
+    customerDoc = await Customer.findOne({
+      restaurant: restaurantId,
+      phoneNumber: payload.customerPhone,
+      isDeleted: false,
+    });
+  }
+
+  // 4. Reject feedback submission if no real customer session / document could be identified
+  if (!customerDoc) {
+    throw ApiError.unauthorized('Customer authentication session is required to submit feedback.');
+  }
+
+  const finalRating = rating || foodRating || 5;
+  const finalComment = comment || reviewText || '';
+
+  // Sentiment analysis computation
+  let sentiment = 'Positive';
+  let sentimentScore = 8.5;
+
+  try {
+    const aiResult = await aiService.analyzeSentiment(finalComment);
+    if (aiResult?.sentiment) {
+      sentiment = aiResult.sentiment;
+      sentimentScore = aiResult.score !== undefined ? aiResult.score : 8.5;
+    }
+  } catch {
+    if (finalRating <= 2) {
+      sentiment = 'Negative';
+      sentimentScore = 3.0;
+    } else if (finalRating === 3) {
+      sentiment = 'Neutral';
+      sentimentScore = 6.0;
+    }
+  }
+
   const feedback = await Feedback.create({
     restaurant: restaurantId,
-    customerName: customerName || 'Diner',
-    customerPhone: customerPhone || '',
-    rating: rating || 5,
-    comment: comment || '',
+    branch: branchId || orderDoc?.branch || null,
+    customer: customerDoc._id,
+    order: orderDoc?._id || null,
+    customerName: customerDoc.fullName || 'Customer',
+    customerPhone: customerDoc.phoneNumber,
+    rating: finalRating,
+    foodRating: foodRating || finalRating,
+    serviceRating: serviceRating || finalRating,
+    staffRating: staffRating || finalRating,
+    reviewText: finalComment,
+    comment: finalComment,
+    sentiment,
+    sentimentScore,
   });
 
   return feedback;

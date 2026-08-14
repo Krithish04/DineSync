@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
-import { ShoppingBag, Clock, Utensils, Eye, RefreshCw, Layers, Users, User, CheckCircle2, Bell, Volume2, X } from 'lucide-react';
+import { ShoppingBag, Clock, Utensils, Eye, RefreshCw, Layers, Users, User, CheckCircle2, Bell, Volume2, X, ChefHat } from 'lucide-react';
 import RestaurantLayout from '@/features/restaurant/components/RestaurantLayout';
 import Loader from '@/components/common/Loader';
 import TableOrderDetailModal from '@/features/table/components/TableOrderDetailModal';
@@ -31,6 +32,7 @@ function formatElapsed(createdAt) {
 }
 
 export default function StaffOrderBoardPage() {
+  const navigate = useNavigate();
   const restaurantId = useAuthStore((state) => state.restaurant?._id);
   const [tables, setTables] = useState([]);
   const [orders, setOrders] = useState([]);
@@ -72,8 +74,16 @@ export default function StaffOrderBoardPage() {
             .map((t) => String(t._id))
         );
 
+        const TWELVE_HOURS_MS = 12 * 60 * 60 * 1000;
         const filteredOrders = (ordersRes.value.items || []).filter((o) => {
           if (!activeStates.includes(o.orderStatus)) return false;
+          if (o.orderStatus === 'Completed' || o.paymentStatus === 'Paid') return false;
+
+          // Exclude old finished orders created more than 12 hours ago
+          if (o.createdAt && (Date.now() - new Date(o.createdAt).getTime()) > TWELVE_HOURS_MS) {
+            return false;
+          }
+
           const orderTableId = o.table?._id || o.table;
           if (orderTableId) {
             return occupiedTableIds.has(String(orderTableId));
@@ -293,11 +303,20 @@ export default function StaffOrderBoardPage() {
             <Button
               size="sm"
               variant="outline"
+              onClick={() => navigate('/restaurant/kitchen')}
+              className="gap-1.5 border-orange-500/30 text-orange-600 dark:text-orange-400 font-bold hover:bg-orange-500/10"
+              title="Open Live Kitchen Monitor Console"
+            >
+              <ChefHat className="h-4 w-4 text-orange-600" /> Kitchen Monitor
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
               onClick={() => playStaffAlertSound()}
               className="gap-1.5 text-xs text-amber-700 border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20"
               title="Test Chime Sound Alert"
             >
-              <Volume2 className="h-4 w-4 text-amber-600" /> Test Sound Alert
+              <Volume2 className="h-4 w-4 text-amber-600" /> Test Alert
             </Button>
             <Button size="sm" variant="outline" onClick={() => setIsMergeModalOpen(true)} className="gap-1.5 border-purple-500/30 text-purple-600 dark:text-purple-400 font-semibold">
               <Layers className="h-4 w-4" /> Merge Tables

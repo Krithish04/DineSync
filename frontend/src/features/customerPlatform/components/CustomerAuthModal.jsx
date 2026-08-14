@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { User, Phone, ShieldCheck, ArrowRight, Lock, KeyRound, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import useCartStore from '../store/cart.store';
@@ -21,6 +21,15 @@ export default function CustomerAuthModal({ isOpen, onClose, onSuccess }) {
   const [error, setError] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+
+  useEffect(() => {
+    if (cooldown <= 0) return undefined;
+    const timer = setInterval(() => {
+      setCooldown((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [cooldown]);
 
   if (!isOpen) return null;
 
@@ -28,7 +37,7 @@ export default function CustomerAuthModal({ isOpen, onClose, onSuccess }) {
   const existingSession = tableId ? activeTableSessions[tableId] : null;
 
   const handleSendOtp = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     setError('');
 
     const cleanPhone = phone.replace(/\D/g, '');
@@ -47,8 +56,18 @@ export default function CustomerAuthModal({ isOpen, onClose, onSuccess }) {
         setDevOtpHint('');
       }
       setStep('otp');
+      setCooldown(60);
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to send OTP. Please try again.');
+      const msg = err.response?.data?.message || 'Failed to send OTP. Please try again.';
+      const match = msg.match(/Please wait (\d+)s/i);
+      if (match && match[1]) {
+        const secs = parseInt(match[1], 10);
+        setCooldown(secs);
+        setStep('otp');
+        setError(`A verification code was already sent. Please enter the OTP or wait ${secs}s to resend.`);
+      } else {
+        setError(msg);
+      }
     } finally {
       setIsSending(false);
     }
@@ -119,9 +138,9 @@ export default function CustomerAuthModal({ isOpen, onClose, onSuccess }) {
 
   return (
     <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-card border border-border rounded-2xl p-6 max-w-sm w-full shadow-2xl space-y-5 animate-in fade-in zoom-in duration-200">
+      <div className="bg-card border border-border rounded-2xl p-5 sm:p-6 max-w-sm w-full shadow-2xl space-y-4 animate-in fade-in zoom-in duration-200 max-h-[90vh] overflow-y-auto">
         {/* Header Icon */}
-        <div className="w-14 h-14 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mx-auto">
+        <div className="w-14 h-14 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mx-auto shrink-0">
           <ShieldCheck size={30} />
         </div>
 
@@ -130,7 +149,7 @@ export default function CustomerAuthModal({ isOpen, onClose, onSuccess }) {
             {tableNumber ? `Table #${tableNumber} Sign In` : 'Customer Sign In'}
           </h3>
           <p className="text-xs text-muted-foreground">
-            Sign in with your phone & OTP to place your order and start table session.
+            Sign in with your phone &amp; OTP to place your order and start table session.
           </p>
         </div>
 
@@ -158,30 +177,30 @@ export default function CustomerAuthModal({ isOpen, onClose, onSuccess }) {
           <form onSubmit={handleSendOtp} className="space-y-4">
             <div className="space-y-3">
               <div className="relative">
-                <Phone size={16} className="absolute left-3 top-3 text-muted-foreground" />
+                <Phone size={16} className="absolute left-3.5 top-3.5 text-muted-foreground" />
                 <input
                   type="tel"
                   required
                   placeholder="10-Digit Mobile Number *"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 text-xs border border-border rounded-xl bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  className="w-full pl-10 pr-3.5 py-2.5 text-base sm:text-xs border border-border rounded-xl bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
                 />
               </div>
 
               <div className="relative">
-                <User size={16} className="absolute left-3 top-3 text-muted-foreground" />
+                <User size={16} className="absolute left-3.5 top-3.5 text-muted-foreground" />
                 <input
                   type="text"
                   placeholder="Your Full Name (Optional)"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 text-xs border border-border rounded-xl bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  className="w-full pl-10 pr-3.5 py-2.5 text-base sm:text-xs border border-border rounded-xl bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
                 />
               </div>
             </div>
 
-            <Button type="submit" disabled={isSending} className="w-full gap-2 text-xs font-semibold">
+            <Button type="submit" disabled={isSending} className="w-full h-11 gap-2 text-xs font-bold rounded-xl">
               <span>{isSending ? 'Sending OTP...' : 'Send Verification OTP'}</span>
               <ArrowRight size={15} />
             </Button>
@@ -199,7 +218,7 @@ export default function CustomerAuthModal({ isOpen, onClose, onSuccess }) {
             </div>
 
             <div className="relative">
-              <KeyRound size={16} className="absolute left-3 top-3 text-muted-foreground" />
+              <KeyRound size={16} className="absolute left-3.5 top-3.5 text-muted-foreground" />
               <input
                 type="text"
                 required
@@ -207,27 +226,47 @@ export default function CustomerAuthModal({ isOpen, onClose, onSuccess }) {
                 placeholder="Enter 6-Digit OTP *"
                 value={otp}
                 onChange={(e) => setOtp(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 text-center tracking-widest text-sm font-mono border border-border rounded-xl bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                className="w-full pl-10 pr-3.5 py-2.5 text-center tracking-widest text-base font-mono border border-border rounded-xl bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
               />
             </div>
 
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setStep('phone')}
-                className="w-1/3 text-xs"
-              >
-                Back
-              </Button>
-              <Button
-                type="submit"
-                disabled={isVerifying}
-                className="w-2/3 text-xs gap-1.5 font-semibold"
-              >
-                <CheckCircle2 size={15} />
-                <span>{isVerifying ? 'Verifying...' : 'Verify & Sign In'}</span>
-              </Button>
+            <div className="flex flex-col gap-2">
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setError('');
+                    setStep('phone');
+                  }}
+                  className="w-1/3 text-xs"
+                >
+                  Back
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={isVerifying}
+                  className="w-2/3 text-xs gap-1.5 font-semibold"
+                >
+                  <CheckCircle2 size={15} />
+                  <span>{isVerifying ? 'Verifying...' : 'Verify & Sign In'}</span>
+                </Button>
+              </div>
+
+              <div className="text-center pt-1">
+                <button
+                  type="button"
+                  onClick={handleSendOtp}
+                  disabled={cooldown > 0 || isSending}
+                  className="text-xs text-primary font-medium hover:underline disabled:text-muted-foreground disabled:no-underline disabled:cursor-not-allowed"
+                >
+                  {isSending
+                    ? 'Sending...'
+                    : cooldown > 0
+                    ? `Resend OTP in ${cooldown}s`
+                    : 'Resend OTP Code'}
+                </button>
+              </div>
             </div>
           </form>
         )}

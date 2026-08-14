@@ -28,12 +28,12 @@ const feedbackSchema = new Schema(
     customerName: {
       type: String,
       trim: true,
-      default: 'Guest Diner',
+      required: true,
     },
     customerPhone: {
       type: String,
       trim: true,
-      default: '',
+      required: true,
     },
     rating: {
       type: Number,

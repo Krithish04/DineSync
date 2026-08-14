@@ -65,7 +65,12 @@ export default function VerifyOtpPage() {
       setInfo('A new code has been sent to your email.');
       setCooldown(RESEND_COOLDOWN_SECONDS);
     } catch (err) {
-      setError(err.response?.data?.message || 'Could not resend the code. Please try again.');
+      const msg = err.response?.data?.message || 'Could not resend the code. Please try again.';
+      const match = msg.match(/Please wait (\d+)s/i);
+      if (match && match[1]) {
+        setCooldown(parseInt(match[1], 10));
+      }
+      setError(msg);
     } finally {
       setIsResending(false);
     }

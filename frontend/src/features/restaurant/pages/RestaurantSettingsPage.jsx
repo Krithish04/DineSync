@@ -13,6 +13,14 @@ import {
   AlertCircle,
   Sliders,
   Utensils,
+  Plus,
+  Trash2,
+  ArrowUp,
+  ArrowDown,
+  Pencil,
+  Check,
+  AlertTriangle,
+  Layers,
 } from 'lucide-react';
 import RestaurantLayout from '@/features/restaurant/components/RestaurantLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -35,6 +43,7 @@ const emptyForm = {
   serviceChargePercent: 0,
   taxEnabled: true,
   staffCanEditMenu: false,
+  kitchenStations: ['Main Kitchen', 'Tandoor', 'Bar', 'Dessert', 'Beverage'],
 };
 
 export default function RestaurantSettingsPage() {
@@ -81,6 +90,60 @@ export default function RestaurantSettingsPage() {
     setForm((prev) => ({ ...prev, [name]: checked }));
   };
 
+  const [newStationInput, setNewStationInput] = useState('');
+  const [editingStationIdx, setEditingStationIdx] = useState(null);
+  const [editingStationText, setEditingStationText] = useState('');
+
+  const handleAddStation = () => {
+    const trimmed = newStationInput.trim();
+    if (!trimmed) return;
+    if (form.kitchenStations?.includes(trimmed)) {
+      setError(`Kitchen station "${trimmed}" already exists.`);
+      return;
+    }
+    setForm((prev) => ({
+      ...prev,
+      kitchenStations: [...(prev.kitchenStations || []), trimmed],
+    }));
+    setNewStationInput('');
+  };
+
+  const handleRemoveStation = (index) => {
+    if ((form.kitchenStations?.length || 0) <= 1) {
+      setError('At least one kitchen station must be configured.');
+      return;
+    }
+    setForm((prev) => ({
+      ...prev,
+      kitchenStations: prev.kitchenStations.filter((_, idx) => idx !== index),
+    }));
+  };
+
+  const handleMoveStation = (index, direction) => {
+    const stations = [...(form.kitchenStations || [])];
+    const targetIdx = index + direction;
+    if (targetIdx < 0 || targetIdx >= stations.length) return;
+    const temp = stations[index];
+    stations[index] = stations[targetIdx];
+    stations[targetIdx] = temp;
+    setForm((prev) => ({ ...prev, kitchenStations: stations }));
+  };
+
+  const handleStartRenameStation = (index, name) => {
+    setEditingStationIdx(index);
+    setEditingStationText(name);
+  };
+
+  const handleSaveRenameStation = (index) => {
+    const trimmed = editingStationText.trim();
+    if (!trimmed) return;
+    const stations = [...(form.kitchenStations || [])];
+    stations[index] = trimmed;
+    setForm((prev) => ({ ...prev, kitchenStations: stations }));
+    setEditingStationIdx(null);
+    setEditingStationText('');
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -95,7 +158,11 @@ export default function RestaurantSettingsPage() {
       if (updateRestaurantSettings) {
         updateRestaurantSettings(updatedSettings || form);
       }
-      setSuccess('Settings updated successfully.');
+      let msg = 'Settings updated successfully.';
+      if (updatedSettings?.reassignedCount) {
+        msg += ` Reassigned ${updatedSettings.reassignedCount} menu item(s) to '${updatedSettings.fallbackStation}'.`;
+      }
+      setSuccess(msg);
     } catch (err) {
       const apiErrors = err.response?.data?.errors;
       setError(apiErrors?.[0]?.message || err.response?.data?.message || 'Failed to update settings.');
@@ -316,6 +383,126 @@ export default function RestaurantSettingsPage() {
                   checked={form.staffCanEditMenu}
                   onCheckedChange={(checked) => handleToggle('staffCanEditMenu', checked)}
                 />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Section 3.5: Configurable Kitchen Stations */}
+          <Card className="shadow-xs border-border">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2 text-foreground font-bold font-display">
+                <Layers className="h-4 w-4 text-primary" />
+                <span>Kitchen Display Stations</span>
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Configure kitchen stations (e.g. Main Kitchen, Grill, Bar, Tandoor) matching your physical restaurant layout.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Station List */}
+              <div className="space-y-2">
+                {(form.kitchenStations || []).map((station, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center justify-between p-2.5 rounded-xl border border-border bg-card hover:bg-muted/30 text-xs font-semibold"
+                  >
+                    <div className="flex items-center gap-2 flex-1">
+                      <span className="w-5 h-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-bold">
+                        {idx + 1}
+                      </span>
+                      {editingStationIdx === idx ? (
+                        <div className="flex items-center gap-1.5 flex-1 max-w-xs">
+                          <Input
+                            value={editingStationText}
+                            onChange={(e) => setEditingStationText(e.target.value)}
+                            className="h-8 text-xs font-semibold"
+                            autoFocus
+                          />
+                          <Button type="button" size="xs" onClick={() => handleSaveRenameStation(idx)} className="h-8 px-2">
+                            <Check size={14} />
+                          </Button>
+                        </div>
+                      ) : (
+                        <span className="text-foreground font-bold">{station}</span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      {editingStationIdx !== idx && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="xs"
+                          onClick={() => handleStartRenameStation(idx, station)}
+                          className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                          title="Rename Station"
+                        >
+                          <Pencil size={13} />
+                        </Button>
+                      )}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="xs"
+                        onClick={() => handleMoveStation(idx, -1)}
+                        disabled={idx === 0}
+                        className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                        title="Move Up"
+                      >
+                        <ArrowUp size={13} />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="xs"
+                        onClick={() => handleMoveStation(idx, 1)}
+                        disabled={idx === (form.kitchenStations?.length || 0) - 1}
+                        className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                        title="Move Down"
+                      >
+                        <ArrowDown size={13} />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="xs"
+                        onClick={() => handleRemoveStation(idx)}
+                        disabled={(form.kitchenStations?.length || 0) <= 1}
+                        className="h-7 w-7 p-0 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20 disabled:opacity-30"
+                        title="Remove Station"
+                      >
+                        <Trash2 size={13} />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Add New Station Input */}
+              <div className="flex gap-2 pt-1">
+                <Input
+                  placeholder="Enter new station name (e.g. Bakery, Pizza Station)..."
+                  value={newStationInput}
+                  onChange={(e) => setNewStationInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddStation();
+                    }
+                  }}
+                  className="text-xs h-9"
+                />
+                <Button type="button" size="sm" onClick={handleAddStation} className="h-9 gap-1 text-xs font-bold shrink-0">
+                  <Plus size={14} />
+                  <span>Add Station</span>
+                </Button>
+              </div>
+
+              <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 text-[11px] text-amber-700 dark:text-amber-300 flex items-start gap-2">
+                <AlertTriangle size={15} className="shrink-0 mt-0.5" />
+                <span>
+                  <strong>Note:</strong> Removing a station reassigns any existing dishes assigned to it to the default station (the first station in your list).
+                </span>
               </div>
             </CardContent>
           </Card>

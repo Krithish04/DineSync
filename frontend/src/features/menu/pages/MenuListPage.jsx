@@ -25,6 +25,8 @@ import Loader from '@/components/common/Loader';
 import ImageUpload from '@/components/common/ImageUpload';
 import useAuthStore from '@/features/auth/store/auth.store';
 import * as menuItemApi from '@/features/menu/api/menuItem.api';
+import * as restaurantApi from '@/features/restaurant/api/restaurant.api';
+import * as categoryApi from '@/features/category/api/category.api';
 
 
 // Dietary Option configuration
@@ -76,6 +78,8 @@ export default function MenuListPage() {
   const [modalError, setModalError] = useState('');
   const [deletingId, setDeletingId] = useState(null);
 
+  const [kitchenStations, setKitchenStations] = useState(['Main Kitchen', 'Tandoor', 'Bar', 'Dessert', 'Beverage']);
+
   // Form State
   const [form, setForm] = useState({
     category: '',
@@ -86,6 +90,7 @@ export default function MenuListPage() {
     costPrice: '',
     gst: '',
     preparationTime: 15,
+    kitchenStation: 'Main Kitchen',
     image: '',
     dietaryType: 'veg',
     spiceLevel: 'none',
@@ -109,8 +114,14 @@ export default function MenuListPage() {
   const loadDependencies = useCallback(async () => {
     if (!restaurantId) return;
     try {
-      const categoriesData = await categoryApi.listCategories(restaurantId, { limit: 100 });
+      const [categoriesData, settingsData] = await Promise.all([
+        categoryApi.listCategories(restaurantId, { limit: 100 }).catch(() => ({ items: [] })),
+        restaurantApi.getSettings(restaurantId).catch(() => null),
+      ]);
       setCategories(categoriesData.items || []);
+      if (settingsData?.kitchenStations && settingsData.kitchenStations.length > 0) {
+        setKitchenStations(settingsData.kitchenStations);
+      }
     } catch {
       // Fail silently for setup lists, fallback is empty array
     }
@@ -168,6 +179,7 @@ export default function MenuListPage() {
         costPrice: menuItem.costPrice !== undefined ? menuItem.costPrice : '',
         gst: menuItem.gst !== undefined ? menuItem.gst : '',
         preparationTime: menuItem.preparationTime || 15,
+        kitchenStation: menuItem.kitchenStation || (kitchenStations[0] || 'Main Kitchen'),
         image: menuItem.image || '',
         dietaryType: menuItem.dietaryType || 'veg',
         spiceLevel: menuItem.spiceLevel || 'none',
@@ -188,6 +200,7 @@ export default function MenuListPage() {
         costPrice: 0,
         gst: 0,
         preparationTime: 15,
+        kitchenStation: kitchenStations[0] || 'Main Kitchen',
         image: '',
         dietaryType: 'veg',
         spiceLevel: 'none',
@@ -865,7 +878,7 @@ export default function MenuListPage() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-3 gap-3">
                     <div className="space-y-2">
                       <Label htmlFor="preparationTime">Prep Time (mins)</Label>
                       <Input
@@ -876,6 +889,23 @@ export default function MenuListPage() {
                         value={form.preparationTime}
                         onChange={handleInputChange}
                       />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="kitchenStation">Kitchen Station</Label>
+                      <select
+                        id="kitchenStation"
+                        name="kitchenStation"
+                        value={form.kitchenStation || (kitchenStations[0] || 'Main Kitchen')}
+                        onChange={handleInputChange}
+                        className="flex h-10 w-full appearance-none rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2"
+                      >
+                        {kitchenStations.map((st) => (
+                          <option key={st} value={st}>
+                            {st}
+                          </option>
+                        ))}
+                      </select>
                     </div>
 
                     <div className="space-y-2">

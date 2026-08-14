@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import useCartStore from '../store/cart.store';
 import useCustomerAuthStore from '../store/customerAuth.store';
 import useSocketStore from '@/store/socket.store';
-import CartDrawer from './CartDrawer';
+import StickyCartBar from './StickyCartBar';
 import CustomerAuthModal from './CustomerAuthModal';
 import TablePaymentModal from './TablePaymentModal';
 import * as customerApi from '../api/customerPlatform.api';
@@ -184,10 +184,10 @@ export default function CustomerLayout({ title, children }) {
   };
 
   return (
-    <div className="min-h-screen bg-muted/20 flex flex-col pb-20 sm:pb-0">
+    <div className="min-h-screen bg-muted/20 flex flex-col pb-36 sm:pb-24">
       {/* Mobile Top App Header */}
       <header className="sticky top-0 z-40 bg-card/95 backdrop-blur border-b border-border px-4 h-14 flex items-center justify-between shadow-xs">
-        <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/menu')}>
+        <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/menu/browse')}>
           <span className="font-display text-lg font-bold text-primary">
             DineSync <span className="text-foreground">AI</span>
           </span>
@@ -209,21 +209,21 @@ export default function CustomerLayout({ title, children }) {
               variant="outline"
               onClick={handleCallStaff}
               disabled={isCallingStaff}
-              className="text-xs gap-1 h-8 text-amber-700 border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 rounded-full font-semibold px-2.5"
+              className="text-xs gap-1 h-9 text-amber-700 border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 rounded-full font-semibold px-3 touch-manipulation min-h-[44px] sm:min-h-[36px]"
               title="Call Waiter / Staff to Table"
             >
-              <Bell size={13} className="text-amber-600 animate-pulse" />
+              <Bell size={14} className="text-amber-600 animate-pulse" />
               <span>{isCallingStaff ? 'Notifying...' : 'Call Staff'}</span>
             </Button>
           )}
 
           {activeName ? (
-            <div className="flex items-center gap-1.5 bg-primary/10 text-primary px-2.5 py-1 rounded-full text-xs font-semibold">
+            <div className="flex items-center gap-1.5 bg-primary/10 text-primary px-3 py-1.5 rounded-full text-xs font-semibold">
               <UserCheck size={14} />
               <span className="max-w-[90px] truncate">{activeName}</span>
               <button
                 onClick={handleSignOutClick}
-                className="ml-1 text-muted-foreground hover:text-destructive"
+                className="ml-1 text-muted-foreground hover:text-destructive p-1 min-w-[28px] min-h-[28px] flex items-center justify-center"
                 title="Sign Out & Settle Table Bill"
               >
                 <LogOut size={13} />
@@ -234,26 +234,12 @@ export default function CustomerLayout({ title, children }) {
               size="sm"
               variant="outline"
               onClick={() => setIsAuthModalOpen(true)}
-              className="text-xs gap-1 h-8 text-primary border-primary/30"
+              className="text-xs gap-1 h-9 min-h-[44px] sm:min-h-[36px] text-primary border-primary/30 px-3.5 touch-manipulation font-semibold"
             >
               <ShieldCheck size={14} />
               <span>Sign In</span>
             </Button>
           )}
-
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setIsCartOpen(true)}
-            className="relative p-2 h-9 w-9"
-          >
-            <ShoppingBag size={20} className="text-foreground" />
-            {itemCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-[10px] font-bold h-4 w-4 rounded-full flex items-center justify-center animate-pulse">
-                {itemCount}
-              </span>
-            )}
-          </Button>
         </div>
       </header>
 
@@ -264,7 +250,7 @@ export default function CustomerLayout({ title, children }) {
             <Bell size={15} className="animate-bounce" />
             <span>{callStaffSuccess}</span>
           </div>
-          <button onClick={() => setCallStaffSuccess('')} className="text-amber-100 hover:text-white text-xs font-bold">
+          <button onClick={() => setCallStaffSuccess('')} className="text-amber-100 hover:text-white text-xs font-bold p-1">
             ✕
           </button>
         </div>
@@ -287,13 +273,13 @@ export default function CustomerLayout({ title, children }) {
                 setShowSignOutToast(false);
                 navigate('/menu/feedback');
               }}
-              className="h-7 text-[11px] font-bold bg-white text-emerald-800 hover:bg-emerald-50 px-2.5 rounded-lg shadow-xs"
+              className="h-8 text-[11px] font-bold bg-white text-emerald-800 hover:bg-emerald-50 px-2.5 rounded-lg shadow-xs min-h-[36px]"
             >
               Rate Experience
             </Button>
             <button
               onClick={() => setShowSignOutToast(false)}
-              className="text-emerald-200 hover:text-white font-bold text-sm px-1"
+              className="text-emerald-200 hover:text-white font-bold text-sm px-1.5 py-1"
             >
               ✕
             </button>
@@ -365,16 +351,16 @@ export default function CustomerLayout({ title, children }) {
           <div className="flex items-center gap-2">
             <button
               onClick={() => navigate(`/menu/orders/${placedOrders[placedOrders.length - 1]._id}/track`)}
-              className="text-[11px] font-semibold text-primary hover:underline flex items-center"
+              className="text-[11px] font-semibold text-primary hover:underline flex items-center p-1"
             >
               Track <ChevronRight size={12} />
             </button>
             <Button
               size="sm"
               onClick={() => setIsPaymentModalOpen(true)}
-              className="h-7 text-[11px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 rounded-lg shadow-xs gap-1"
+              className="h-8 text-[11px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white px-3 rounded-lg shadow-xs gap-1 min-h-[36px]"
             >
-              <Receipt size={12} /> Settle Bill &amp; Leave
+              <Receipt size={12} /> Settle Bill
             </Button>
           </div>
         </div>
@@ -383,25 +369,32 @@ export default function CustomerLayout({ title, children }) {
       {/* Main Content Area */}
       <main className="flex-1 container max-w-2xl py-4 px-4">{children}</main>
 
+      {/* Persistent Swiggy/Zomato Style Sticky Cart Bar */}
+      <StickyCartBar />
+
       {/* Mobile Sticky Bottom Navigation Bar (Consolidated 4-tab bar) */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-card border-t border-border flex items-center justify-around h-16 sm:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-card/95 backdrop-blur border-t border-border flex items-center justify-around h-16 sm:hidden shadow-lg">
         <NavLink
           to="/menu/browse"
           className={({ isActive }) =>
-            `flex flex-col items-center gap-1 text-xs font-medium ${isActive ? 'text-primary' : 'text-muted-foreground'}`
+            `flex flex-col items-center justify-center gap-1 text-[11px] font-semibold flex-1 h-full min-h-[44px] touch-manipulation transition-colors ${
+              isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
+            }`
           }
         >
-          <MenuIcon size={18} />
+          <MenuIcon size={20} />
           <span>Menu</span>
         </NavLink>
 
         <NavLink
           to="/customer/loyalty"
           className={({ isActive }) =>
-            `flex flex-col items-center gap-1 text-xs font-medium ${isActive ? 'text-primary' : 'text-muted-foreground'}`
+            `flex flex-col items-center justify-center gap-1 text-[11px] font-semibold flex-1 h-full min-h-[44px] touch-manipulation transition-colors ${
+              isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
+            }`
           }
         >
-          <Award size={18} />
+          <Award size={20} />
           <span>Loyalty</span>
         </NavLink>
 
@@ -409,10 +402,12 @@ export default function CustomerLayout({ title, children }) {
           <NavLink
             to="/menu/feedback"
             className={({ isActive }) =>
-              `flex flex-col items-center gap-1 text-xs font-medium ${isActive ? 'text-primary' : 'text-muted-foreground'}`
+              `flex flex-col items-center justify-center gap-1 text-[11px] font-semibold flex-1 h-full min-h-[44px] touch-manipulation transition-colors ${
+                isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
+              }`
             }
           >
-            <Star size={18} />
+            <Star size={20} />
             <span>Review</span>
           </NavLink>
         )}
@@ -420,16 +415,15 @@ export default function CustomerLayout({ title, children }) {
         <NavLink
           to="/customer/dashboard"
           className={({ isActive }) =>
-            `flex flex-col items-center gap-1 text-xs font-medium ${isActive ? 'text-primary' : 'text-muted-foreground'}`
+            `flex flex-col items-center justify-center gap-1 text-[11px] font-semibold flex-1 h-full min-h-[44px] touch-manipulation transition-colors ${
+              isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
+            }`
           }
         >
-          <User size={18} />
+          <User size={20} />
           <span>Account</span>
         </NavLink>
       </nav>
-
-      {/* Slide-Over Cart Drawer */}
-      <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />
 
       {/* Customer OTP Login Modal */}
       <CustomerAuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />

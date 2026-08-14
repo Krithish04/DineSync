@@ -40,7 +40,7 @@ const NAV_GROUPS = [
     items: [
       { to: '/restaurant/staff-orders', label: 'Live Order Board', icon: ShoppingBag, roles: ['staff'] },
       { to: '/restaurant/orders/history', label: 'Order History', icon: History, roles: ['manager'] },
-      { to: '/restaurant/kitchen', label: 'Kitchen Monitor', icon: ChefHat, roles: ['manager'] },
+      { to: '/restaurant/kitchen', label: 'Kitchen Monitor', icon: ChefHat, roles: ['manager', 'staff', 'chef'] },
       { to: '/restaurant/reservations/dashboard', label: 'Reservations', icon: Calendar, roles: ['manager', 'staff'] },
       { to: '/restaurant/tables', label: 'Tables & Layout', icon: TableIcon, roles: ['manager'] },
       { to: '/restaurant/categories', label: 'Categories', icon: FolderTree, roles: ['manager'] },

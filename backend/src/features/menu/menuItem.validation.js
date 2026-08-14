@@ -41,6 +41,7 @@ const createMenuItemSchema = z.object({
   costPrice: z.number().min(0, 'Cost price cannot be negative').optional(),
   gst: z.number().min(0, 'GST percentage cannot be negative').max(100, 'GST percentage cannot exceed 100').optional(),
   preparationTime: z.number().int().min(1, 'Preparation time must be at least 1 minute').optional(),
+  kitchenStation: z.string().trim().min(1, 'Kitchen station is required').optional(),
   image: z
     .string()
     .trim()

@@ -6,11 +6,14 @@ const { initSocket } = require('./config/socket.config');
 const { startScheduledReportRunner } = require('./features/reports/scheduledReport.service');
 const { startJobScheduler } = require('./features/notification/jobScheduler.service');
 
+const tenantService = require('./features/tenant/tenant.service');
+
 const server = http.createServer(app);
 initSocket(server);
 
 const start = async () => {
   await connectDB();
+  await tenantService.backfillKitchenStations();
   startScheduledReportRunner();
   startJobScheduler();
 

@@ -191,7 +191,7 @@ export default function ReservationBookingPage() {
             )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3 sm:gap-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="reservationDate" className="text-xs font-semibold flex items-center gap-1">
                     <Calendar size={13} className="text-primary" /> Date *
@@ -203,7 +203,7 @@ export default function ReservationBookingPage() {
                     min={todayStr}
                     value={form.reservationDate}
                     onChange={handleChange}
-                    className="text-xs h-10"
+                    className="text-base sm:text-xs h-11 sm:h-10 rounded-xl"
                     required
                   />
                 </div>
@@ -218,13 +218,13 @@ export default function ReservationBookingPage() {
                     type="time"
                     value={form.reservationTime}
                     onChange={handleChange}
-                    className="text-xs h-10"
+                    className="text-base sm:text-xs h-11 sm:h-10 rounded-xl"
                     required
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3 sm:gap-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="numberOfGuests" className="text-xs font-semibold flex items-center gap-1">
                     <Users size={13} className="text-primary" /> Guests *
@@ -237,7 +237,7 @@ export default function ReservationBookingPage() {
                     max="20"
                     value={form.numberOfGuests}
                     onChange={handleChange}
-                    className="text-xs h-10"
+                    className="text-base sm:text-xs h-11 sm:h-10 rounded-xl"
                     required
                   />
                 </div>
@@ -251,7 +251,7 @@ export default function ReservationBookingPage() {
                     name="occasion"
                     value={form.occasion}
                     onChange={handleChange}
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-1"
+                    className="flex h-11 sm:h-10 w-full rounded-xl border border-input bg-background px-3 py-2 text-base sm:text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
                   >
                     {OCCASIONS.map((occ) => (
                       <option key={occ} value={occ}>
@@ -273,11 +273,11 @@ export default function ReservationBookingPage() {
                   onChange={handleChange}
                   placeholder="e.g. Quiet corner, high chair for baby, dietary preferences..."
                   rows={3}
-                  className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground min-h-[70px]"
+                  className="flex w-full rounded-xl border border-input bg-background p-3 text-base sm:text-xs text-foreground min-h-[75px] focus:outline-none focus:ring-2 focus:ring-primary/30"
                 />
               </div>
 
-              <Button type="submit" className="w-full text-xs font-bold h-10 gap-2" isLoading={isSubmitting}>
+              <Button type="submit" className="w-full text-xs sm:text-sm font-bold h-11 rounded-xl gap-2 active:scale-[0.99] touch-manipulation" isLoading={isSubmitting}>
                 <Utensils size={15} />
                 <span>Request Table Booking</span>
               </Button>

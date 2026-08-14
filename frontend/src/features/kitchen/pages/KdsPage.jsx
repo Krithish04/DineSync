@@ -1,10 +1,10 @@
-import { ChefHat, Clock, Play, CheckSquare, AlertOctagon, Volume2 } from 'lucide-react';
+import { Clock, Play, CheckSquare, AlertOctagon, Volume2 } from 'lucide-react';
 import KdsShell from '../components/KdsShell';
 import KitchenQueue from '../components/KitchenQueue';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Loader from '@/components/common/Loader';
-import { useKitchenTickets, STATIONS } from '../hooks/useKitchenTickets';
+import { useKitchenTickets } from '../hooks/useKitchenTickets';
 import { playKitchenAlertSound } from '@/utils/soundAlert.util';
 
 /**
@@ -13,6 +13,7 @@ import { playKitchenAlertSound } from '@/utils/soundAlert.util';
  */
 export default function KdsPage() {
   const {
+    stations,
     selectedStation,
     setSelectedStation,
     stats,
@@ -38,7 +39,7 @@ export default function KdsPage() {
         <div className="flex items-center justify-between gap-3 bg-card p-3 rounded-xl border border-border shadow-xs">
           {/* Station Tabs */}
           <div className="flex gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
-            {STATIONS.map((station) => (
+            {(stations || []).map((station) => (
               <button
                 key={station}
                 onClick={() => setSelectedStation(station)}
@@ -72,21 +73,7 @@ export default function KdsPage() {
 
         {/* KDS Stats Widget Counters */}
         {!isLoading && stats && (
-          <div className="grid gap-3 grid-cols-2 lg:grid-cols-5">
-            <Card className="border-l-4 border-l-amber-500 shadow-xs">
-              <CardContent className="p-3 flex items-center justify-between text-xs">
-                <div>
-                  <span className="font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">
-                    Pending Tickets
-                  </span>
-                  <p className="text-xl font-bold font-mono text-foreground mt-0.5">{stats.pendingTickets || 0}</p>
-                </div>
-                <div className="h-7 w-7 rounded-full bg-amber-500/15 text-amber-600 flex items-center justify-center">
-                  <ChefHat className="h-3.5 w-3.5" />
-                </div>
-              </CardContent>
-            </Card>
-
+          <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
             <Card className="border-l-4 border-l-orange-500 shadow-xs">
               <CardContent className="p-3 flex items-center justify-between text-xs">
                 <div>
@@ -129,7 +116,7 @@ export default function KdsPage() {
               </CardContent>
             </Card>
 
-            <Card className="border-l-4 border-l-blue-500 col-span-2 lg:col-span-1 shadow-xs">
+            <Card className="border-l-4 border-l-blue-500 shadow-xs">
               <CardContent className="p-3 flex items-center justify-between text-xs">
                 <div>
                   <span className="font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">
@@ -147,20 +134,11 @@ export default function KdsPage() {
           </div>
         )}
 
-        {/* Drag-and-Drop Ticket Queue Lanes */}
+        {/* Drag-and-Drop Ticket Queue Lanes (2-Lane Workflow: Preparing -> Ready for Service) */}
         {isLoading ? (
           <Loader label="Opening KDS display console..." />
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            <KitchenQueue
-              title="Pending Confirmation"
-              status="Pending"
-              tickets={lanes.pending}
-              onTicketDrop={handleTicketDrop}
-              onStatusChange={handleStatusChange}
-              onItemStatusChange={handleItemStatusChange}
-            />
-
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <KitchenQueue
               title="Preparing (Cooking)"
               status="Preparing"

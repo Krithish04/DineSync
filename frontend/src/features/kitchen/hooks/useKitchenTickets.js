@@ -4,7 +4,9 @@ import useAuthStore from '@/features/auth/store/auth.store';
 import { playKitchenAlertSound } from '@/utils/soundAlert.util';
 import * as kitchenApi from '../api/kitchen.api';
 
-export const STATIONS = ['Main Kitchen', 'Tandoor', 'Bar', 'Dessert', 'Beverage'];
+import * as restaurantApi from '@/features/restaurant/api/restaurant.api';
+
+const DEFAULT_STATIONS = ['Main Kitchen', 'Tandoor', 'Bar', 'Dessert', 'Beverage'];
 
 /**
  * Custom hook encapsulating shared logic for fetching, filtering, and real-time Socket.IO
@@ -13,6 +15,7 @@ export const STATIONS = ['Main Kitchen', 'Tandoor', 'Bar', 'Dessert', 'Beverage'
 export function useKitchenTickets() {
   const restaurantId = useAuthStore((state) => state.restaurant?._id);
 
+  const [stations, setStations] = useState(DEFAULT_STATIONS);
   const [selectedStation, setSelectedStation] = useState('Main Kitchen');
   const [stats, setStats] = useState(null);
   const [tickets, setTickets] = useState([]);
@@ -21,6 +24,19 @@ export function useKitchenTickets() {
   const [error, setError] = useState('');
   const [socketConnected, setSocketConnected] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Load configured stations from restaurant settings
+  useEffect(() => {
+    if (!restaurantId) return;
+    restaurantApi.getSettings(restaurantId)
+      .then((settings) => {
+        if (settings?.kitchenStations && settings.kitchenStations.length > 0) {
+          setStations(settings.kitchenStations);
+          setSelectedStation((prev) => (settings.kitchenStations.includes(prev) ? prev : settings.kitchenStations[0]));
+        }
+      })
+      .catch(() => {});
+  }, [restaurantId]);
 
   // Load KDS Tickets & Stats
   const loadKDSData = useCallback(async () => {
@@ -67,6 +83,13 @@ export function useKitchenTickets() {
 
     socket.on('disconnect', () => {
       setSocketConnected(false);
+    });
+
+    socket.on('restaurant:settings_updated', (updatedSettings) => {
+      if (updatedSettings?.kitchenStations && updatedSettings.kitchenStations.length > 0) {
+        setStations(updatedSettings.kitchenStations);
+        setSelectedStation((prev) => (updatedSettings.kitchenStations.includes(prev) ? prev : updatedSettings.kitchenStations[0]));
+      }
     });
 
     socket.on('kitchen:tickets_created', (newTickets) => {
@@ -172,16 +195,16 @@ export function useKitchenTickets() {
     }
   };
 
-  // Separate tickets into Kanban lanes
+  // Separate tickets into 2 KDS Kanban lanes: Preparing (cooking/delayed) & Ready
   const lanes = useMemo(() => {
     return {
-      pending: tickets.filter((t) => t.status === 'Pending'),
-      preparing: tickets.filter((t) => ['Preparing', 'Delayed'].includes(t.status)),
+      preparing: tickets.filter((t) => ['Preparing', 'Delayed', 'Pending'].includes(t.status)),
       ready: tickets.filter((t) => t.status === 'Ready'),
     };
   }, [tickets]);
 
   return {
+    stations,
     selectedStation,
     setSelectedStation,
     stats,

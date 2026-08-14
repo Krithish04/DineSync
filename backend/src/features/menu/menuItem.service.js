@@ -1,6 +1,19 @@
-const MenuItem = require('./menuItem.model');
-const Category = require('../category/category.model');
-const ApiError = require('../../utils/ApiError');
+const Restaurant = require('../tenant/tenant.model');
+
+/**
+ * Helper to validate & sanitize kitchenStation against restaurant's configured settings
+ */
+const getValidKitchenStation = async (restaurantId, targetStation) => {
+  const restaurant = await Restaurant.findById(restaurantId);
+  const stations = restaurant?.settings?.kitchenStations?.length > 0
+    ? restaurant.settings.kitchenStations
+    : ['Main Kitchen', 'Tandoor', 'Bar', 'Dessert', 'Beverage'];
+
+  if (targetStation && stations.includes(targetStation)) {
+    return targetStation;
+  }
+  return stations[0] || 'Main Kitchen';
+};
 
 /**
  * Creates a new menu item.
@@ -25,6 +38,9 @@ const createMenuItem = async (restaurantId, payload) => {
   if (existingByName) {
     throw ApiError.conflict('A menu item with this name already exists.');
   }
+
+  // Validate kitchenStation against restaurant settings
+  payload.kitchenStation = await getValidKitchenStation(restaurantId, payload.kitchenStation);
 
   const menuItem = await MenuItem.create({
     ...payload,
@@ -153,6 +169,10 @@ const updateMenuItem = async (restaurantId, menuItemId, updates) => {
     if (existing) {
       throw ApiError.conflict('Another menu item with this name already exists.');
     }
+  }
+
+  if (updates.kitchenStation) {
+    updates.kitchenStation = await getValidKitchenStation(restaurantId, updates.kitchenStation);
   }
 
   Object.assign(menuItem, updates);

@@ -87,7 +87,7 @@ export default function TablePaymentModal({ isOpen, onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-card border border-border rounded-2xl p-6 max-w-sm w-full shadow-2xl space-y-5 animate-in fade-in zoom-in duration-200">
+      <div className="bg-card border border-border rounded-2xl p-5 sm:p-6 max-w-sm w-full shadow-2xl space-y-4 animate-in fade-in zoom-in duration-200 max-h-[90vh] overflow-y-auto">
         {isCashRequested ? (
           <div className="py-6 text-center space-y-4">
             <div className="w-16 h-16 rounded-full bg-amber-500/10 text-amber-600 flex items-center justify-center mx-auto animate-bounce">
@@ -111,7 +111,7 @@ export default function TablePaymentModal({ isOpen, onClose }) {
                 setIsCashRequested(false);
                 onClose();
               }}
-              className="w-full text-xs font-bold"
+              className="w-full h-11 text-xs font-bold rounded-xl"
             >
               Close &amp; Wait for Server
             </Button>
@@ -125,7 +125,7 @@ export default function TablePaymentModal({ isOpen, onClose }) {
                   <Receipt size={20} />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold font-display text-foreground">Table Bill Settlement</h3>
+                  <h3 className="text-sm sm:text-base font-bold font-display text-foreground">Table Bill Settlement</h3>
                   <p className="text-[11px] text-muted-foreground">Settle total bill for Table #{tableNumber}</p>
                 </div>
               </div>
@@ -148,23 +148,23 @@ export default function TablePaymentModal({ isOpen, onClose }) {
             <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
               <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Placed Table Orders ({placedOrders.length})</span>
               {placedOrders.map((ord, idx) => (
-                <div key={idx} className="bg-card border border-border rounded-lg p-2 flex items-center justify-between text-xs">
+                <div key={idx} className="bg-card border border-border rounded-lg p-2.5 flex items-center justify-between text-xs">
                   <div>
                     <p className="font-semibold text-foreground">{ord.orderNumber}</p>
                     <p className="text-[10px] text-muted-foreground">{ord.itemsCount || 1} Dish(es)</p>
                   </div>
-                  <span className="font-bold text-primary">₹{(ord.grandTotal || 0).toFixed(2)}</span>
+                  <span className="font-bold text-primary font-mono">₹{(ord.grandTotal || 0).toFixed(2)}</span>
                 </div>
               ))}
             </div>
 
             {/* Total Amount */}
-            <div className="bg-primary/10 border border-primary/20 rounded-xl p-3 flex items-center justify-between">
+            <div className="bg-primary/10 border border-primary/20 rounded-xl p-3.5 flex items-center justify-between">
               <div>
                 <span className="text-[10px] text-primary uppercase font-bold">Total Bill Due</span>
-                <p className="text-lg font-bold font-display text-primary">₹{totalBillAmount.toFixed(2)}</p>
+                <p className="text-lg font-bold font-display text-primary font-mono">₹{totalBillAmount.toFixed(2)}</p>
               </div>
-              <span className="text-[10px] bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 font-bold px-2 py-0.5 rounded-full">
+              <span className="text-[10px] bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 font-bold px-2.5 py-0.5 rounded-full">
                 Combined Bill
               </span>
             </div>
@@ -186,11 +186,11 @@ export default function TablePaymentModal({ isOpen, onClose }) {
                       type="button"
                       key={pm.id}
                       onClick={() => setPaymentMethod(pm.id)}
-                      className={`flex items-center gap-1.5 p-2 rounded-xl border text-xs font-medium transition-colors ${
-                        isSelected ? 'border-primary bg-primary/10 text-primary font-bold' : 'border-border bg-background'
+                      className={`flex items-center gap-1.5 p-2.5 min-h-[44px] rounded-xl border text-xs font-semibold transition-colors touch-manipulation ${
+                        isSelected ? 'border-primary bg-primary/10 text-primary font-bold shadow-xs' : 'border-border bg-background text-foreground hover:bg-muted/50'
                       }`}
                     >
-                      <Icon size={14} />
+                      <Icon size={16} />
                       <span className="truncate">{pm.label}</span>
                     </button>
                   );
@@ -200,14 +200,14 @@ export default function TablePaymentModal({ isOpen, onClose }) {
 
             {/* Action Buttons */}
             <div className="flex gap-2 pt-2">
-              <Button variant="outline" size="sm" onClick={onClose} className="w-1/3 text-xs">
+              <Button variant="outline" size="sm" onClick={onClose} className="w-1/3 text-xs h-11 rounded-xl">
                 Cancel
               </Button>
               <Button
                 size="sm"
                 onClick={handleSettleBill}
                 disabled={isSubmitting}
-                className="w-2/3 text-xs gap-1.5 font-bold"
+                className="w-2/3 text-xs h-11 gap-1.5 font-bold rounded-xl"
               >
                 <span>{isSubmitting ? 'Processing...' : paymentMethod === 'Cash' ? 'Request Cash Pay' : 'Pay & Give Feedback'}</span>
                 <ArrowRight size={14} />

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Clock, CheckCircle2, ChevronDown, ChevronUp, Utensils, Lock, Eye } from 'lucide-react';
+import { Clock, CheckCircle2, ChevronDown, ChevronUp, Utensils, Lock, Eye, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import useCartStore from '../store/cart.store';
 import useSocketStore from '@/store/socket.store';
@@ -139,9 +139,15 @@ export default function InMenuOrderTracker() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-foreground">{ord.orderNumber || `ORD-${ord._id.toString().slice(-4)}`}</span>
-                    <span className="text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
-                      <CheckCircle2 size={10} /> {ord.orderStatus || 'Kitchen Preparing'}
-                    </span>
+                    {ord.orderStatus === 'Delayed' ? (
+                      <span className="text-[10px] font-bold bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
+                        <AlertTriangle size={10} className="text-amber-600 animate-bounce" /> Delayed (Kitchen Delay)
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
+                        <CheckCircle2 size={10} /> {ord.orderStatus || 'Kitchen Preparing'}
+                      </span>
+                    )}
                   </div>
                   <span className="font-bold text-primary font-display">
                     ₹{(ord.grandTotal || 0).toFixed(2)}

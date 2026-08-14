@@ -59,6 +59,14 @@ const createTable = async (restaurantId, payload) => {
  * Lists active tables. Supports pagination, filtering by status, and searching by tableNumber.
  */
 const listTables = async (restaurantId, { page = 1, limit = 20, status, search = '' }) => {
+  // Auto-clean any stale or abandoned occupied table sessions
+  try {
+    const { cleanupStaleTableSessions } = require('../order/autoServe.service');
+    await cleanupStaleTableSessions(restaurantId);
+  } catch (cleanErr) {
+    // Ignore cleanup errors to prevent blocking table retrieval
+  }
+
   const query = { restaurant: restaurantId, isDeleted: false };
 
   if (status) {

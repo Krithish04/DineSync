@@ -185,38 +185,42 @@ export default function CheckoutPage() {
         )}
 
         {orderType === 'Delivery' && (
-          <div className="bg-card border border-border rounded-xl p-4">
+          <div className="bg-card border border-border rounded-2xl p-4">
             <label className="text-xs font-semibold text-muted-foreground block mb-1">Delivery Address</label>
             <textarea
               required
               placeholder="Enter complete house/building address..."
               value={deliveryAddress}
               onChange={(e) => setDeliveryAddress(e.target.value)}
-              className="w-full border border-border rounded-lg p-2 text-xs bg-background resize-none h-16"
+              className="w-full border border-border rounded-xl p-3 text-base sm:text-sm bg-background resize-none h-20 focus:outline-none focus:ring-2 focus:ring-primary/30"
             />
           </div>
         )}
 
         {/* Continuous Loop Banner Info */}
-        <div className="bg-muted/40 border border-border rounded-xl p-4 flex items-center gap-3 text-xs">
+        <div className="bg-muted/40 border border-border rounded-2xl p-4 flex items-center gap-3 text-xs">
           <div className="p-2.5 rounded-xl bg-primary/10 text-primary shrink-0">
             <UtensilsCrossed size={20} />
           </div>
           <div>
             <h5 className="font-bold text-foreground">Kitchen Order Dispatch</h5>
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
               Sending items directly to the kitchen. You can continue adding more dishes anytime during your dining session. Settle final bill when finished!
             </p>
           </div>
         </div>
 
         {/* Total & Send to Kitchen Button */}
-        <div className="bg-card border border-border rounded-xl p-4 flex items-center justify-between">
+        <div className="bg-card border border-border rounded-2xl p-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 shadow-sm">
           <div>
             <span className="text-[10px] text-muted-foreground uppercase font-medium">Batch Order Total</span>
             <p className="text-xl font-bold font-display text-primary">₹{grandTotal.toFixed(2)}</p>
           </div>
-          <Button type="submit" disabled={isSubmitting || isViewOnly} className="gap-2 text-xs px-5 font-bold">
+          <Button
+            type="submit"
+            disabled={isSubmitting || isViewOnly}
+            className="gap-2 text-sm sm:text-base h-12 px-6 font-bold rounded-xl active:scale-[0.99] touch-manipulation"
+          >
             <span>
               {isSubmitting
                 ? 'Sending to Kitchen...'
@@ -224,7 +228,7 @@ export default function CheckoutPage() {
                 ? 'Sign In & Send Order'
                 : 'Send Order to Kitchen'}
             </span>
-            <ArrowRight size={16} />
+            <ArrowRight size={18} />
           </Button>
         </div>
       </form>

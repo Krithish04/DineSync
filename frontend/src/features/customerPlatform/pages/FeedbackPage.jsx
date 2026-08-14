@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { CheckCircle2, Heart } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
+import { CheckCircle2 } from 'lucide-react';
 import CustomerLayout from '../components/CustomerLayout';
 import ReviewForm from '../components/ReviewForm';
 import useCartStore from '../store/cart.store';
@@ -7,9 +8,13 @@ import useCustomerAuthStore from '../store/customerAuth.store';
 import * as customerApi from '../api/customerPlatform.api';
 
 export default function FeedbackPage() {
+  const location = useLocation();
   const restaurantId = useCartStore((s) => s.restaurantId);
   const branchId = useCartStore((s) => s.branchId);
+  const currentOrderId = useCartStore((s) => s.currentOrderId);
   const customer = useCustomerAuthStore((s) => s.customer);
+
+  const orderId = location.state?.orderId || currentOrderId || null;
 
   const [submitted, setSubmitted] = useState(false);
   const [feedbackResult, setFeedbackResult] = useState(null);
@@ -22,6 +27,7 @@ export default function FeedbackPage() {
     try {
       const result = await customerApi.submitCustomerFeedback(restaurantId, {
         ...formData,
+        orderId,
         branchId,
       });
       setFeedbackResult(result);

@@ -154,18 +154,18 @@ export default function QrLandingPage() {
             )}
 
             {isTableInactive ? (
-              <Button onClick={handleStartOrdering} className="w-full gap-2 text-sm font-semibold">
+              <Button onClick={handleStartOrdering} className="w-full h-11 gap-2 text-sm font-bold rounded-xl active:scale-[0.99] touch-manipulation">
                 <Utensils size={16} />
-                <span>Browse Digital Menu &amp; Add Items</span>
+                <span>Browse Digital Menu</span>
                 <ArrowRight size={16} />
               </Button>
             ) : isTableOccupied && !isCurrentHost ? (
-              <Button onClick={handleStartOrdering} variant="secondary" className="w-full gap-2 text-xs font-semibold">
+              <Button onClick={handleStartOrdering} variant="secondary" className="w-full h-11 gap-2 text-xs font-bold rounded-xl active:scale-[0.99] touch-manipulation">
                 <Eye size={15} />
                 <span>Browse Menu (View Only)</span>
               </Button>
             ) : (
-              <Button onClick={handleStartOrdering} className="w-full gap-2 text-sm font-semibold">
+              <Button onClick={handleStartOrdering} className="w-full h-11 gap-2 text-sm font-bold rounded-xl active:scale-[0.99] touch-manipulation">
                 <span>Start Table Ordering</span>
                 <ArrowRight size={16} />
               </Button>
@@ -174,7 +174,7 @@ export default function QrLandingPage() {
             <Button
               variant="outline"
               onClick={() => navigate('/menu/reservations')}
-              className="w-full text-xs gap-1.5 border-primary/20 text-primary hover:bg-primary/5"
+              className="w-full h-11 text-xs font-semibold gap-1.5 border-primary/20 text-primary hover:bg-primary/5 rounded-xl touch-manipulation"
             >
               <span>Book Table in Advance</span>
             </Button>

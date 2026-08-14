@@ -10,13 +10,20 @@ const ApiError = require('../../utils/ApiError');
 // ==========================================
 
 const createCustomer = async (restaurantId, payload) => {
-  // Validate unique phoneNumber per restaurant
-  const exists = await Customer.exists({
+  // Validate unique phoneNumber per restaurant (including soft-deleted)
+  const existing = await Customer.findOne({
     restaurant: restaurantId,
     phoneNumber: payload.phoneNumber,
-    isDeleted: false,
   });
-  if (exists) {
+
+  if (existing) {
+    if (existing.isDeleted) {
+      existing.isDeleted = false;
+      existing.deletedAt = null;
+      Object.assign(existing, payload);
+      await existing.save();
+      return existing;
+    }
     throw ApiError.badRequest(`Customer with phone number "${payload.phoneNumber}" already exists.`);
   }
 
