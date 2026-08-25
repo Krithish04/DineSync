@@ -118,35 +118,45 @@ export default function InvoiceListPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredInvoices.map((inv) => (
-                    <tr key={inv._id} className="border-b border-border hover:bg-muted/5 transition-colors">
-                      <td className="p-3 font-mono font-semibold text-foreground">{inv.invoiceNumber}</td>
-                      <td className="p-3 text-foreground font-medium">{inv.customerName || 'Walk-in Guest'}</td>
-                      <td className="p-3 text-center text-muted-foreground">{inv.paymentMethod || 'Cash'}</td>
-                      <td className="p-3 text-right font-mono text-muted-foreground">₹{inv.subtotal?.toFixed(2)}</td>
-                      <td className="p-3 text-right font-mono text-muted-foreground">₹{inv.taxAmount?.toFixed(2)}</td>
-                      <td className="p-3 text-right font-mono font-bold text-foreground">₹{inv.grandTotal?.toFixed(2)}</td>
-                      <td className="p-3 text-center">
-                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-semibold border ${
-                          inv.paymentStatus === 'Paid' ? 'bg-emerald-100 text-emerald-800 border-emerald-200' :
-                          inv.paymentStatus === 'Refunded' ? 'bg-rose-100 text-rose-800 border-rose-200' :
-                          'bg-amber-100 text-amber-800 border-amber-200'
-                        }`}>
-                          {inv.paymentStatus}
-                        </span>
-                      </td>
-                      <td className="p-3 text-center">
-                        <Button
-                          size="xs"
-                          variant="outline"
-                          onClick={() => navigate(`/restaurant/billing/${inv._id}`)}
-                          className="h-7 text-[10px] px-2.5"
-                        >
-                          View Receipt
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
+                  {filteredInvoices.map((inv) => {
+                    const taxVal = (inv.taxAmount !== undefined && inv.taxAmount !== null)
+                      ? inv.taxAmount
+                      : ((inv.cgst || 0) + (inv.sgst || 0) + (inv.igst || 0)) ||
+                        (inv.grandTotal && inv.subtotal ? (inv.grandTotal - inv.subtotal) : 0);
+
+                    const statusVal = inv.paymentStatus || inv.invoiceStatus || 'Paid';
+                    const custName = inv.customerName || inv.customer?.fullName || inv.order?.customerName || inv.order?.customer?.fullName || inv.order?.currentHostName || 'Walk-in Guest';
+
+                    return (
+                      <tr key={inv._id} className="border-b border-border hover:bg-muted/5 transition-colors">
+                        <td className="p-3 font-mono font-semibold text-foreground">{inv.invoiceNumber}</td>
+                        <td className="p-3 text-foreground font-medium">{custName}</td>
+                        <td className="p-3 text-center text-muted-foreground">{inv.paymentMethod || 'Cash'}</td>
+                        <td className="p-3 text-right font-mono text-muted-foreground">₹{inv.subtotal?.toFixed(2)}</td>
+                        <td className="p-3 text-right font-mono text-muted-foreground">₹{taxVal?.toFixed(2)}</td>
+                        <td className="p-3 text-right font-mono font-bold text-foreground">₹{inv.grandTotal?.toFixed(2)}</td>
+                        <td className="p-3 text-center">
+                          <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[9px] font-semibold border ${
+                            statusVal === 'Paid' ? 'bg-emerald-100 text-emerald-800 border-emerald-200' :
+                            statusVal === 'Refunded' ? 'bg-rose-100 text-rose-800 border-rose-200' :
+                            'bg-amber-100 text-amber-800 border-amber-200'
+                          }`}>
+                            {statusVal}
+                          </span>
+                        </td>
+                        <td className="p-3 text-center">
+                          <Button
+                            size="xs"
+                            variant="outline"
+                            onClick={() => navigate(`/restaurant/billing/invoices/${inv._id}`)}
+                            className="h-7 text-[10px] px-2.5 font-bold"
+                          >
+                            View Receipt
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

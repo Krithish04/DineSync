@@ -7,6 +7,8 @@ import Loader from '@/components/common/Loader';
 import { useKitchenTickets } from '../hooks/useKitchenTickets';
 import { playKitchenAlertSound } from '@/utils/soundAlert.util';
 
+import BatchCookingSummary from '../components/BatchCookingSummary';
+
 /**
  * KdsPage — Dedicated standalone Kitchen Display System (KDS) for Chefs.
  * Rendered inside KdsShell (without admin sidebar) and powered by useKitchenTickets hook.
@@ -132,6 +134,15 @@ export default function KdsPage() {
               </CardContent>
             </Card>
           </div>
+        )}
+
+        {/* Smart Batch Preparation Console */}
+        {!isLoading && (
+          <BatchCookingSummary
+            stationName={selectedStation}
+            tickets={lanes.preparing}
+            onItemStatusChange={handleItemStatusChange}
+          />
         )}
 
         {/* Drag-and-Drop Ticket Queue Lanes (2-Lane Workflow: Preparing -> Ready for Service) */}

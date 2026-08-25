@@ -5,12 +5,13 @@ export default function CustomerTimeline({ orders = [], reservations = [] }) {
   const events = [];
 
   orders.forEach((o) => {
+    const itemCount = o.items?.length || 0;
     events.push({
       id: o._id,
       date: new Date(o.createdAt),
       type: 'order',
       title: `Placed Order #${o.orderNumber}`,
-      subtitle: `${o.items?.length || 0} items purchased • Total spent ₹${o.grandTotal.toFixed(2)}`,
+      subtitle: `${itemCount} ${itemCount === 1 ? 'item' : 'items'} purchased • Total spent ₹${(o.grandTotal || 0).toFixed(2)}`,
       status: o.orderStatus,
       raw: o,
     });
@@ -47,11 +48,11 @@ export default function CustomerTimeline({ orders = [], reservations = [] }) {
   }
 
   return (
-    <div className="relative border-l border-border pl-4 space-y-6">
+    <div className="relative border-l-2 border-border ml-3.5 space-y-6 py-1">
       {events.map((ev) => (
-        <div key={ev.id} className="relative">
-          {/* Timeline node icon */}
-          <span className="absolute -left-7.5 top-0.5 flex h-7 w-7 items-center justify-center rounded-full bg-background border border-border shadow-sm">
+        <div key={ev.id} className="relative pl-6">
+          {/* Timeline node icon centered on the border line */}
+          <span className="absolute -left-3.5 top-0 flex h-7 w-7 items-center justify-center rounded-full bg-card border border-border shadow-xs z-10">
             {ev.type === 'order' ? (
               <ShoppingBag className="h-3.5 w-3.5 text-primary" />
             ) : (
@@ -65,10 +66,10 @@ export default function CustomerTimeline({ orders = [], reservations = [] }) {
                 {ev.title}
                 <span className={`inline-flex items-center rounded-full px-1.5 py-0.2 text-[8px] font-bold uppercase ${
                   ev.status === 'Completed' || ev.status === 'Confirmed' || ev.status === 'Seated'
-                    ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                    ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
                     : ev.status === 'Cancelled'
-                    ? 'bg-rose-50 text-rose-800 border border-rose-200'
-                    : 'bg-slate-50 text-slate-800 border border-slate-200'
+                    ? 'bg-rose-50 text-rose-800 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800'
+                    : 'bg-slate-50 text-slate-800 border border-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-800'
                 }`}>
                   {ev.status}
                 </span>
@@ -79,7 +80,7 @@ export default function CustomerTimeline({ orders = [], reservations = [] }) {
                 {ev.date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </span>
             </div>
-            <p className="text-xs text-muted-foreground pl-0.5">{ev.subtitle}</p>
+            <p className="text-xs text-muted-foreground">{ev.subtitle}</p>
           </div>
         </div>
       ))}

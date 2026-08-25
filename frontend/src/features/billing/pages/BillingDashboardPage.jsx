@@ -60,9 +60,6 @@ export default function BillingDashboardPage() {
             <Button size="xs" variant="outline" onClick={() => navigate('/restaurant/billing/invoices')} className="h-8">
               <Receipt className="h-4 w-4 mr-1.5" /> Invoices List
             </Button>
-            <Button size="xs" onClick={() => navigate('/restaurant/orders/active')} className="h-8">
-              <Plus className="h-4 w-4 mr-1" /> Seated Orders Checkout
-            </Button>
           </div>
         </div>
 

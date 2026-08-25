@@ -5,6 +5,7 @@ const { connectDB, disconnectDB } = require('./config/db.config');
 const { initSocket } = require('./config/socket.config');
 const { startScheduledReportRunner } = require('./features/reports/scheduledReport.service');
 const { startJobScheduler } = require('./features/notification/jobScheduler.service');
+const { startAiReservationMonitor } = require('./features/reservation/aiReservation.service');
 
 const tenantService = require('./features/tenant/tenant.service');
 
@@ -16,6 +17,7 @@ const start = async () => {
   await tenantService.backfillKitchenStations();
   startScheduledReportRunner();
   startJobScheduler();
+  startAiReservationMonitor();
 
   server.listen(env.PORT, () => {
     // eslint-disable-next-line no-console

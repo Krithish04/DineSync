@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, RefreshCw, Star, Landmark, Award, TrendingUp, Sparkles } from 'lucide-react';
+import { Users, RefreshCw, Star, Landmark, Award, TrendingUp } from 'lucide-react';
 import RestaurantLayout from '@/features/restaurant/components/RestaurantLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -55,9 +55,6 @@ export default function CustomerDashboardPage() {
           <div className="flex flex-wrap gap-2 shrink-0">
             <Button size="xs" variant="outline" onClick={() => navigate('/restaurant/customers/list')} className="h-8">
               <Users className="h-4 w-4 mr-1.5" /> Customer Directory
-            </Button>
-            <Button size="xs" onClick={() => navigate('/restaurant/customers/list')} className="h-8">
-              <Sparkles className="h-4 w-4 mr-1" /> Add Guest Profile
             </Button>
           </div>
         </div>

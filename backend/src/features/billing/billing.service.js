@@ -102,6 +102,11 @@ const listInvoices = async (restaurantId, { status, search = '' }) => {
 
   return Invoice.find(query)
     .populate('customer', 'fullName phoneNumber')
+    .populate({
+      path: 'order',
+      select: 'orderNumber customerName currentHostName',
+      populate: { path: 'customer', select: 'fullName phoneNumber' },
+    })
     .populate('table', 'tableNumber')
     .populate('cashier', 'name')
     .sort({ invoiceDate: -1 });

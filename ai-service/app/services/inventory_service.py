@@ -21,13 +21,11 @@ def calculate_inventory_forecast(req: InventoryForecastRequest) -> InventoryFore
 
     items = req.ingredients
     if not items:
-        # Fallback sample ingredients if empty
-        items = [
-            type('Ing', (), {'ingredient_name': 'Basmati Rice', 'current_stock': 12.0, 'reorder_level': 15.0, 'unit': 'kg', 'daily_consumption_rate': 4.0, 'purchase_price': 90.0})(),
-            type('Ing', (), {'ingredient_name': 'Cooking Oil', 'current_stock': 8.0, 'reorder_level': 10.0, 'unit': 'L', 'daily_consumption_rate': 3.0, 'purchase_price': 140.0})(),
-            type('Ing', (), {'ingredient_name': 'Paneer', 'current_stock': 3.5, 'reorder_level': 5.0, 'unit': 'kg', 'daily_consumption_rate': 2.0, 'purchase_price': 320.0})(),
-            type('Ing', (), {'ingredient_name': 'Chicken Breast', 'current_stock': 15.0, 'reorder_level': 10.0, 'unit': 'kg', 'daily_consumption_rate': 5.0, 'purchase_price': 240.0})(),
-        ]
+        return InventoryForecastResponse(
+            low_stock_predictions=[],
+            purchase_recommendations=[],
+            total_estimated_purchase_cost=0.0,
+        )
 
     for ing in items:
         stock = getattr(ing, 'current_stock', 0.0) or 0.0

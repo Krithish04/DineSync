@@ -23,7 +23,6 @@ const getCustomer = asyncHandler(async (req, res) => {
   // Also fetch order and reservation histories for profile timeline
   const [orders, reservations] = await Promise.all([
     Order.find({ customer: req.params.customerId, restaurant: req.params.restaurantId, isDeleted: false })
-      .populate('branch', 'name')
       .populate('table', 'tableNumber')
       .sort({ createdAt: -1 }),
     Reservation.find({ customerPhone: customer.phoneNumber, restaurant: req.params.restaurantId, isDeleted: false })

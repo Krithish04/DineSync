@@ -162,9 +162,13 @@ export default function InventoryDashboardPage() {
                 <CardDescription className="text-xs">Ingredients matching or dropping below critical safety margins.</CardDescription>
               </CardHeader>
               <CardContent>
-                {lowStockList.length === 0 ? (
+                {stats?.totalIngredients === 0 ? (
                   <p className="text-center py-6 text-xs text-muted-foreground italic border border-dashed rounded bg-muted/5">
-                    Excellent! All ingredients stocks are safely above reorder levels.
+                    No ingredients found in inventory. Go to 'Ingredients List' to add your first ingredient.
+                  </p>
+                ) : lowStockList.length === 0 ? (
+                  <p className="text-center py-6 text-xs text-muted-foreground italic border border-dashed rounded bg-muted/5">
+                    Excellent! All ingredient stocks are safely above reorder levels.
                   </p>
                 ) : (
                   <div className="overflow-x-auto">

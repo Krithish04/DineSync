@@ -51,5 +51,7 @@ router.post('/orders/:orderId/pay', customerExperienceController.payCustomerOrde
 router.post('/orders/:orderId/cancel', customerExperienceController.cancelCustomerOrder);
 router.post('/feedback', optionalProtect, customerExperienceController.submitCustomerFeedback);
 router.post('/assist-request', customerExperienceController.requestAssistance);
+router.get('/tables/:tableId/reservation-lock', customerExperienceController.checkTableReservationLock);
+router.post('/tables/:tableId/verify-reservation-phone', customerExperienceController.verifyReservationPhone);
 
 module.exports = router;

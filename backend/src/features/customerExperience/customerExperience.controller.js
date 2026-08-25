@@ -115,6 +115,21 @@ const getMyCustomerReservations = asyncHandler(async (req, res) => {
   return new ApiResponse(200, data, 'Customer reservations fetched successfully').send(res);
 });
 
+const checkTableReservationLock = asyncHandler(async (req, res) => {
+  const aiReservationService = require('../reservation/aiReservation.service');
+  const data = await aiReservationService.checkTableLockStatus(req.params.restaurantId, req.params.tableId);
+  return new ApiResponse(200, data, 'Table reservation lock status fetched').send(res);
+});
+
+const verifyReservationPhone = asyncHandler(async (req, res) => {
+  const aiReservationService = require('../reservation/aiReservation.service');
+  const data = await aiReservationService.verifyGuestPhoneToUnlock(req.params.restaurantId, {
+    tableId: req.params.tableId,
+    phoneNumber: req.body.phoneNumber,
+  });
+  return new ApiResponse(200, data, 'Reservation verified and digital menu unlocked').send(res);
+});
+
 module.exports = {
   resolveQrCode,
   getPublicMenu,
@@ -132,4 +147,6 @@ module.exports = {
   getActiveTableOrders,
   createCustomerReservation,
   getMyCustomerReservations,
+  checkTableReservationLock,
+  verifyReservationPhone,
 };

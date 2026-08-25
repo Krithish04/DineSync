@@ -6,6 +6,8 @@ import Loader from '@/components/common/Loader';
 import KitchenQueue from '../components/KitchenQueue';
 import { useKitchenTickets } from '../hooks/useKitchenTickets';
 
+import BatchCookingSummary from '../components/BatchCookingSummary';
+
 export default function KitchenDashboardPage() {
   const {
     stations,
@@ -118,6 +120,15 @@ export default function KitchenDashboardPage() {
             </button>
           ))}
         </div>
+
+        {/* Smart Batch Preparation Console */}
+        {!isLoading && (
+          <BatchCookingSummary
+            stationName={selectedStation}
+            tickets={lanes.preparing}
+            isReadOnly={true}
+          />
+        )}
 
         {/* Drag-and-Drop Columns Board */}
         {isLoading ? (

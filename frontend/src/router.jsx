@@ -249,11 +249,19 @@ const router = createBrowserRouter([
         element: <BillingDashboardPage />,
       },
       {
+        path: '/restaurant/orders/active',
+        element: <ActiveOrdersPage />,
+      },
+      {
         path: '/restaurant/billing/invoices',
         element: <InvoiceListPage />,
       },
       {
         path: '/restaurant/billing/invoices/:invoiceId',
+        element: <InvoiceDetailsPage />,
+      },
+      {
+        path: '/restaurant/billing/:invoiceId',
         element: <InvoiceDetailsPage />,
       },
       {

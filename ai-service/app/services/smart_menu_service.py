@@ -53,7 +53,11 @@ def calculate_smart_menu(req: SmartMenuRequest) -> SmartMenuResponse:
             MenuItemPerformance(item_name="Herbal Green Tea", category="Beverages", total_revenue=1400.0, total_qty=12, profit_margin=40.0, recommendation_tag="Low Performing"),
         ]
     else:
-        pipeline_obj = get_zero_shot_pipeline()
+        # Use fast quantitative percentile ranking by default to ensure sub-millisecond response times
+        # Heavy zero-shot HuggingFace inference can be enabled via USE_ZERO_SHOT_NLP=true environment flag
+        import os
+        use_nlp = os.environ.get("USE_ZERO_SHOT_NLP", "false").lower() in ("true", "1")
+        pipeline_obj = get_zero_shot_pipeline() if use_nlp else None
 
         revenues = [float(item.get("total_revenue") or item.get("revenue") or 0.0) for item in items_data]
         quantities = [int(item.get("total_qty") or item.get("qty") or 0) for item in items_data]

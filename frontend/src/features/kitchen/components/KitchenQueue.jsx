@@ -39,10 +39,11 @@ export default function KitchenQueue({
 
       {/* Tickets Scroll area */}
       <div className="flex-1 overflow-y-auto p-3.5 space-y-3.5 min-h-[150px]">
-        {tickets.map((t) => (
+        {tickets.map((t, idx) => (
           <KitchenTicketCard
             key={t._id}
             ticket={t}
+            queuePosition={idx + 1}
             onStatusChange={onStatusChange}
             onItemStatusChange={onItemStatusChange}
             isDraggable={!isReadOnly}

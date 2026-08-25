@@ -12,6 +12,7 @@ import Loader from '@/components/common/Loader';
 import useCartStore from '../store/cart.store';
 import * as customerApi from '../api/customerPlatform.api';
 
+import TableReservationLockModal from '../components/TableReservationLockModal';
 import QrCodeRequiredCard from '../components/QrCodeRequiredCard';
 import { Sparkles } from 'lucide-react';
 
@@ -33,9 +34,33 @@ export default function DigitalMenuPage() {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [dietaryFilter, setDietaryFilter] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [showFirstVisitHint, setShowFirstVisitHint] = useState(true);
+  const [reservationLockInfo, setReservationLockInfo] = useState(null);
+
+  // Check Table Reservation Lock Status (15-min buffer window)
+  useEffect(() => {
+    if (!restaurantId || !tableId) return;
+    const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api/v1';
+    fetch(`${baseURL}/restaurants/${restaurantId}/tables/${tableId}/reservation-lock`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.data?.isLocked) {
+          setReservationLockInfo(data.data);
+        }
+      })
+      .catch(() => {});
+  }, [restaurantId, tableId]);
+
+  // Debounce search input to reduce network calls while typing
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   // Route Guarding: check for valid table + restaurant context
   const hasContext = Boolean(restaurantId && (tableId || searchParams.get('tableId')));
@@ -55,7 +80,7 @@ export default function DigitalMenuPage() {
         branchId,
         categoryId: selectedCategory !== 'all' ? selectedCategory : undefined,
         dietary: dietaryFilter || undefined,
-        search: searchQuery || undefined,
+        search: debouncedSearchQuery || undefined,
       });
       setCategories(data.categories || []);
       setItems(data.items || []);
@@ -65,7 +90,7 @@ export default function DigitalMenuPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [restaurantId, branchId, selectedCategory, dietaryFilter, searchQuery]);
+  }, [restaurantId, branchId, selectedCategory, dietaryFilter, debouncedSearchQuery]);
 
   useEffect(() => { loadMenu(); }, [loadMenu]);
 
@@ -79,6 +104,16 @@ export default function DigitalMenuPage() {
 
   return (
     <CustomerLayout title="Digital Menu">
+      {/* Table Reservation Lock & Phone Verification Modal */}
+      {reservationLockInfo?.isLocked && (
+        <TableReservationLockModal
+          lockInfo={reservationLockInfo}
+          restaurantId={restaurantId}
+          tableId={tableId}
+          onUnlocked={() => setReservationLockInfo(null)}
+        />
+      )}
+
       <div className="space-y-4">
         {/* First-Time Visit Diner Welcome Hint */}
         {showFirstVisitHint && (

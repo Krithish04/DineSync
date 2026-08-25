@@ -55,7 +55,7 @@ def calculate_demand_forecast(req: DemandForecastRequest) -> DemandForecastRespo
             if cat:
                 category_counts[cat] += qty
 
-    use_ml = len(orders) >= 10
+    use_ml = len(orders) >= 1
     busy_hours = []
     busy_days = []
 

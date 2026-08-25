@@ -85,17 +85,19 @@ export default function AiDashboardPage() {
               <AiInsightCard
                 category="Demand Prediction"
                 title="Busy Peak Hours Expected"
-                description={`High demand projected between 1:00 PM - 3:00 PM and 7:00 PM - 10:00 PM today. Peak category: ${overview.demandSummary?.topCategory}.`}
+                description={overview.demandSummary?.busyHoursCount > 0
+                  ? `Peak demand projected from historical order velocity. Top category: ${overview.demandSummary?.topCategory || 'Main Course'}.`
+                  : `Steady order demand projected across operating hours. Top category: ${overview.demandSummary?.topCategory || 'Main Course'}.`}
               />
               <AiInsightCard
                 category="Smart Menu Optimization"
                 title="Top Menu Star"
-                description={`'${overview.topMenuItem}' is generating highest customer margins and order frequency.`}
+                description={`'${overview.topMenuItem || 'Featured Item'}' is generating highest customer margins and order frequency.`}
               />
               <AiInsightCard
                 category="Customer Cross-Sell"
                 title={overview.topRecommendation?.item_name || 'Combo Upsell'}
-                description={overview.topRecommendation?.reason || 'Frequently ordered together with Butter Chicken.'}
+                description={overview.topRecommendation?.reason || `Frequently ordered together with ${overview.topMenuItem || 'top items'}.`}
               />
             </div>
 

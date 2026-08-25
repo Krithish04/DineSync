@@ -11,6 +11,7 @@ const PRIORITY_THEMES = {
 
 export default function KitchenTicketCard({
   ticket,
+  queuePosition,
   onStatusChange,
   onItemStatusChange,
   isDraggable = true,
@@ -59,6 +60,13 @@ export default function KitchenTicketCard({
     ticket.order?.table?.tableNumber ??
     ticket.order?.tableNumber;
 
+  const custName =
+    ticket.customerName ??
+    ticket.customer?.fullName ??
+    ticket.order?.customerName ??
+    ticket.order?.customer?.fullName ??
+    ticket.order?.currentHostName;
+
   return (
     <Card
       draggable={canDrag}
@@ -71,18 +79,26 @@ export default function KitchenTicketCard({
         {/* Ticket Header: No, Table & Timer */}
         <div className="flex items-start justify-between gap-2 border-b border-border/40 pb-2.5">
           <div>
-            <span className="text-[10px] font-mono text-muted-foreground bg-muted rounded px-1.5 py-0.5">
-              {ticket.ticketNumber}
-            </span>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-[10px] font-mono text-muted-foreground bg-muted rounded px-1.5 py-0.5">
+                {ticket.ticketNumber}
+              </span>
+              {queuePosition && (
+                <span className="text-[9px] font-bold font-mono text-amber-700 dark:text-amber-300 bg-amber-500/15 border border-amber-500/30 rounded px-1.5 py-0.5">
+                  #{queuePosition} in Queue
+                </span>
+              )}
+            </div>
             <h4 className="font-bold text-xs text-foreground mt-1.5">
               {ticket.orderType}
               {tableNum ? ` • Table ${tableNum}` : ''}
+              {custName ? ` (${custName})` : ''}
             </h4>
           </div>
 
           <div className="flex flex-col items-end gap-1 shrink-0">
-            <span className="flex items-center gap-1 text-[11px] font-bold font-mono text-foreground">
-              <Clock className="h-3 w-3 text-primary shrink-0" />
+            <span className="flex items-center gap-1 text-[11px] font-bold font-mono text-foreground" title="Time elapsed since order placed">
+              <Clock className="h-3 w-3 text-primary shrink-0 animate-pulse" />
               {elapsed}
             </span>
             <span className={`inline-flex items-center rounded-full px-1.5 py-0.2 text-[9px] font-bold uppercase border ${

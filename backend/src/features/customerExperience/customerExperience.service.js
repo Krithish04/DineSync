@@ -87,8 +87,8 @@ const getPublicMenu = async (restaurantId, { categoryId, dietary, search, isPopu
   }
 
   const [categories, items, aiRecs] = await Promise.all([
-    Category.find(categoryQuery).sort({ displayOrder: 1, name: 1 }),
-    MenuItem.find(itemQuery).populate('category', 'name').sort({ name: 1 }),
+    Category.find(categoryQuery).sort({ displayOrder: 1, name: 1 }).lean(),
+    MenuItem.find(itemQuery).populate('category', 'name').sort({ name: 1 }).lean(),
     aiService.getSmartMenuRecommendations(restaurantId).catch(() => null),
   ]);
 
