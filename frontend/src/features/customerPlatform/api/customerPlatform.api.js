@@ -107,3 +107,34 @@ export const getMyReservations = async (restaurantId) => {
   const { data } = await api.get(`${publicUrl(restaurantId)}/reservations/mine`);
   return data.data.reservations;
 };
+
+// AI Chatbot APIs
+export const sendChatMessage = async (restaurantId, payload) => {
+  const { data } = await api.post(`${publicUrl(restaurantId)}/chatbot/chat`, {
+    restaurantId,
+    ...payload,
+  });
+  return data.data;
+};
+
+export const getChatbotSettings = async (restaurantId) => {
+  const { data } = await api.get(`${publicUrl(restaurantId)}/chatbot/settings`, {
+    params: { restaurantId },
+  });
+  return data.data;
+};
+
+export const updateChatbotSettings = async (restaurantId, payload) => {
+  const { data } = await api.put(`/restaurants/${restaurantId}/chatbot/settings`, {
+    restaurantId,
+    ...payload,
+  });
+  return data.data;
+};
+
+export const getChatbotAnalytics = async (restaurantId) => {
+  const { data } = await api.get(`/restaurants/${restaurantId}/chatbot/analytics`, {
+    params: { restaurantId },
+  });
+  return data.data;
+};

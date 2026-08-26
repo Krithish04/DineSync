@@ -8,6 +8,7 @@ import useSocketStore from '@/store/socket.store';
 import StickyCartBar from './StickyCartBar';
 import CustomerAuthModal from './CustomerAuthModal';
 import TablePaymentModal from './TablePaymentModal';
+import DineSyncAssistantModal from './DineSyncAssistantModal';
 import * as customerApi from '../api/customerPlatform.api';
 
 /**
@@ -430,6 +431,9 @@ export default function CustomerLayout({ title, children }) {
 
       {/* Final Table Payment Settlement Modal */}
       <TablePaymentModal isOpen={isPaymentModalOpen} onClose={() => setIsPaymentModalOpen(false)} />
+
+      {/* AI Assistant Floating Chatbot */}
+      <DineSyncAssistantModal />
     </div>
   );
 }

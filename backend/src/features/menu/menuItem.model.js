@@ -160,6 +160,28 @@ const menuItemSchema = new Schema(
       type: [modifierGroupSchema],
       default: [],
     },
+    allergens: {
+      type: [String],
+      default: [],
+    },
+    dietaryTags: {
+      type: [String],
+      default: [],
+    },
+    ingredientsList: {
+      type: [String],
+      default: [],
+    },
+    rating: {
+      type: Number,
+      default: 4.5,
+      min: 0,
+      max: 5,
+    },
+    popularityScore: {
+      type: Number,
+      default: 0,
+    },
   },
   { timestamps: true }
 );

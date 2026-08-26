@@ -21,6 +21,7 @@ class Settings(BaseSettings):
 
     project_name: str = "DineSync AI - AI Service"
     api_v1_prefix: str = "/api/v1"
+    gemini_api_key: str = ""
 
     @property
     def cors_origins_list(self) -> List[str]:

@@ -42,8 +42,9 @@ const env = {
   // Password reset
   RESET_TOKEN_EXPIRY_MINUTES: parseInt(process.env.RESET_TOKEN_EXPIRY_MINUTES, 10) || 15,
 
-  // AI Microservice
+  // AI Microservice & Gemini LLM
   AI_SERVICE_URL: process.env.AI_SERVICE_URL || 'http://localhost:8000/api/v1',
+  GEMINI_API_KEY: process.env.GEMINI_API_KEY || '',
 
   // Auto-Serve Orders Threshold
   AUTO_SERVE_MINUTES: parseInt(process.env.AUTO_SERVE_MINUTES, 10) || 10,

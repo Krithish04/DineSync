@@ -15,6 +15,7 @@ const employeeRoutes = require('../features/employee/employee.routes');
 const reportRoutes = require('../features/reports/report.routes');
 const scheduledReportRoutes = require('../features/reports/scheduledReport.routes');
 const aiRoutes = require('../features/ai/ai.routes');
+const chatbotRoutes = require('../features/ai/chatbot.routes');
 const customerExperienceRoutes = require('../features/customerExperience/customerExperience.routes');
 const feedbackRoutes = require('../features/customer/feedback.routes');
 const notificationRoutes = require('../features/notification/notification.routes');
@@ -44,7 +45,9 @@ router.use('/restaurants/:restaurantId/employees', employeeRoutes);
 router.use('/restaurants/:restaurantId/reports', reportRoutes);
 router.use('/restaurants/:restaurantId/reports', scheduledReportRoutes);
 router.use('/restaurants/:restaurantId/ai', aiRoutes);
+router.use('/restaurants/:restaurantId/chatbot', chatbotRoutes);
 router.use('/restaurants/:restaurantId/notifications', notificationRoutes);
 router.use('/public/restaurants/:restaurantId', customerExperienceRoutes);
+router.use('/public/restaurants/:restaurantId/chatbot', chatbotRoutes);
 
 module.exports = router;

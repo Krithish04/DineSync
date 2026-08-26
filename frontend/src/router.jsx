@@ -78,6 +78,7 @@ const CustomerInsightsPage = lazyLoad(() => import('@/features/ai/pages/Customer
 const DemandPredictionPage = lazyLoad(() => import('@/features/ai/pages/DemandPredictionPage'));
 const AiRecommendationsPage = lazyLoad(() => import('@/features/ai/pages/AiRecommendationsPage'));
 const SentimentDashboardPage = lazyLoad(() => import('@/features/ai/pages/SentimentDashboardPage'));
+const ChatbotAdminSettingsPage = lazyLoad(() => import('@/features/menu/pages/ChatbotAdminSettingsPage'));
 const QrLandingPage = lazyLoad(() => import('@/features/customerPlatform/pages/QrLandingPage'));
 const DigitalMenuPage = lazyLoad(() => import('@/features/customerPlatform/pages/DigitalMenuPage'));
 const CartPage = lazyLoad(() => import('@/features/customerPlatform/pages/CartPage'));
@@ -407,6 +408,10 @@ const router = createBrowserRouter([
       {
         path: '/restaurant/ai/sentiment',
         element: <SentimentDashboardPage />,
+      },
+      {
+        path: '/restaurant/ai/chatbot-settings',
+        element: <ChatbotAdminSettingsPage />,
       },
     ],
   },

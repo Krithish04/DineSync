@@ -46,6 +46,10 @@ require('../features/notification/notificationPreference.model');
 require('../features/notification/notificationTemplate.model');
 require('../features/reports/scheduledReport.model');
 
+// AI & Chatbot Models
+require('../features/ai/chatbotConfig.model');
+require('../features/ai/chatbotAnalytics.model');
+
 // Super Admin Models
 require('../features/superAdmin/auditLog.model');
 require('../features/superAdmin/featureFlag.model');
