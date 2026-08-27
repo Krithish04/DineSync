@@ -39,6 +39,12 @@ services:
     restart: always
     ports:
       - '8000:8000'
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:5000}
+      BACKEND_API_URL: http://backend:5000/api/v1
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-flash-latest}
 
   frontend:
     build:

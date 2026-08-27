@@ -23,6 +23,12 @@ services:
       dockerfile: Dockerfile
     container_name: dinesync-ai-prod
     restart: always
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      CORS_ORIGINS: ${CORS_ORIGINS}
+      BACKEND_API_URL: http://backend:5000/api/v1
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-flash-latest}
 
   nginx:
     build:

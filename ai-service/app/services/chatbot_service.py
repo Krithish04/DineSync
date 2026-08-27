@@ -6,6 +6,7 @@ Provides NLP intent classification, mood scoring, Gemini LLM reasoning, and conv
 import logging
 import json
 import urllib.request
+import urllib.error
 from typing import Dict, Any, List, Optional
 from app.core.config import get_settings
 
@@ -18,7 +19,7 @@ def call_gemini_python_api(prompt: str, system_instruction: str = "") -> Optiona
     if not api_key:
         return None
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.gemini_model}:generateContent?key={api_key}"
 
     payload = {
         "contents": [
@@ -41,15 +42,20 @@ def call_gemini_python_api(prompt: str, system_instruction: str = "") -> Optiona
             headers={"Content-Type": "application/json"},
             method="POST",
         )
-        with urllib.request.urlopen(req, timeout=5) as response:
+        with urllib.request.urlopen(req, timeout=15) as response:
             res_data = json.loads(response.read().decode("utf-8"))
             candidates = res_data.get("candidates", [])
             if candidates:
                 parts = candidates[0].get("content", {}).get("parts", [])
                 if parts:
                     return parts[0].get("text", "").strip()
+    except urllib.error.HTTPError as err:
+        error_body = err.read().decode("utf-8", errors="ignore")
+        logger.error(f"Gemini API HTTP Error {err.code}: {err.reason} - {error_body}")
+    except urllib.error.URLError as err:
+        logger.error(f"Gemini API URL Error: {err.reason}")
     except Exception as err:
-        logger.warning(f"Gemini Python API call error: {err}")
+        logger.error(f"Gemini Python API call error: {err}")
     return None
 
 
