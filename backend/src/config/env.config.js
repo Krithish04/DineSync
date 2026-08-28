@@ -31,13 +31,16 @@ const env = {
   SMTP_PASS: process.env.SMTP_PASS || '',
   EMAIL_FROM: process.env.EMAIL_FROM || 'DineSync AI <no-reply@dinesync.ai>',
 
-  // OTP
+  // OTP & SMS Gateway
   OTP_LENGTH: parseInt(process.env.OTP_LENGTH, 10) || 6,
   OTP_EXPIRY_MINUTES: parseInt(process.env.OTP_EXPIRY_MINUTES, 10) || 10,
   OTP_MAX_ATTEMPTS: parseInt(process.env.OTP_MAX_ATTEMPTS, 10) || 5,
   OTP_RESEND_COOLDOWN_SECONDS:
     parseInt(process.env.OTP_RESEND_COOLDOWN_SECONDS, 10) ||
     (process.env.NODE_ENV === 'development' ? 10 : 60),
+  SMS_GATEWAY_URL: process.env.SMS_GATEWAY_URL || '',
+  SMS_GATEWAY_API_KEY: process.env.SMS_GATEWAY_API_KEY || '',
+  SMS_GATEWAY_TIMEOUT_MS: parseInt(process.env.SMS_GATEWAY_TIMEOUT_MS, 10) || 5000,
 
   // Password reset
   RESET_TOKEN_EXPIRY_MINUTES: parseInt(process.env.RESET_TOKEN_EXPIRY_MINUTES, 10) || 15,

@@ -43,12 +43,10 @@ export default function DigitalMenuPage() {
   // Check Table Reservation Lock Status (15-min buffer window)
   useEffect(() => {
     if (!restaurantId || !tableId) return;
-    const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api/v1';
-    fetch(`${baseURL}/restaurants/${restaurantId}/tables/${tableId}/reservation-lock`)
-      .then((res) => res.json())
+    customerApi.checkTableReservationLock(restaurantId, tableId)
       .then((data) => {
-        if (data?.data?.isLocked) {
-          setReservationLockInfo(data.data);
+        if (data?.isLocked) {
+          setReservationLockInfo(data);
         }
       })
       .catch(() => {});

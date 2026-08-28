@@ -42,7 +42,11 @@ export default function RegisterPage() {
       const { confirmPassword, ...payload } = form;
       const result = await authApi.registerRestaurant(payload);
       navigate('/verify-otp', {
-        state: { email: payload.email, restaurantSlug: result?.restaurant?.slug || '' },
+        state: {
+          email: payload.email,
+          restaurantSlug: result?.restaurant?.slug || '',
+          devOtp: result?.devOtp,
+        },
         replace: true,
       });
     } catch (err) {

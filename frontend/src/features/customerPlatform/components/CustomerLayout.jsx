@@ -8,6 +8,7 @@ import useSocketStore from '@/store/socket.store';
 import StickyCartBar from './StickyCartBar';
 import CustomerAuthModal from './CustomerAuthModal';
 import TablePaymentModal from './TablePaymentModal';
+import NoOrderExitModal from './NoOrderExitModal';
 import DineSyncAssistantModal from './DineSyncAssistantModal';
 import * as customerApi from '../api/customerPlatform.api';
 
@@ -43,6 +44,7 @@ export default function CustomerLayout({ title, children }) {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [isNoOrderExitModalOpen, setIsNoOrderExitModalOpen] = useState(false);
   const [isCallingStaff, setIsCallingStaff] = useState(false);
   const [callStaffSuccess, setCallStaffSuccess] = useState('');
 
@@ -165,22 +167,12 @@ export default function CustomerLayout({ title, children }) {
   };
 
   const handleSignOutClick = async () => {
-    const { sessionId } = useCartStore.getState();
     if (placedOrders && placedOrders.length > 0) {
       // SCENARIO A: Food was ordered -> Open Payment Settlement modal!
       setIsPaymentModalOpen(true);
     } else {
-      // SCENARIO B: Logged in & logged out WITHOUT ordering -> Immediately release table & end session!
-      if (tableId && restaurantId) {
-        if (sessionId) {
-          await customerApi.releaseTableSession(restaurantId, sessionId, { tableId }).catch(() => null);
-        } else {
-          await customerApi.releaseTableHost(restaurantId, { tableId }).catch(() => null);
-        }
-      }
-      signOutHost();
-      clearCustomerSession();
-      setShowSignOutToast(true);
+      // SCENARIO B: Logged in & signing out WITHOUT ordering -> Open Exit Feedback & Thank You Modal!
+      setIsNoOrderExitModalOpen(true);
     }
   };
 
@@ -431,6 +423,9 @@ export default function CustomerLayout({ title, children }) {
 
       {/* Final Table Payment Settlement Modal */}
       <TablePaymentModal isOpen={isPaymentModalOpen} onClose={() => setIsPaymentModalOpen(false)} />
+
+      {/* Exit Feedback & Thank You Modal when signing out without ordering */}
+      <NoOrderExitModal isOpen={isNoOrderExitModalOpen} onClose={() => setIsNoOrderExitModalOpen(false)} />
 
       {/* AI Assistant Floating Chatbot */}
       <DineSyncAssistantModal />

@@ -31,4 +31,25 @@ describe('Backend Auth Unit Tests', () => {
     const isWrongMatch = await bcrypt.compare('WrongPass', hashed);
     assert.strictEqual(isWrongMatch, false, 'Password match should be false for incorrect password');
   });
+
+  it('should generate, hash, and compare OTP codes safely', () => {
+    const { generateOtpCode, hashOtpCode, compareOtpCode } = require('../../src/utils/otp.util');
+    const { normalizePhone } = require('../../src/features/auth/otp.service');
+
+    const code = generateOtpCode(6);
+    assert.strictEqual(code.length, 6, 'Generated OTP should be 6 digits');
+
+    const hash = hashOtpCode(code);
+    assert.ok(hash, 'OTP hash should be created');
+
+    // Test string and number inputs for candidate OTP code
+    assert.strictEqual(compareOtpCode(code, hash), true, 'String candidate should match hash');
+    assert.strictEqual(compareOtpCode(parseInt(code, 10), hash), true, 'Numeric candidate should match hash');
+    assert.strictEqual(compareOtpCode('000000', hash), false, 'Incorrect code should return false');
+    assert.strictEqual(compareOtpCode(null, hash), false, 'Null code should return false');
+
+    // Test phone normalization
+    assert.strictEqual(normalizePhone('+919876543210'), '+919876543210');
+    assert.strictEqual(normalizePhone(' (987) 654-3210 '), '9876543210');
+  });
 });

@@ -35,23 +35,23 @@ export default function StickyCartBar() {
     <div className="fixed bottom-16 sm:bottom-4 left-0 right-0 z-40 px-3 sm:px-4 max-w-2xl mx-auto pointer-events-none animate-in slide-in-from-bottom-4 duration-200">
       <div
         onClick={() => navigate('/menu/cart')}
-        className="pointer-events-auto bg-primary text-primary-foreground rounded-2xl p-3.5 sm:p-4 shadow-xl flex items-center justify-between gap-3 cursor-pointer hover:bg-primary/95 transition-all active:scale-[0.99]"
+        className="pointer-events-auto bg-primary text-primary-foreground rounded-2xl p-3.5 sm:p-4 shadow-xl flex items-center justify-between gap-3 cursor-pointer hover:bg-primary/95 transition-all active:scale-[0.99] touch-manipulation"
       >
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
             <ShoppingBag size={20} className="text-primary-foreground" />
           </div>
           <div>
-            <p className="text-xs font-medium text-primary-foreground/90 uppercase tracking-wide">
+            <p className="text-[11px] font-semibold text-primary-foreground/90 uppercase tracking-wider">
               {itemCount} {itemCount === 1 ? 'Item' : 'Items'} Added
             </p>
             <p className="text-base sm:text-lg font-bold font-display leading-tight">
-              ₹{grandTotal.toFixed(2)}
+              ₹{Number(grandTotal || 0).toLocaleString('en-IN')}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 font-bold text-xs sm:text-sm bg-white/20 px-3.5 py-2 rounded-xl text-primary-foreground hover:bg-white/30 transition-colors">
+        <div className="flex items-center gap-1.5 font-bold text-xs sm:text-sm bg-white/20 px-3.5 py-2 rounded-xl text-primary-foreground hover:bg-white/30 transition-colors shadow-xs">
           <span>View Cart</span>
           <ArrowRight size={16} />
         </div>

@@ -66,7 +66,7 @@ const registerRestaurant = async ({ restaurantName, ownerName, email, password, 
       createdRestaurant = restaurant;
     });
 
-    await otpService.createAndSendOtp({
+    const { expiresAt, devOtp } = await otpService.createAndSendOtp({
       email: createdUser.email,
       restaurantId: createdRestaurant._id,
       purpose: OTP_PURPOSES.EMAIL_VERIFICATION,
@@ -77,6 +77,8 @@ const registerRestaurant = async ({ restaurantName, ownerName, email, password, 
       user: createdUser.toSafeObject(),
       restaurant: createdRestaurant,
       requiresVerification: true,
+      expiresAt,
+      devOtp,
     };
   } finally {
     session.endSession();
@@ -105,14 +107,14 @@ const registerUser = async ({ name, email, password, phone, role, restaurantSlug
     isEmailVerified: false,
   });
 
-  await otpService.createAndSendOtp({
+  const { expiresAt, devOtp } = await otpService.createAndSendOtp({
     email: user.email,
     restaurantId: restaurant._id,
     purpose: OTP_PURPOSES.EMAIL_VERIFICATION,
     skipCooldown: true,
   });
 
-  return { user: user.toSafeObject(), restaurant, requiresVerification: true };
+  return { user: user.toSafeObject(), restaurant, requiresVerification: true, expiresAt, devOtp };
 };
 
 /**
@@ -120,20 +122,25 @@ const registerUser = async ({ name, email, password, phone, role, restaurantSlug
  * issues a JWT (auto-login after successful verification).
  */
 const verifyEmail = async ({ email, restaurantSlug, otp }) => {
-  const restaurant = await resolveRestaurantBySlug(restaurantSlug);
+  let restaurant = null;
+  if (restaurantSlug) {
+    restaurant = await resolveRestaurantBySlug(restaurantSlug);
+  }
 
-  await otpService.verifyOtp({
-    email,
-    restaurantId: restaurant ? restaurant._id : null,
-    purpose: OTP_PURPOSES.EMAIL_VERIFICATION,
-    code: otp,
-  });
-
-  const query = { email, restaurant: restaurant ? restaurant._id : null };
+  const query = restaurant ? { email, restaurant: restaurant._id } : { email };
   const user = await User.findOne(query);
   if (!user) {
     throw ApiError.notFound('User not found.');
   }
+
+  const restaurantId = restaurant ? restaurant._id : user.restaurant || null;
+
+  await otpService.verifyOtp({
+    email,
+    restaurantId,
+    purpose: OTP_PURPOSES.EMAIL_VERIFICATION,
+    code: otp,
+  });
 
   user.isEmailVerified = true;
   await user.save({ validateBeforeSave: false });
@@ -144,7 +151,7 @@ const verifyEmail = async ({ email, restaurantSlug, otp }) => {
     restaurantId: user.restaurant ? user.restaurant.toString() : null,
   });
 
-  return { user: user.toSafeObject(), restaurant, token };
+  return { user: user.toSafeObject(), restaurant: restaurant || user.restaurant, token };
 };
 
 /**
@@ -152,22 +159,28 @@ const verifyEmail = async ({ email, restaurantSlug, otp }) => {
  * subject to the service-level cooldown to prevent abuse.
  */
 const resendOtp = async ({ email, restaurantSlug, purpose }) => {
-  const restaurant = await resolveRestaurantBySlug(restaurantSlug);
+  let restaurant = null;
+  if (restaurantSlug) {
+    restaurant = await resolveRestaurantBySlug(restaurantSlug);
+  }
+
+  const user = await User.findOne(restaurant ? { email, restaurant: restaurant._id } : { email });
 
   if (purpose === OTP_PURPOSES.EMAIL_VERIFICATION) {
-    const user = await User.findOne({ email, restaurant: restaurant ? restaurant._id : null });
     if (user?.isEmailVerified) {
       throw ApiError.badRequest('This account is already verified. Please log in.');
     }
   }
 
-  const { expiresAt } = await otpService.createAndSendOtp({
+  const restaurantId = restaurant ? restaurant._id : user?.restaurant || null;
+
+  const { expiresAt, devOtp } = await otpService.createAndSendOtp({
     email,
-    restaurantId: restaurant ? restaurant._id : null,
+    restaurantId,
     purpose,
   });
 
-  return { expiresAt };
+  return { expiresAt, devOtp };
 };
 
 /**
@@ -223,19 +236,25 @@ const login = async ({ email, password, restaurantSlug }) => {
  * only actually sends an OTP when a matching, active user is found.
  */
 const forgotPassword = async ({ email, restaurantSlug }) => {
-  const restaurant = await resolveRestaurantBySlug(restaurantSlug);
-  const user = await User.findOne({ email, restaurant: restaurant ? restaurant._id : null });
+  let restaurant = null;
+  if (restaurantSlug) {
+    restaurant = await resolveRestaurantBySlug(restaurantSlug);
+  }
+  const user = await User.findOne(restaurant ? { email, restaurant: restaurant._id } : { email });
 
+  let devOtp;
   if (user && user.isActive) {
-    await otpService.createAndSendOtp({
+    const otpRes = await otpService.createAndSendOtp({
       email,
-      restaurantId: restaurant ? restaurant._id : null,
+      restaurantId: user.restaurant || (restaurant ? restaurant._id : null),
       purpose: OTP_PURPOSES.PASSWORD_RESET,
     });
+    devOtp = otpRes.devOtp;
   }
 
   return {
     message: 'If an account exists for this email, a password reset code has been sent.',
+    devOtp,
   };
 };
 
@@ -246,22 +265,24 @@ const forgotPassword = async ({ email, restaurantSlug }) => {
  * previously issued JWTs.
  */
 const resetPassword = async ({ email, restaurantSlug, otp, newPassword }) => {
-  const restaurant = await resolveRestaurantBySlug(restaurantSlug);
+  let restaurant = null;
+  if (restaurantSlug) {
+    restaurant = await resolveRestaurantBySlug(restaurantSlug);
+  }
 
-  await otpService.verifyOtp({
-    email,
-    restaurantId: restaurant ? restaurant._id : null,
-    purpose: OTP_PURPOSES.PASSWORD_RESET,
-    code: otp,
-  });
-
-  const user = await User.findOne({
-    email,
-    restaurant: restaurant ? restaurant._id : null,
-  }).select('+password');
+  const user = await User.findOne(restaurant ? { email, restaurant: restaurant._id } : { email }).select('+password');
   if (!user) {
     throw ApiError.notFound('User not found.');
   }
+
+  const restaurantId = restaurant ? restaurant._id : user.restaurant || null;
+
+  await otpService.verifyOtp({
+    email,
+    restaurantId,
+    purpose: OTP_PURPOSES.PASSWORD_RESET,
+    code: otp,
+  });
 
   user.password = newPassword;
   await user.save();
@@ -272,7 +293,7 @@ const resetPassword = async ({ email, restaurantSlug, otp, newPassword }) => {
     restaurantId: user.restaurant ? user.restaurant.toString() : null,
   });
 
-  return { user: user.toSafeObject(), restaurant, token };
+  return { user: user.toSafeObject(), restaurant: restaurant || user.restaurant, token };
 };
 
 const getCurrentUser = async (userId) => {

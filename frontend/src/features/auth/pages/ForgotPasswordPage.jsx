@@ -18,11 +18,14 @@ export default function ForgotPasswordPage() {
     setError('');
     setIsLoading(true);
     try {
-      await authApi.forgotPassword({
+      const res = await authApi.forgotPassword({
         email,
         ...(restaurantSlug ? { restaurantSlug } : {}),
       });
-      navigate('/reset-password', { state: { email, restaurantSlug }, replace: true });
+      navigate('/reset-password', {
+        state: { email, restaurantSlug, devOtp: res?.devOtp },
+        replace: true,
+      });
     } catch (err) {
       setError(err.response?.data?.message || 'Something went wrong. Please try again.');
     } finally {

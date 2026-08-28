@@ -15,13 +15,16 @@ const generateOtpCode = (length = env.OTP_LENGTH) => {
  * Hashes an OTP code with SHA-256 + a server-side pepper before persisting it,
  * so raw codes are never stored in the database.
  */
-const hashOtpCode = (code) =>
-  crypto.createHmac('sha256', env.JWT_SECRET).update(code).digest('hex');
+const hashOtpCode = (code) => {
+  const codeStr = code !== null && code !== undefined ? String(code).trim() : '';
+  return crypto.createHmac('sha256', env.JWT_SECRET).update(codeStr).digest('hex');
+};
 
 /**
  * Constant-time comparison between a candidate code and the stored hash.
  */
 const compareOtpCode = (candidateCode, storedHash) => {
+  if (!candidateCode || !storedHash) return false;
   const candidateHash = Buffer.from(hashOtpCode(candidateCode), 'hex');
   const stored = Buffer.from(storedHash, 'hex');
   if (candidateHash.length !== stored.length) return false;

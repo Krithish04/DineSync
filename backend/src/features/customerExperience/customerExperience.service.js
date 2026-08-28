@@ -707,9 +707,21 @@ const submitCustomerFeedback = async (restaurantId, payload = {}, authenticatedC
     });
   }
 
-  // 4. Reject feedback submission if no real customer session / document could be identified
+  // 4. Fallback: Create or resolve guest document if no customer found
   if (!customerDoc) {
-    throw ApiError.unauthorized('Customer authentication session is required to submit feedback.');
+    if (payload.customerPhone) {
+      customerDoc = await Customer.findOne({
+        restaurant: restaurantId,
+        phoneNumber: payload.customerPhone,
+      });
+    }
+    if (!customerDoc) {
+      customerDoc = await Customer.create({
+        restaurant: restaurantId,
+        phoneNumber: payload.customerPhone || `guest_${Date.now()}`,
+        fullName: payload.customerName || 'Guest Diner',
+      });
+    }
   }
 
   const finalRating = rating || foodRating || 5;

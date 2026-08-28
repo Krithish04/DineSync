@@ -51,12 +51,13 @@ export default function CustomerAuthModal({ isOpen, onClose, onSuccess }) {
       const res = await customerApi.sendCustomerOtp(restaurantId, { phone: cleanPhone });
       if (res?.devOtp) {
         setDevOtpHint(res.devOtp);
-        setOtp(res.devOtp); // Pre-fill in dev mode for smooth testing
+        setOtp(res.devOtp);
       } else {
         setDevOtpHint('');
+        setOtp('');
       }
       setStep('otp');
-      setCooldown(60);
+      setCooldown(5);
     } catch (err) {
       const msg = err.response?.data?.message || 'Failed to send OTP. Please try again.';
       const match = msg.match(/Please wait (\d+)s/i);
@@ -64,7 +65,7 @@ export default function CustomerAuthModal({ isOpen, onClose, onSuccess }) {
         const secs = parseInt(match[1], 10);
         setCooldown(secs);
         setStep('otp');
-        setError(`A verification code was already sent. Please enter the OTP or wait ${secs}s to resend.`);
+        setError(''); // Smoothly switch to OTP step without showing error banner
       } else {
         setError(msg);
       }

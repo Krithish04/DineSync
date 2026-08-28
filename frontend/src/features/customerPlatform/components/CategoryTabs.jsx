@@ -5,13 +5,14 @@ import React from 'react';
  */
 export default function CategoryTabs({ categories = [], selectedCategory, onSelectCategory }) {
   return (
-    <div className="flex gap-2 overflow-x-auto whitespace-nowrap pb-2 pt-1 scrollbar-none">
+    <div className="flex gap-2 overflow-x-auto whitespace-nowrap py-1 scrollbar-none touch-pan-x">
       <button
+        type="button"
         onClick={() => onSelectCategory('all')}
-        className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors shrink-0 ${
+        className={`px-4 py-2 min-h-[38px] rounded-full text-xs font-bold transition-all shrink-0 touch-manipulation ${
           selectedCategory === 'all'
-            ? 'bg-primary text-primary-foreground shadow-sm'
-            : 'bg-muted text-muted-foreground hover:bg-muted/80'
+            ? 'bg-primary text-primary-foreground shadow-md scale-105'
+            : 'bg-card text-muted-foreground border border-border hover:bg-muted hover:text-foreground'
         }`}
       >
         All Items
@@ -19,12 +20,13 @@ export default function CategoryTabs({ categories = [], selectedCategory, onSele
 
       {categories.map((cat) => (
         <button
+          type="button"
           key={cat._id}
           onClick={() => onSelectCategory(cat._id)}
-          className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors shrink-0 ${
+          className={`px-4 py-2 min-h-[38px] rounded-full text-xs font-bold transition-all shrink-0 touch-manipulation ${
             selectedCategory === cat._id
-              ? 'bg-primary text-primary-foreground shadow-sm'
-              : 'bg-muted text-muted-foreground hover:bg-muted/80'
+              ? 'bg-primary text-primary-foreground shadow-md scale-105'
+              : 'bg-card text-muted-foreground border border-border hover:bg-muted hover:text-foreground'
           }`}
         >
           {cat.name}

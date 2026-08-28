@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CreditCard, Smartphone, DollarSign, Wallet, CheckCircle2, Receipt, Table as TableIcon, ArrowRight, AlertCircle } from 'lucide-react';
+import { CreditCard, Smartphone, DollarSign, Wallet, CheckCircle2, Receipt, Table as TableIcon, ArrowRight, AlertCircle, Users, Calculator } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import useCartStore from '../store/cart.store';
 import * as customerApi from '../api/customerPlatform.api';
@@ -7,9 +7,7 @@ import FeedbackModal from './FeedbackModal';
 
 /**
  * Final Table Settlement & Payment Modal.
- * Shows total bill for all orders placed during session.
- * Online payment opens FeedbackModal & releases table automatically.
- * Cash payment requests waiter cash collection and leaves table Occupied until Manager empties table.
+ * Shows total bill for all orders placed during session, with equal split-bill option.
  */
 export default function TablePaymentModal({ isOpen, onClose }) {
   const {
@@ -28,11 +26,17 @@ export default function TablePaymentModal({ isOpen, onClose }) {
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [settledAmount, setSettledAmount] = useState(null);
 
+  // Split-Bill State
+  const [isSplitBill, setIsSplitBill] = useState(false);
+  const [splitCount, setSplitCount] = useState(2);
+
   if (!isOpen && !showFeedbackModal) return null;
 
   const totalBillAmount = settledAmount !== null
     ? settledAmount
     : placedOrders.reduce((sum, ord) => sum + (ord.grandTotal || 0), 0);
+
+  const perPersonAmount = totalBillAmount / Math.max(1, splitCount);
 
   const handleSettleBill = async (e) => {
     e.preventDefault();
@@ -51,11 +55,9 @@ export default function TablePaymentModal({ isOpen, onClose }) {
       }
 
       if (paymentMethod === 'Cash') {
-        // Cash Payment: Mark cash requested, keep table OCCUPIED so Manager must collect cash & click Empty Table
         setIsCashRequested(true);
         setIsSubmitting(false);
       } else {
-        // Online Payment (UPI, Card, Wallet): Complete online payment & open Feedback modal
         for (const ord of placedOrders) {
           if (ord._id) {
             await customerApi.payCustomerOrder(restaurantId, ord._id, {
@@ -87,7 +89,7 @@ export default function TablePaymentModal({ isOpen, onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-card border border-border rounded-2xl p-5 sm:p-6 max-w-sm w-full shadow-2xl space-y-4 animate-in fade-in zoom-in duration-200 max-h-[90vh] overflow-y-auto">
+      <div className="bg-card border border-border rounded-3xl p-5 sm:p-6 max-w-md w-full shadow-2xl space-y-4 animate-in fade-in zoom-in duration-200 max-h-[92vh] overflow-y-auto">
         {isCashRequested ? (
           <div className="py-6 text-center space-y-4">
             <div className="w-16 h-16 rounded-full bg-amber-500/10 text-amber-600 flex items-center justify-center mx-auto animate-bounce">
@@ -99,7 +101,7 @@ export default function TablePaymentModal({ isOpen, onClose }) {
                 Please pay <strong className="text-primary font-bold">₹{totalBillAmount.toFixed(2)}</strong> in cash to your server at Table #{tableNumber || 1}.
               </p>
             </div>
-            <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 text-[11px] text-amber-700 flex items-start gap-2 text-left">
+            <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 text-[11px] text-amber-700 dark:text-amber-300 flex items-start gap-2 text-left">
               <AlertCircle size={16} className="shrink-0 mt-0.5" />
               <span>
                 Your table will be marked <strong>Available</strong> by restaurant management as soon as cash payment is collected.
@@ -145,10 +147,10 @@ export default function TablePaymentModal({ isOpen, onClose }) {
             </div>
 
             {/* Placed Orders Summary */}
-            <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
+            <div className="space-y-2 max-h-32 overflow-y-auto pr-1">
               <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Placed Table Orders ({placedOrders.length})</span>
               {placedOrders.map((ord, idx) => (
-                <div key={idx} className="bg-card border border-border rounded-lg p-2.5 flex items-center justify-between text-xs">
+                <div key={idx} className="bg-card border border-border rounded-xl p-2.5 flex items-center justify-between text-xs">
                   <div>
                     <p className="font-semibold text-foreground">{ord.orderNumber}</p>
                     <p className="text-[10px] text-muted-foreground">{ord.itemsCount || 1} Dish(es)</p>
@@ -158,8 +160,57 @@ export default function TablePaymentModal({ isOpen, onClose }) {
               ))}
             </div>
 
-            {/* Total Amount */}
-            <div className="bg-primary/10 border border-primary/20 rounded-xl p-3.5 flex items-center justify-between">
+            {/* Split Bill Toggle & Calculator */}
+            <div className="bg-muted/30 border border-border/80 rounded-2xl p-3.5 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-foreground flex items-center gap-1.5 font-display">
+                  <Users size={15} className="text-primary" /> Split Bill Option
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsSplitBill(!isSplitBill)}
+                  className={`text-xs font-bold px-3 py-1 rounded-full border transition-colors ${
+                    isSplitBill
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'bg-card text-muted-foreground border-border hover:bg-muted'
+                  }`}
+                >
+                  {isSplitBill ? 'Split Enabled ✓' : 'Split Bill'}
+                </button>
+              </div>
+
+              {isSplitBill && (
+                <div className="pt-2 border-t border-border/60 space-y-2 animate-in fade-in duration-200">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground font-medium">Split equally between:</span>
+                    <div className="flex items-center gap-2">
+                      {[2, 3, 4, 5].map((cnt) => (
+                        <button
+                          key={cnt}
+                          type="button"
+                          onClick={() => setSplitCount(cnt)}
+                          className={`w-7 h-7 rounded-lg text-xs font-bold flex items-center justify-center border transition-all ${
+                            splitCount === cnt
+                              ? 'bg-primary text-primary-foreground border-primary shadow-xs'
+                              : 'bg-card text-muted-foreground border-border'
+                          }`}
+                        >
+                          {cnt}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="bg-primary/10 border border-primary/20 rounded-xl p-2.5 flex items-center justify-between text-xs">
+                    <span className="font-semibold text-primary">Your Equal Share ({splitCount} Diners):</span>
+                    <span className="font-bold font-mono text-primary text-sm">₹{perPersonAmount.toFixed(2)} / diner</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Total Amount Due */}
+            <div className="bg-primary/10 border border-primary/20 rounded-2xl p-3.5 flex items-center justify-between">
               <div>
                 <span className="text-[10px] text-primary uppercase font-bold">Total Bill Due</span>
                 <p className="text-lg font-bold font-display text-primary font-mono">₹{totalBillAmount.toFixed(2)}</p>
@@ -207,7 +258,7 @@ export default function TablePaymentModal({ isOpen, onClose }) {
                 size="sm"
                 onClick={handleSettleBill}
                 disabled={isSubmitting}
-                className="w-2/3 text-xs h-11 gap-1.5 font-bold rounded-xl"
+                className="w-2/3 text-xs h-11 gap-1.5 font-bold rounded-xl shadow-md"
               >
                 <span>{isSubmitting ? 'Processing...' : paymentMethod === 'Cash' ? 'Request Cash Pay' : 'Pay & Give Feedback'}</span>
                 <ArrowRight size={14} />

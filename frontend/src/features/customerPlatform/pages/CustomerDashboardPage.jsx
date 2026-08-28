@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, ShoppingBag, Award, ChevronRight, Utensils, ShieldCheck, Clock, LogOut, Calendar } from 'lucide-react';
 import CustomerLayout from '../components/CustomerLayout';
+import NoOrderExitModal from '../components/NoOrderExitModal';
 import { Button } from '@/components/ui/button';
 import Loader from '@/components/common/Loader';
 import useCartStore from '../store/cart.store';
@@ -18,10 +19,10 @@ export default function CustomerDashboardPage() {
   const [reservations, setReservations] = useState([]);
   const [isLoading, setIsLoading] = useState(Boolean(token));
   const [error, setError] = useState('');
+  const [isExitModalOpen, setIsExitModalOpen] = useState(false);
 
   const handleSignOut = () => {
-    clearCustomerSession();
-    navigate('/menu');
+    setIsExitModalOpen(true);
   };
 
   const loadCustomerData = useCallback(async () => {
@@ -264,6 +265,11 @@ export default function CustomerDashboardPage() {
           )}
         </div>
       </div>
+      <NoOrderExitModal
+        isOpen={isExitModalOpen}
+        onClose={() => setIsExitModalOpen(false)}
+        onCompleteSignOut={() => navigate('/menu')}
+      />
     </CustomerLayout>
   );
 }

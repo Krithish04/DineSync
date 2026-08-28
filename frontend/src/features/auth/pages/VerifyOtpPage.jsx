@@ -15,8 +15,10 @@ export default function VerifyOtpPage() {
 
   const email = location.state?.email || '';
   const restaurantSlug = location.state?.restaurantSlug || '';
+  const initialDevOtp = location.state?.devOtp || '';
 
-  const [otp, setOtp] = useState('');
+  const [otp, setOtp] = useState(initialDevOtp);
+  const [devOtpHint, setDevOtpHint] = useState(initialDevOtp);
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -61,9 +63,13 @@ export default function VerifyOtpPage() {
     setInfo('');
     setIsResending(true);
     try {
-      await authApi.resendOtp({ email, restaurantSlug, purpose: 'email_verification' });
+      const res = await authApi.resendOtp({ email, restaurantSlug, purpose: 'email_verification' });
       setInfo('A new code has been sent to your email.');
       setCooldown(RESEND_COOLDOWN_SECONDS);
+      if (res?.devOtp) {
+        setDevOtpHint(res.devOtp);
+        setOtp(res.devOtp);
+      }
     } catch (err) {
       const msg = err.response?.data?.message || 'Could not resend the code. Please try again.';
       const match = msg.match(/Please wait (\d+)s/i);
@@ -90,6 +96,11 @@ export default function VerifyOtpPage() {
       }
     >
       <form onSubmit={handleSubmit} className="space-y-5">
+        {devOtpHint && (
+          <div className="rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-center text-xs text-primary font-mono font-semibold">
+            [Dev Mode] Verification Code: {devOtpHint}
+          </div>
+        )}
         {error && (
           <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
             {error}

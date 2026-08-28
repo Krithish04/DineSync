@@ -15,8 +15,10 @@ export default function ResetPasswordPage() {
 
   const email = location.state?.email || '';
   const restaurantSlug = location.state?.restaurantSlug || '';
+  const initialDevOtp = location.state?.devOtp || '';
 
-  const [otp, setOtp] = useState('');
+  const [otp, setOtp] = useState(initialDevOtp);
+  const [devOtpHint] = useState(initialDevOtp);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
@@ -71,6 +73,11 @@ export default function ResetPasswordPage() {
       }
     >
       <form onSubmit={handleSubmit} className="space-y-5">
+        {devOtpHint && (
+          <div className="rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-center text-xs text-primary font-mono font-semibold">
+            [Dev Mode] Reset Code: {devOtpHint}
+          </div>
+        )}
         {error && (
           <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
             {error}

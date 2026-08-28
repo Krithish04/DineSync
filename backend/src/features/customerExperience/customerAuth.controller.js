@@ -19,20 +19,22 @@ const sendCustomerOtp = asyncHandler(async (req, res) => {
     throw ApiError.badRequest('A valid 10-digit mobile number is required.');
   }
 
+  const cleanPhone = otpService.normalizePhone(phone) || phone.trim();
+
   if (tableId) {
     const table = await Table.findOne({ _id: tableId, isDeleted: false });
     if (table) {
       if (table.isActive === false || table.status === 'Inactive') {
         throw ApiError.badRequest('This dining table is currently inactive and not accepting logins.');
       }
-      if (table.status === 'Occupied' && table.currentHostPhone && table.currentHostPhone !== phone) {
+      if (table.status === 'Occupied' && table.currentHostPhone && table.currentHostPhone !== cleanPhone) {
         throw ApiError.badRequest(`Table #${table.tableNumber} is currently occupied by ${table.currentHostName || 'another diner'}. You can view the menu in View-Only mode.`);
       }
     }
   }
 
   const result = await otpService.createAndSendOtp({
-    phone,
+    phone: cleanPhone,
     restaurantId,
     purpose: otpService.OTP_PURPOSES.CUSTOMER_LOGIN,
   });
@@ -55,20 +57,22 @@ const verifyCustomerOtp = asyncHandler(async (req, res) => {
     throw ApiError.badRequest('Phone number and verification OTP are required.');
   }
 
+  const cleanPhone = otpService.normalizePhone(phone) || phone.trim();
+
   if (tableId) {
     const table = await Table.findOne({ _id: tableId, isDeleted: false });
     if (table) {
       if (table.isActive === false || table.status === 'Inactive') {
         throw ApiError.badRequest('This dining table is currently inactive and not accepting logins.');
       }
-      if (table.status === 'Occupied' && table.currentHostPhone && table.currentHostPhone !== phone) {
+      if (table.status === 'Occupied' && table.currentHostPhone && table.currentHostPhone !== cleanPhone) {
         throw ApiError.badRequest(`Table #${table.tableNumber} is currently occupied by ${table.currentHostName || 'another diner'}. You can view the menu in View-Only mode.`);
       }
     }
   }
 
   await otpService.verifyOtp({
-    phone,
+    phone: cleanPhone,
     restaurantId,
     purpose: otpService.OTP_PURPOSES.CUSTOMER_LOGIN,
     code,
@@ -77,13 +81,13 @@ const verifyCustomerOtp = asyncHandler(async (req, res) => {
   // Find or create customer document for this restaurant + phone (including restoring soft-deleted accounts)
   let customer = await Customer.findOne({
     restaurant: restaurantId,
-    phoneNumber: phone,
+    phoneNumber: cleanPhone,
   });
 
   if (!customer) {
     customer = await Customer.create({
       restaurant: restaurantId,
-      phoneNumber: phone,
+      phoneNumber: cleanPhone,
       fullName: fullName && fullName.trim() ? fullName.trim() : 'Guest',
     });
   } else {

@@ -4,21 +4,21 @@ const { setTokenCookie, clearTokenCookie } = require('../../utils/jwt.util');
 const authService = require('./auth.service');
 
 const registerRestaurant = asyncHandler(async (req, res) => {
-  const { user, restaurant, requiresVerification } = await authService.registerRestaurant(
+  const { user, restaurant, requiresVerification, devOtp } = await authService.registerRestaurant(
     req.body
   );
   return new ApiResponse(
     201,
-    { user, restaurant, requiresVerification },
+    { user, restaurant, requiresVerification, devOtp },
     'Restaurant created. Please check your email for a verification code.'
   ).send(res);
 });
 
 const registerUser = asyncHandler(async (req, res) => {
-  const { user, restaurant, requiresVerification } = await authService.registerUser(req.body);
+  const { user, restaurant, requiresVerification, devOtp } = await authService.registerUser(req.body);
   return new ApiResponse(
     201,
-    { user, restaurant, requiresVerification },
+    { user, restaurant, requiresVerification, devOtp },
     'Account created. Please check your email for a verification code.'
   ).send(res);
 });
@@ -32,8 +32,8 @@ const verifyEmail = asyncHandler(async (req, res) => {
 });
 
 const resendOtp = asyncHandler(async (req, res) => {
-  const { expiresAt } = await authService.resendOtp(req.body);
-  return new ApiResponse(200, { expiresAt }, 'Verification code sent').send(res);
+  const { expiresAt, devOtp } = await authService.resendOtp(req.body);
+  return new ApiResponse(200, { expiresAt, devOtp }, 'Verification code sent').send(res);
 });
 
 const login = asyncHandler(async (req, res) => {
@@ -49,7 +49,7 @@ const logout = asyncHandler(async (req, res) => {
 
 const forgotPassword = asyncHandler(async (req, res) => {
   const result = await authService.forgotPassword(req.body);
-  return new ApiResponse(200, null, result.message).send(res);
+  return new ApiResponse(200, { devOtp: result.devOtp }, result.message).send(res);
 });
 
 const resetPassword = asyncHandler(async (req, res) => {
