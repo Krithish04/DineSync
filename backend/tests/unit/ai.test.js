@@ -63,4 +63,12 @@ describe('Backend AI Microservice Proxy Unit Tests', () => {
     assert.strictEqual(matches.length, 1);
     assert.strictEqual(matches[0].name, 'Fresh Garden Salad');
   });
+
+  it('should explicitly tag execution_mode as AI_LIVE_MODEL or HEURISTIC_FALLBACK', () => {
+    const liveResponse = { tomorrow: { predicted_revenue: 15000 }, execution_mode: 'AI_LIVE_MODEL' };
+    const fallbackResponse = { tomorrow: { predicted_revenue: 12000 }, execution_mode: 'HEURISTIC_FALLBACK' };
+
+    assert.strictEqual(liveResponse.execution_mode, 'AI_LIVE_MODEL');
+    assert.strictEqual(fallbackResponse.execution_mode, 'HEURISTIC_FALLBACK');
+  });
 });

@@ -67,6 +67,19 @@ const tableSessionSchema = new Schema(
       default: 0,
       min: 0,
     },
+    lastActivityAt: {
+      type: Date,
+      default: Date.now,
+      index: true,
+    },
+    coOrderers: [
+      {
+        customer: { type: Schema.Types.ObjectId, ref: 'Customer' },
+        name: { type: String, default: 'Diner' },
+        phone: { type: String, default: '' },
+        approvedAt: { type: Date, default: Date.now },
+      },
+    ],
   },
   { timestamps: true }
 );

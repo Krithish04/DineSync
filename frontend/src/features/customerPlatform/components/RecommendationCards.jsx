@@ -11,7 +11,8 @@ export default function RecommendationCards({ recommendations = [], items = [] }
 
   if (!recommendations || recommendations.length === 0) return null;
 
-  // Match AI recommendations with real items in menu catalog for accurate prices & IDs
+  // Match AI recommendations with real items in menu catalog for accurate prices & IDs, de-duplicating matches
+  const seenIds = new Set();
   const resolvedRecs = recommendations
     .map((rec) => {
       const match = items.find(
@@ -20,15 +21,16 @@ export default function RecommendationCards({ recommendations = [], items = [] }
           i.name?.toLowerCase() === (rec.item_name || rec.name || '').toLowerCase()
       );
 
-      if (match) {
-        return {
-          ...match,
-          reason: rec.reason || 'Popular pairing',
-        };
-      }
+      const target = match || (rec.price ? { ...rec, name: rec.item_name || rec.name } : null);
+      if (!target || !target._id) return null;
 
-      // If no exact name match, fallback only if price exists
-      return rec.price ? { ...rec, name: rec.item_name || rec.name } : null;
+      if (seenIds.has(target._id)) return null;
+      seenIds.add(target._id);
+
+      return {
+        ...target,
+        reason: rec.reason || 'Popular pairing',
+      };
     })
     .filter(Boolean);
 

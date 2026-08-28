@@ -5,33 +5,35 @@ import React from 'react';
  */
 export default function CategoryTabs({ categories = [], selectedCategory, onSelectCategory }) {
   return (
-    <div className="flex gap-2 overflow-x-auto whitespace-nowrap py-1 scrollbar-none touch-pan-x">
-      <button
-        type="button"
-        onClick={() => onSelectCategory('all')}
-        className={`px-4 py-2 min-h-[38px] rounded-full text-xs font-bold transition-all shrink-0 touch-manipulation ${
-          selectedCategory === 'all'
-            ? 'bg-primary text-primary-foreground shadow-md scale-105'
-            : 'bg-card text-muted-foreground border border-border hover:bg-muted hover:text-foreground'
-        }`}
-      >
-        All Items
-      </button>
-
-      {categories.map((cat) => (
+    <div className="w-full max-w-full border-b border-border/80 overflow-hidden">
+      <div className="flex items-center gap-6 overflow-x-auto whitespace-nowrap py-1 scrollbar-none touch-pan-x px-1 font-semibold text-xs sm:text-sm">
         <button
           type="button"
-          key={cat._id}
-          onClick={() => onSelectCategory(cat._id)}
-          className={`px-4 py-2 min-h-[38px] rounded-full text-xs font-bold transition-all shrink-0 touch-manipulation ${
-            selectedCategory === cat._id
-              ? 'bg-primary text-primary-foreground shadow-md scale-105'
-              : 'bg-card text-muted-foreground border border-border hover:bg-muted hover:text-foreground'
+          onClick={() => onSelectCategory('all')}
+          className={`pb-2.5 pt-1.5 min-h-[44px] transition-all flex-none min-w-max whitespace-nowrap touch-manipulation flex items-center justify-center ${
+            selectedCategory === 'all'
+              ? 'border-b-2 border-primary text-primary font-bold'
+              : 'text-muted-foreground hover:text-foreground border-b-2 border-transparent'
           }`}
         >
-          {cat.name}
+          All Categories
         </button>
-      ))}
+
+        {categories.map((cat) => (
+          <button
+            type="button"
+            key={cat._id}
+            onClick={() => onSelectCategory(cat._id)}
+            className={`pb-2.5 pt-1.5 min-h-[44px] transition-all flex-none min-w-max whitespace-nowrap touch-manipulation flex items-center justify-center ${
+              selectedCategory === cat._id
+                ? 'border-b-2 border-primary text-primary font-bold'
+                : 'text-muted-foreground hover:text-foreground border-b-2 border-transparent'
+            }`}
+          >
+            {cat.name}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

@@ -18,6 +18,10 @@ export function calculateDistanceInMeters(lat1, lon1, lat2, lon2) {
   return Math.round(R * c);
 }
 
+export function isValidMongoId(id) {
+  return typeof id === 'string' && /^[0-9a-fA-F]{24}$/.test(id.trim());
+}
+
 const useCartStore = create(
   persist(
     (set, get) => ({
@@ -37,6 +41,9 @@ const useCartStore = create(
       tableHost: null, // { name, phone, verified: true }
       activeTableSessions: {}, // { [tableId]: { hostName, hostPhone, startedAt, sessionId } }
       isViewOnly: false,
+      isCoOrderer: false,
+      coOrdererStatus: null, // 'pending' | 'approved' | 'denied'
+      pendingCartAction: null,
       isInactiveTable: false,
       placedOrders: [], // [{ _id, orderNumber, grandTotal, itemsCount, createdAt }]
       sessionOrderSummary: [], // [{ orderId, orderNumber, orderStatus, createdAt, items }]
@@ -55,48 +62,62 @@ const useCartStore = create(
       setSessionContext: (payload = {}) =>
         set((state) => {
           const { restaurantId, tableId, tableNumber, tableStatus, orderType, isInactive, currentHostName, currentHostPhone, activeSessionId } = payload;
-          const nextTableId = tableId !== undefined ? tableId : state.tableId;
+          
+          const rawRestId = restaurantId || state.restaurantId;
+          const rawTableId = tableId !== undefined ? tableId : state.tableId;
+
+          // Strict ObjectId & SQL/NoSQL Injection Validation
+          const validRestId = rawRestId && isValidMongoId(rawRestId) ? rawRestId : null;
+          const validTableId = rawTableId && isValidMongoId(rawTableId) ? rawTableId : null;
+
           const nextTableNumber = tableNumber !== undefined ? tableNumber : state.tableNumber;
           const nextTableStatus = tableStatus || state.tableStatus;
           const isInactiveTable = nextTableStatus === 'Inactive' || !!isInactive;
 
-          // Check if table is occupied by a different diner host or if diner lacks host token for nextTableId
-          const hostPhone = currentHostPhone || (nextTableId ? state.activeTableSessions[nextTableId]?.hostPhone : null);
+          // Check if table is occupied by a different diner host or if diner lacks host token for validTableId
+          const hostPhone = currentHostPhone || (validTableId ? state.activeTableSessions[validTableId]?.hostPhone : null);
           const isOccupiedByOther = nextTableStatus === 'Occupied' &&
             (!state.tableHost || (hostPhone && state.tableHost.phone !== hostPhone));
           
-          // URL edit check: If diner changed tableId away from their claimed table session, force view-only mode
-          const isTamperedTableId = state.tableId && nextTableId && String(state.tableId) !== String(nextTableId) && !state.activeTableSessions[nextTableId];
+          // URL edit check: If diner manually edited URL tableId away from their claimed table session, force view-only mode
+          const isTamperedTableId = state.tableId && validTableId && String(state.tableId) !== String(validTableId) && !state.activeTableSessions[validTableId];
 
           // Calculate view-only mode
-          let isViewOnly = state.userLocation.isOutside || isInactiveTable || isOccupiedByOther || isTamperedTableId;
+          let isViewOnly = state.userLocation.isOutside || isInactiveTable || isOccupiedByOther || isTamperedTableId || !validTableId || !validRestId;
 
-          if (!state.userLocation.isOutside && !isInactiveTable && !isOccupiedByOther && !isTamperedTableId) {
+          if (!state.userLocation.isOutside && !isInactiveTable && !isOccupiedByOther && !isTamperedTableId && validTableId && validRestId) {
             if (state.tableHost) {
               isViewOnly = false;
             }
           }
 
           return {
-            restaurantId: restaurantId || state.restaurantId,
-            tableId: nextTableId,
+            restaurantId: validRestId,
+            tableId: validTableId,
             tableNumber: nextTableNumber,
             tableStatus: nextTableStatus,
             isInactiveTable,
             orderType: orderType || state.orderType,
             isViewOnly,
             sessionId: activeSessionId || state.sessionId,
-            activeSessionHostName: currentHostName || (nextTableId ? state.activeTableSessions[nextTableId]?.hostName : null),
+            activeSessionHostName: currentHostName || (validTableId ? state.activeTableSessions[validTableId]?.hostName : null),
           };
         }),
 
       hasValidContext: () => {
         const { restaurantId, tableId } = get();
-        return Boolean(restaurantId && tableId);
+        return Boolean(
+          restaurantId &&
+          isValidMongoId(restaurantId) &&
+          tableId &&
+          isValidMongoId(tableId)
+        );
       },
 
       setSessionId: (sessionId) => set({ sessionId }),
       setHostToken: (hostToken) => set({ hostToken }),
+      setCoOrdererStatus: (status, isApproved) => set({ coOrdererStatus: status, isCoOrderer: isApproved, isViewOnly: !isApproved }),
+      setPendingCartAction: (action) => set({ pendingCartAction: action }),
       setSessionOrderSummary: (summary = []) => set({ sessionOrderSummary: summary }),
 
       setPlacedOrders: (orders = []) =>

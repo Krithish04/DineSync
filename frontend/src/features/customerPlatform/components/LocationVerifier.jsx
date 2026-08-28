@@ -7,7 +7,7 @@ import useCartStore, { calculateDistanceInMeters } from '../store/cart.store';
  * Geolocation Safety Verification Component.
  * Checks diner's GPS location against restaurant bounds to prevent remote/fraudulent ordering.
  */
-export default function LocationVerifier() {
+export default function LocationVerifier({ tableNumber }) {
   const {
     userLocation,
     restaurantCoords,
@@ -17,6 +17,7 @@ export default function LocationVerifier() {
 
   const [isChecking, setIsChecking] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [isDismissed, setIsDismissed] = useState(false);
 
   const checkLocation = useCallback(() => {
     if (!navigator.geolocation) {
@@ -73,6 +74,8 @@ export default function LocationVerifier() {
     });
   };
 
+  if (isDismissed) return null;
+
   return (
     <div className="space-y-2">
       {userLocation.isOutside ? (
@@ -112,16 +115,26 @@ export default function LocationVerifier() {
           </div>
         </div>
       ) : (
-        <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 rounded-xl px-3 py-2 text-xs flex items-center justify-between">
-          <div className="flex items-center gap-2 font-medium">
-            <CheckCircle2 size={15} className="text-emerald-500 shrink-0" />
-            <span>
-              Verified Inside Restaurant Area (~{userLocation.distanceMeters || 15}m away)
-            </span>
+        <div className="bg-primary/10 border border-primary/20 rounded-xl px-3 py-2 text-xs flex items-center justify-between gap-2 overflow-hidden shadow-xs">
+          <div className="flex items-center gap-2 min-w-0">
+            <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />
+            <div className="min-w-0 truncate">
+              <span className="font-bold text-foreground inline-block truncate">
+                Welcome to Table #{tableNumber || 1}
+              </span>
+              <span className="text-[11px] text-muted-foreground ml-1.5 font-medium truncate">
+                • Verified Inside (~{userLocation.distanceMeters || 15}m)
+              </span>
+            </div>
           </div>
-          <span className="text-[10px] bg-emerald-500/20 px-2 py-0.5 rounded-full font-bold text-emerald-800">
-            GPS Safe
-          </span>
+          <button
+            type="button"
+            onClick={() => setIsDismissed(true)}
+            className="text-muted-foreground hover:text-foreground font-bold text-xs p-1 ml-1 shrink-0 touch-manipulation min-w-[28px] min-h-[28px] flex items-center justify-center"
+            aria-label="Dismiss status banner"
+          >
+            ✕
+          </button>
         </div>
       )}
     </div>

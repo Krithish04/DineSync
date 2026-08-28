@@ -115,35 +115,35 @@ export default function TableCard({
           </div>
 
           {/* Top-Right Action Toolbar */}
-          <div className="flex items-center gap-0.5 shrink-0 bg-muted/30 p-1 rounded-xl border border-border/40">
+          <div className="flex items-center gap-1 shrink-0 bg-muted/30 p-1 rounded-xl border border-border/40">
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7 text-muted-foreground hover:text-primary rounded-lg"
+              className="h-9 w-9 min-w-[36px] text-muted-foreground hover:text-primary rounded-lg touch-manipulation"
               onClick={() => onQrClick(table)}
               title="View QR Code"
             >
-              <QrCode className="h-3.5 w-3.5" />
+              <QrCode className="h-4 w-4" />
             </Button>
             {canManage && (
               <>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7 text-muted-foreground hover:text-foreground rounded-lg"
+                  className="h-9 w-9 min-w-[36px] text-muted-foreground hover:text-foreground rounded-lg touch-manipulation"
                   onClick={() => onEdit(table)}
                   title="Edit Table"
                 >
-                  <Pencil className="h-3.5 w-3.5" />
+                  <Pencil className="h-4 w-4" />
                 </Button>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7 text-muted-foreground hover:text-destructive rounded-lg"
+                  className="h-9 w-9 min-w-[36px] text-muted-foreground hover:text-destructive rounded-lg touch-manipulation"
                   onClick={() => onDelete(table)}
                   title="Delete Table"
                 >
-                  <Trash2 className="h-3.5 w-3.5" />
+                  <Trash2 className="h-4 w-4" />
                 </Button>
               </>
             )}
@@ -171,14 +171,14 @@ export default function TableCard({
         {/* Footer Actions & Status Dropdown */}
         <div className="flex items-center justify-between border-t border-border/40 pt-3 gap-2 flex-wrap">
           {/* Status Dropdown Indicator */}
-          <div className="relative shrink-0 min-w-[125px]">
+          <div className="relative shrink-0 min-w-[130px]">
             {canManage ? (
               <div className="relative">
                 <select
                   value={table.status}
                   onChange={handleStatusUpdate}
                   disabled={isUpdatingStatus}
-                  className={`w-full appearance-none rounded-lg border pl-2.5 pr-7 py-1 text-xs font-bold cursor-pointer transition-colors focus:outline-none focus:ring-1 focus:ring-ring ${
+                  className={`w-full appearance-none rounded-xl border pl-3 pr-7 py-2 text-xs font-bold cursor-pointer transition-colors focus:outline-none focus:ring-1 focus:ring-ring min-h-[44px] ${
                     currentStatusObj.color
                   }`}
                 >
@@ -194,20 +194,20 @@ export default function TableCard({
                 )}
               </div>
             ) : (
-              <span className={`inline-flex items-center rounded-lg border px-2.5 py-1 text-xs font-bold ${currentStatusObj.color}`}>
+              <span className={`inline-flex items-center rounded-xl border px-3 py-2 text-xs font-bold min-h-[44px] ${currentStatusObj.color}`}>
                 {table.status}
               </span>
             )}
           </div>
 
           {/* Action Buttons for Occupied Tables */}
-          <div className="flex items-center gap-1.5 shrink-0 ml-auto">
+          <div className="flex items-center gap-1.5 shrink-0 ml-auto flex-wrap">
             {table.mergedTables && table.mergedTables.length > 0 && onUnmerge && (
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => onUnmerge(table)}
-                className="h-7 text-[11px] font-bold text-purple-600 border-purple-300 bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/40 dark:border-purple-900/50 gap-1 px-2.5 rounded-lg"
+                className="h-10 text-xs font-bold text-purple-600 border-purple-300 bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/40 dark:border-purple-900/50 gap-1 px-3 rounded-xl min-h-[40px] touch-manipulation"
                 title="Unmerge tables back to independent status"
               >
                 <span>Unmerge Group</span>
@@ -219,10 +219,10 @@ export default function TableCard({
                 variant="outline"
                 size="sm"
                 onClick={() => onViewOrder(table)}
-                className="h-7 text-[11px] font-semibold text-primary border-primary/30 bg-primary/5 hover:bg-primary/10 gap-1 px-2.5 rounded-lg"
+                className="h-10 text-xs font-semibold text-primary border-primary/30 bg-primary/5 hover:bg-primary/10 gap-1.5 px-3 rounded-xl min-h-[40px] touch-manipulation"
                 title="View Current Table Orders"
               >
-                <Eye size={12} />
+                <Eye size={14} />
                 <span>View Order</span>
               </Button>
             )}
@@ -233,10 +233,10 @@ export default function TableCard({
                 size="sm"
                 onClick={handleForceLogout}
                 disabled={isUpdatingStatus}
-                className="h-7 text-[11px] font-semibold text-rose-600 border-rose-200 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/30 dark:border-rose-900/50 gap-1 px-2.5 rounded-lg"
+                className="h-10 text-xs font-semibold text-rose-600 border-rose-200 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/30 dark:border-rose-900/50 gap-1.5 px-3 rounded-xl min-h-[40px] touch-manipulation"
                 title="Force Logout Diner & Empty Table"
               >
-                <LogOut size={12} />
+                <LogOut size={14} />
                 <span>Empty Table</span>
               </Button>
             )}

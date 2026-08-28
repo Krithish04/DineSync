@@ -1,15 +1,29 @@
+const mongoose = require('mongoose');
 const asyncHandler = require('../../utils/asyncHandler');
 const ApiResponse = require('../../utils/ApiResponse');
+const ApiError = require('../../utils/ApiError');
 const customerExperienceService = require('./customerExperience.service');
+
+const validateObjectId = (id, name = 'ID') => {
+  if (id && (!mongoose.Types.ObjectId.isValid(id) || typeof id !== 'string')) {
+    throw ApiError.badRequest(`Invalid ${name} format.`);
+  }
+};
 
 const resolveQrCode = asyncHandler(async (req, res) => {
   const { tableId, type } = req.query;
+  validateObjectId(req.params.restaurantId, 'restaurantId');
+  validateObjectId(tableId, 'tableId');
+
   const data = await customerExperienceService.resolveQrCode(req.params.restaurantId, { tableId, type });
   return new ApiResponse(200, data, 'QR code resolved successfully').send(res);
 });
 
 const getPublicMenu = asyncHandler(async (req, res) => {
   const { categoryId, dietary, search, isPopular, isFeatured } = req.query;
+  validateObjectId(req.params.restaurantId, 'restaurantId');
+  validateObjectId(categoryId, 'categoryId');
+
   const data = await customerExperienceService.getPublicMenu(req.params.restaurantId, {
     categoryId, dietary, search, isPopular, isFeatured,
   });
@@ -17,6 +31,9 @@ const getPublicMenu = asyncHandler(async (req, res) => {
 });
 
 const getActiveTableSession = asyncHandler(async (req, res) => {
+  validateObjectId(req.params.restaurantId, 'restaurantId');
+  validateObjectId(req.params.tableId, 'tableId');
+
   const hostToken = req.cookies?.hostToken || req.headers['x-host-token'];
   const data = await customerExperienceService.getActiveTableSession(req.params.restaurantId, req.params.tableId, hostToken);
   return new ApiResponse(200, data, 'Active table session fetched successfully').send(res);
@@ -130,6 +147,45 @@ const verifyReservationPhone = asyncHandler(async (req, res) => {
   return new ApiResponse(200, data, 'Reservation verified and digital menu unlocked').send(res);
 });
 
+const requestHostHandoff = asyncHandler(async (req, res) => {
+  const customerExperienceService = require('./customerExperience.service');
+  const data = await customerExperienceService.requestHostHandoff(
+    req.params.restaurantId,
+    req.body,
+    req.user || null
+  );
+  return new ApiResponse(200, data, 'Host transfer request processed').send(res);
+});
+
+const getTableSessionAuditLogs = asyncHandler(async (req, res) => {
+  const customerExperienceService = require('./customerExperience.service');
+  const data = await customerExperienceService.getTableSessionAuditLogs(
+    req.params.restaurantId,
+    req.query.tableId || null
+  );
+  return new ApiResponse(200, data, 'Table session audit logs fetched successfully').send(res);
+});
+
+const requestTableAccess = asyncHandler(async (req, res) => {
+  const customerExperienceService = require('./customerExperience.service');
+  const data = await customerExperienceService.requestTableAccess(
+    req.params.restaurantId,
+    req.params.tableId,
+    req.body
+  );
+  return new ApiResponse(200, data, 'Table access request sent successfully').send(res);
+});
+
+const respondTableAccess = asyncHandler(async (req, res) => {
+  const customerExperienceService = require('./customerExperience.service');
+  const data = await customerExperienceService.respondTableAccess(
+    req.params.restaurantId,
+    req.params.tableId,
+    req.body
+  );
+  return new ApiResponse(200, data, 'Table access decision processed successfully').send(res);
+});
+
 module.exports = {
   resolveQrCode,
   getPublicMenu,
@@ -149,4 +205,8 @@ module.exports = {
   getMyCustomerReservations,
   checkTableReservationLock,
   verifyReservationPhone,
+  requestHostHandoff,
+  getTableSessionAuditLogs,
+  requestTableAccess,
+  respondTableAccess,
 };

@@ -4,6 +4,8 @@ const TableSession = require('../table/tableSession.model');
 const env = require('../../config/env.config');
 const socketConfig = require('../../config/socket.config');
 
+const TableSessionAudit = require('../table/tableSessionAudit.model');
+
 /**
  * Cleans up stale table sessions that have been abandoned or where all orders
  * are finished/settled, releasing the table back to 'Available'.
@@ -16,8 +18,9 @@ const cleanupStaleTableSessions = async (restaurantId = null) => {
     const occupiedTables = await Table.find(tableQuery);
     if (!occupiedTables.length) return;
 
-    // 4 hours threshold for auto-releasing abandoned dining table sessions
-    const staleCutoff = new Date(Date.now() - 4 * 60 * 60 * 1000);
+    // 15-minute idle threshold for auto-releasing abandoned dining table sessions without active orders
+    const idleThresholdMs = 15 * 60 * 1000;
+    const idleCutoff = new Date(Date.now() - idleThresholdMs);
 
     for (const table of occupiedTables) {
       const activeSession = await TableSession.findOne({ table: table._id, status: 'active' });
@@ -30,11 +33,10 @@ const cleanupStaleTableSessions = async (restaurantId = null) => {
       });
 
       const hasUnfinishedOrders = unfinishedOrders.length > 0;
-      const sessionStartedAt = activeSession ? new Date(activeSession.startedAt || activeSession.createdAt) : null;
-      const isStaleByTime = sessionStartedAt && sessionStartedAt < staleCutoff;
-      const isStaleWithAllServed = !hasUnfinishedOrders && sessionStartedAt && sessionStartedAt < new Date(Date.now() - 60 * 60 * 1000);
+      const lastActivity = activeSession?.lastActivityAt || activeSession?.updatedAt || activeSession?.startedAt || activeSession?.createdAt;
+      const isIdlePastThreshold = lastActivity && new Date(lastActivity) < idleCutoff;
 
-      if (!hasUnfinishedOrders && (isStaleByTime || isStaleWithAllServed || !activeSession)) {
+      if (!hasUnfinishedOrders && (isIdlePastThreshold || !activeSession)) {
         // Complete any lingering served orders for this table
         await Order.updateMany(
           { table: table._id, orderStatus: 'Served', isDeleted: false },
@@ -50,6 +52,18 @@ const cleanupStaleTableSessions = async (restaurantId = null) => {
           activeSession.status = 'released';
           activeSession.endedAt = new Date();
           await activeSession.save();
+
+          // Log audit record
+          await TableSessionAudit.create({
+            restaurant: table.restaurant,
+            table: table._id,
+            session: activeSession._id,
+            action: TableSessionAudit.AUDIT_ACTIONS.STALE_AUTO_RELEASE,
+            actorPhone: activeSession.hostPhone || '',
+            actorName: activeSession.hostName || '',
+            reason: 'System auto-released abandoned table session after 15 minutes of inactivity with 0 active orders.',
+            metadata: { lastActivity },
+          }).catch(() => null);
 
           socketConfig.broadcastEvent(table.restaurant, 'table:session-ended', {
             sessionId: activeSession._id,

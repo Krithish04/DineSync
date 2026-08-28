@@ -27,14 +27,30 @@ const postToAiService = async (endpoint, payload, fallbackFn) => {
   while (retries >= 0) {
     try {
       const response = await aiClient.post(endpoint, payload);
-      return response.data;
+      const data = response.data;
+      if (data && typeof data === 'object') {
+        return {
+          ...data,
+          execution_mode: data.execution_mode || 'AI_LIVE_MODEL',
+        };
+      }
+      return data;
     } catch (err) {
       retries -= 1;
       if (retries < 0) {
         // eslint-disable-next-line no-console
-        console.warn(`[AI Proxy] FastAPI ${endpoint} unreachable/timed out. Executing fallback calculation.`);
-        if (fallbackFn) return fallbackFn();
-        throw ApiError.internal('AI Predictive service is temporarily unavailable.');
+        console.warn(`[AI Proxy] FastAPI ${endpoint} unreachable/timed out. Executing heuristic fallback calculation.`);
+        if (fallbackFn) {
+          const fallbackData = fallbackFn();
+          return {
+            ...fallbackData,
+            execution_mode: 'HEURISTIC_FALLBACK',
+          };
+        }
+        return {
+          execution_mode: 'HEURISTIC_FALLBACK',
+          status: 'Fallback Mode Active',
+        };
       }
     }
   }

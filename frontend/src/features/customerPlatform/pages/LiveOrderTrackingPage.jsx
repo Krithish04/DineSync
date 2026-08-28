@@ -101,9 +101,22 @@ export default function LiveOrderTrackingPage() {
   const isDelayed = (order?.orderStatus === 'Delayed' || Boolean(delayNotice)) && order?.paymentStatus !== 'Paid';
   const isPaidOrCompleted = order?.paymentStatus === 'Paid' || order?.orderStatus === 'Completed';
 
+  const isSocketConnected = Boolean(socket?.connected);
+
   return (
     <CustomerLayout title={isPaidOrCompleted ? 'Paid Invoice & Thank You' : 'Live Order Tracking'}>
       <div className="space-y-4 max-w-full">
+        {/* Realtime Socket.IO Connection Health Bar */}
+        <div className="flex items-center justify-between text-xs font-semibold px-3 py-1.5 bg-card border border-border rounded-xl text-muted-foreground shadow-2xs">
+          <span className="flex items-center gap-1.5">
+            <span className={`w-2 h-2 rounded-full ${isSocketConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+            {isSocketConnected ? 'Live Connection Active' : 'Connecting to Kitchen...'}
+          </span>
+          <span className="text-[10px] uppercase font-mono text-muted-foreground/80">
+            {isSocketConnected ? 'Socket.IO Live' : 'Polling Active'}
+          </span>
+        </div>
+
         {isLoading && <Loader />}
         {error && <div className="bg-rose-50 border border-rose-200 text-rose-700 rounded-xl p-4 text-xs">{error}</div>}
 

@@ -53,5 +53,9 @@ router.post('/feedback', optionalProtect, customerExperienceController.submitCus
 router.post('/assist-request', customerExperienceController.requestAssistance);
 router.get('/tables/:tableId/reservation-lock', customerExperienceController.checkTableReservationLock);
 router.post('/tables/:tableId/verify-reservation-phone', customerExperienceController.verifyReservationPhone);
+router.post('/request-handoff', optionalProtect, customerExperienceController.requestHostHandoff);
+router.post('/tables/:tableId/request-access', customerExperienceController.requestTableAccess);
+router.post('/tables/:tableId/respond-access', customerExperienceController.respondTableAccess);
+router.get('/session-audit-logs', customerExperienceController.getTableSessionAuditLogs);
 
 module.exports = router;

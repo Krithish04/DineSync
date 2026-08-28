@@ -134,11 +134,22 @@ export default function DineSyncAssistantModal() {
         })),
       });
 
-      // Handle structured cart action returned by AI gateway
+      // Handle structured cart/staff action returned by AI gateway
       if (responseData.cartAction?.type === 'ADD_TO_CART' && responseData.cartAction.menuItem) {
         addItem(responseData.cartAction.menuItem, responseData.cartAction.quantity || 1);
         setAddedItemNotice(`Added ${responseData.cartAction.menuItem.name} to cart!`);
         setTimeout(() => setAddedItemNotice(''), 3000);
+      } else if (responseData.cartAction?.type === 'CALL_STAFF') {
+        try {
+          await customerApi.requestAssistance(restaurantId, {
+            tableId: tableId || undefined,
+            note: 'Guest requested staff assistance via AI Chat',
+          });
+          setAddedItemNotice('Staff notified! A waiter will assist you shortly.');
+          setTimeout(() => setAddedItemNotice(''), 4000);
+        } catch {
+          // Handled gracefully
+        }
       }
 
       const assistantMsg = {
@@ -154,7 +165,7 @@ export default function DineSyncAssistantModal() {
       const errorMsg = {
         id: `err-${Date.now()}`,
         sender: 'assistant',
-        text: "I'm having trouble connecting right now. Please try asking again in a moment!",
+        text: "I'm currently running in basic offline mode. You can still ask me about menu items, vegetarian options, or track your order!",
         cards: [],
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
@@ -178,19 +189,24 @@ export default function DineSyncAssistantModal() {
 
   return (
     <>
-      {/* Floating Trigger Button */}
-      <div className="fixed bottom-20 right-4 z-40 md:bottom-6 md:right-6">
+      {/* Floating Trigger Button (Positioned dynamically to clear sticky cart bar) */}
+      <div className={`fixed right-4 z-40 md:right-6 transition-all duration-300 ${
+        items && items.length > 0
+          ? 'bottom-[calc(5.75rem+env(safe-area-inset-bottom,0px))] md:bottom-6'
+          : 'bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:bottom-6'
+      }`}>
         <button
           type="button"
           onClick={() => setIsOpen(true)}
-          className="relative group flex items-center gap-2.5 bg-gradient-to-r from-amber-500 via-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 px-4 py-3.5 rounded-full shadow-2xl transition-all duration-300 transform hover:scale-105 border border-amber-300/40"
+          aria-label="Ask DineSync AI Waiter Assistant"
+          className="relative group flex items-center gap-2.5 bg-gradient-to-r from-amber-500 via-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 px-3.5 sm:px-4 py-3 sm:py-3.5 rounded-full shadow-2xl transition-all duration-300 transform hover:scale-105 border border-amber-300/40 touch-manipulation min-h-[48px] min-w-[48px]"
         >
           <div className="relative flex items-center justify-center">
-            <ChefHat className="w-6 h-6 text-slate-950 animate-pulse" />
+            <ChefHat className="w-5 h-5 sm:w-6 sm:h-6 text-slate-950 animate-pulse" />
             <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-400 rounded-full border-2 border-slate-950" />
           </div>
-          <span className="font-bold text-sm hidden sm:inline-block tracking-wide">AI Food Waiter</span>
-          <Sparkles className="w-4 h-4 text-amber-950 opacity-90" />
+          <span className="font-bold text-xs sm:text-sm tracking-wide">AI Waiter</span>
+          <Sparkles className="w-3.5 h-3.5 text-amber-950 opacity-90 hidden sm:inline" />
         </button>
       </div>
 
@@ -258,7 +274,7 @@ export default function DineSyncAssistantModal() {
             )}
 
             {/* Messages Scroll Area */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gradient-to-b from-slate-950 via-slate-950 to-slate-900/80">
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gradient-to-b from-slate-950 via-slate-950 to-slate-900/80" aria-live="polite">
               {messages.map((msg) => (
                 <div
                   key={msg.id}

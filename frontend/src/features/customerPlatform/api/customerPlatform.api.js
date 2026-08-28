@@ -118,6 +118,26 @@ export const verifyReservationPhone = async (restaurantId, tableId, phone) => {
   return data.data;
 };
 
+export const requestHostHandoff = async (restaurantId, payload) => {
+  const { data } = await api.post(`${publicUrl(restaurantId)}/request-handoff`, payload);
+  return data.data;
+};
+
+export const requestTableAccess = async (restaurantId, tableId, payload) => {
+  const { data } = await api.post(`${publicUrl(restaurantId)}/tables/${tableId}/request-access`, payload);
+  return data.data;
+};
+
+export const respondTableAccess = async (restaurantId, tableId, payload) => {
+  const { data } = await api.post(`${publicUrl(restaurantId)}/tables/${tableId}/respond-access`, payload);
+  return data.data;
+};
+
+export const getSessionAuditLogs = async (restaurantId, params = {}) => {
+  const { data } = await api.get(`${publicUrl(restaurantId)}/session-audit-logs`, { params });
+  return data.data;
+};
+
 // AI Chatbot APIs
 export const sendChatMessage = async (restaurantId, payload) => {
   const { data } = await api.post(`${publicUrl(restaurantId)}/chatbot/chat`, {

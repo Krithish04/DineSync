@@ -101,14 +101,14 @@ export default function CartPage() {
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
-                    <div className="flex items-center border border-border rounded-xl bg-background overflow-hidden p-0.5">
+                    <div className="flex items-center border border-border rounded-xl bg-background overflow-hidden p-0.5 min-h-[44px]">
                       <button
                         type="button"
                         onClick={() => updateQuantity(idx, item.quantity - 1)}
-                        className="w-9 h-9 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-lg active:scale-95 touch-manipulation"
+                        className="w-10 h-10 min-w-[44px] min-h-[44px] flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-lg active:scale-95 touch-manipulation"
                         aria-label="Decrease item quantity"
                       >
-                        <Minus size={14} />
+                        <Minus size={15} />
                       </button>
                       <span className="px-2 min-w-[24px] text-center text-xs font-bold font-mono text-foreground">
                         {item.quantity}
@@ -116,20 +116,20 @@ export default function CartPage() {
                       <button
                         type="button"
                         onClick={() => updateQuantity(idx, item.quantity + 1)}
-                        className="w-9 h-9 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-lg active:scale-95 touch-manipulation"
+                        className="w-10 h-10 min-w-[44px] min-h-[44px] flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-lg active:scale-95 touch-manipulation"
                         aria-label="Increase item quantity"
                       >
-                        <Plus size={14} />
+                        <Plus size={15} />
                       </button>
                     </div>
 
                     <button
                       type="button"
                       onClick={() => removeItem(idx)}
-                      className="w-9 h-9 flex items-center justify-center text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition-colors active:scale-95 touch-manipulation"
+                      className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition-colors active:scale-95 touch-manipulation"
                       aria-label="Remove item"
                     >
-                      <Trash2 size={16} />
+                      <Trash2 size={18} />
                     </button>
                   </div>
                 </div>

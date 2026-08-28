@@ -32,10 +32,10 @@ export default function StickyCartBar() {
   }
 
   return (
-    <div className="fixed bottom-16 sm:bottom-4 left-0 right-0 z-40 px-3 sm:px-4 max-w-2xl mx-auto pointer-events-none animate-in slide-in-from-bottom-4 duration-200">
+    <div className="fixed bottom-16 sm:bottom-4 left-0 right-0 z-40 px-3 sm:px-4 max-w-2xl mx-auto pointer-events-none animate-in slide-in-from-bottom-4 duration-200 pb-[env(safe-area-inset-bottom)]">
       <div
         onClick={() => navigate('/menu/cart')}
-        className="pointer-events-auto bg-primary text-primary-foreground rounded-2xl p-3.5 sm:p-4 shadow-xl flex items-center justify-between gap-3 cursor-pointer hover:bg-primary/95 transition-all active:scale-[0.99] touch-manipulation"
+        className="pointer-events-auto bg-primary text-primary-foreground rounded-2xl p-3.5 sm:p-4 shadow-xl flex items-center justify-between gap-3 cursor-pointer hover:bg-primary/95 transition-all active:scale-[0.99] touch-manipulation min-h-[44px]"
       >
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
@@ -51,7 +51,7 @@ export default function StickyCartBar() {
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 font-bold text-xs sm:text-sm bg-white/20 px-3.5 py-2 rounded-xl text-primary-foreground hover:bg-white/30 transition-colors shadow-xs">
+        <div className="flex items-center gap-1.5 font-bold text-xs sm:text-sm bg-white/20 px-3.5 py-2.5 rounded-xl text-primary-foreground hover:bg-white/30 transition-colors shadow-xs min-h-[44px]">
           <span>View Cart</span>
           <ArrowRight size={16} />
         </div>

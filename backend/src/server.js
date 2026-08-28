@@ -15,11 +15,23 @@ initSocket(server);
 const start = async () => {
   await connectDB();
   await tenantService.backfillKitchenStations();
-  startScheduledReportRunner();
-  startJobScheduler();
-  startAiReservationMonitor();
+
+  server.on('error', (error) => {
+    if (error.code === 'EADDRINUSE') {
+      // eslint-disable-next-line no-console
+      console.log(`[Server] Port ${env.PORT} is already in use. DineSync AI backend is already running on port ${env.PORT}.`);
+      process.exit(0);
+    } else {
+      // eslint-disable-next-line no-console
+      console.error('[Server] Server error:', error);
+      process.exit(1);
+    }
+  });
 
   server.listen(env.PORT, () => {
+    startScheduledReportRunner();
+    startJobScheduler();
+    startAiReservationMonitor();
     // eslint-disable-next-line no-console
     console.log(`[Server] DineSync AI backend running in ${env.NODE_ENV} mode on port ${env.PORT}`);
   });

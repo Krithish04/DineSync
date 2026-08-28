@@ -143,7 +143,32 @@ const processChatMessage = async (req, res, next) => {
     // INTENT ROUTING
     // =========================================================================
 
-    // A. Order Tracking Intent
+    // A. Call Staff / Human Waiter Handoff Intent
+    if (lowerMsg.includes('human') || lowerMsg.includes('call staff') || lowerMsg.includes('waiter') || lowerMsg.includes('server') || lowerMsg.includes('speak to staff') || lowerMsg.includes('need help')) {
+      reply = "I've notified our floor team! 🛎️ Someone from our staff will assist your table shortly. You can also tap below to resend a waiter notification.";
+      
+      await ChatbotAnalytics.create({
+        restaurant: restaurantId,
+        customer: customerId,
+        sessionId,
+        eventType: 'query',
+        intent: 'call_staff',
+        queryText: cleanMsg,
+        aiResponseText: reply,
+      });
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          reply,
+          cards: [],
+          cartAction: { type: 'CALL_STAFF' },
+          quickReplies: ['📦 Track my order', '🥗 Salads under ₹300', '😋 What\'s spicy?'],
+        },
+      });
+    }
+
+    // B. Order Tracking Intent
     if (lowerMsg.includes('track') || lowerMsg.includes('where is my order') || lowerMsg.includes('order status') || lowerMsg.includes('when will my food arrive')) {
       let activeOrder = null;
       if (customerId) {

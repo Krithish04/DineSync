@@ -34,10 +34,14 @@ function runSuite(suiteName, testFile) {
 
 // Execute all unit & integration test files
 runSuite('Auth Unit Tests', './unit/auth.test.js');
+runSuite('Table Session Unit Tests', './unit/tableSession.test.js');
 runSuite('Order Unit Tests', './unit/order.test.js');
 runSuite('Inventory Unit Tests', './unit/inventory.test.js');
 runSuite('Billing Unit Tests', './unit/billing.test.js');
 runSuite('AI Proxy Unit Tests', './unit/ai.test.js');
+runSuite('Phase 1 Verification Gate Tests', './unit/phase1_verification_gate.test.js');
+runSuite('Phase 2 State Machine Tests', './unit/phase2_state_machine.test.js');
+runSuite('Phase 3 Access Request Tests', './unit/phase3_access_requests.test.js');
 runSuite('API & Integration Tests', './integration/api.test.js');
 
 console.log('\n====================================================');

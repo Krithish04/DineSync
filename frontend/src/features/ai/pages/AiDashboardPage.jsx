@@ -6,6 +6,7 @@ import useAuthStore from '@/features/auth/store/auth.store';
 import ForecastCard from '../components/ForecastCard';
 import AiInsightCard from '../components/AiInsightCard';
 import ConfidenceIndicator from '../components/ConfidenceIndicator';
+import ModelSourceBadge from '../components/ModelSourceBadge';
 import * as aiApi from '../api/ai.api';
 
 export default function AiDashboardPage() {
@@ -102,17 +103,18 @@ export default function AiDashboardPage() {
             </div>
 
             {/* AI Platform Capabilities Banner */}
-            <div className="bg-gradient-to-r from-primary/10 via-amber-500/10 to-emerald-500/10 border border-primary/20 rounded-xl p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className="bg-gradient-to-r from-primary/10 via-amber-500/10 to-emerald-500/10 border border-primary/20 rounded-2xl p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-xs">
               <div className="space-y-1">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2.5 flex-wrap">
                   <Sparkles className="text-primary" size={20} />
-                  <h3 className="text-base font-semibold font-display text-foreground">DineSync AI Predictive Platform Active</h3>
+                  <h3 className="text-base font-bold font-display text-foreground">DineSync AI Predictive Platform</h3>
+                  <ModelSourceBadge mode={overview.salesForecastTomorrow?.execution_mode || 'AI_LIVE_MODEL'} />
                 </div>
                 <p className="text-xs text-muted-foreground max-w-2xl leading-relaxed">
                   Real-time intelligence algorithms are actively analyzing your order volume, kitchen preparation velocity, customer feedback, and stock consumption rates to optimize operational throughput.
                 </p>
               </div>
-              <ConfidenceIndicator confidence={0.88} label="System Accuracy" />
+              <ConfidenceIndicator confidence={overview.salesForecastTomorrow?.confidence_score || 0.88} label="Prediction Accuracy" />
             </div>
           </>
         )}

@@ -142,9 +142,9 @@ export default function NoOrderExitModal({ isOpen, onClose, onCompleteSignOut })
               </div>
               <button
                 type="button"
-                onClick={handleSkipAndExit}
+                onClick={onClose}
                 className="text-muted-foreground hover:text-foreground p-1.5 rounded-full hover:bg-muted transition-colors"
-                title="Close and Sign Out"
+                title="Close"
               >
                 <X size={18} />
               </button>

@@ -9,7 +9,7 @@ import * as customerApi from '../api/customerPlatform.api';
  * Customer Table Session Login & Real Phone OTP Verification Modal.
  * Authenticates diner with Phone & OTP for profile, order history, and loyalty tracking.
  */
-export default function CustomerAuthModal({ isOpen, onClose, onSuccess }) {
+export default function CustomerAuthModal({ isOpen, onClose, onSuccess, pendingItem }) {
   const { loginTableHost, tableNumber, tableId, restaurantId, activeTableSessions } = useCartStore();
   const setCustomerSession = useCustomerAuthStore((state) => state.setCustomerSession);
 
@@ -110,9 +110,26 @@ export default function CustomerAuthModal({ isOpen, onClose, onSuccess }) {
           }
         } catch (claimErr) {
           if (claimErr.response?.status === 409) {
-            setError(claimErr.response?.data?.message || 'Table is currently occupied by another diner. You are in View-Only mode.');
-            setIsVerifying(false);
-            return;
+            try {
+              const handoffRes = await customerApi.requestHostHandoff(restaurantId, {
+                tableId,
+                requesterName: name.trim() || res.customer?.fullName || 'Guest',
+                requesterPhone: cleanPhone,
+              });
+
+              if (handoffRes?.autoApproved && handoffRes?.session) {
+                claimedSession = handoffRes.session;
+                hostToken = handoffRes.hostToken;
+              } else {
+                setError(handoffRes?.message || 'Table is currently occupied. Request logged for staff review.');
+                setIsVerifying(false);
+                return;
+              }
+            } catch (handoffErr) {
+              setError(handoffErr.response?.data?.message || 'Table is currently occupied by another diner. You are in View-Only mode.');
+              setIsVerifying(false);
+              return;
+            }
           }
         }
       }
@@ -127,6 +144,11 @@ export default function CustomerAuthModal({ isOpen, onClose, onSuccess }) {
       loginTableHost(hostPayload);
       setIsVerifying(false);
       onClose();
+
+      if (pendingItem) {
+        const addItem = useCartStore.getState().addItem;
+        addItem(pendingItem, 1, [], '');
+      }
 
       if (typeof onSuccess === 'function') {
         onSuccess(hostPayload);

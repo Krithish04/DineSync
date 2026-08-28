@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Bot, Save, MessageSquare, CheckCircle, ShieldAlert, Sparkles, TrendingUp, RefreshCw, BarChart2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import useAuthStore from '@/store/auth.store';
+import useAuthStore from '@/features/auth/store/auth.store';
 import * as customerApi from '@/features/customerPlatform/api/customerPlatform.api';
 
 export default function ChatbotAdminSettingsPage() {

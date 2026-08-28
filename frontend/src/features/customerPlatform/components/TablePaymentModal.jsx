@@ -189,10 +189,10 @@ export default function TablePaymentModal({ isOpen, onClose }) {
                           key={cnt}
                           type="button"
                           onClick={() => setSplitCount(cnt)}
-                          className={`w-7 h-7 rounded-lg text-xs font-bold flex items-center justify-center border transition-all ${
+                          className={`w-11 h-11 min-w-[44px] min-h-[44px] rounded-xl text-xs font-bold flex items-center justify-center border transition-all active:scale-95 touch-manipulation ${
                             splitCount === cnt
                               ? 'bg-primary text-primary-foreground border-primary shadow-xs'
-                              : 'bg-card text-muted-foreground border-border'
+                              : 'bg-card text-muted-foreground border-border hover:bg-muted'
                           }`}
                         >
                           {cnt}
@@ -209,15 +209,21 @@ export default function TablePaymentModal({ isOpen, onClose }) {
               )}
             </div>
 
-            {/* Total Amount Due */}
-            <div className="bg-primary/10 border border-primary/20 rounded-2xl p-3.5 flex items-center justify-between">
-              <div>
-                <span className="text-[10px] text-primary uppercase font-bold">Total Bill Due</span>
-                <p className="text-lg font-bold font-display text-primary font-mono">₹{totalBillAmount.toFixed(2)}</p>
+            {/* Itemized GST & Charges Breakdown */}
+            <div className="bg-card border border-border/80 rounded-2xl p-3.5 space-y-1.5 text-xs shadow-2xs">
+              <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block mb-1">Tax &amp; Service Charge Summary</span>
+              <div className="flex justify-between text-muted-foreground">
+                <span>Food &amp; Beverage Subtotal</span>
+                <span className="font-mono">₹{(totalBillAmount / 1.05).toFixed(2)}</span>
               </div>
-              <span className="text-[10px] bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 font-bold px-2.5 py-0.5 rounded-full">
-                Combined Bill
-              </span>
+              <div className="flex justify-between text-muted-foreground">
+                <span>GST (5% Inclusive)</span>
+                <span className="font-mono">₹{(totalBillAmount - (totalBillAmount / 1.05)).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between font-bold text-foreground pt-1 border-t border-border/60">
+                <span>Grand Total Due</span>
+                <span className="text-primary font-mono text-base">₹{totalBillAmount.toFixed(2)}</span>
+              </div>
             </div>
 
             {/* Payment Method Selector */}

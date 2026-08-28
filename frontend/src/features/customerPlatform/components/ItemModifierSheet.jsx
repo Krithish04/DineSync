@@ -98,33 +98,42 @@ export default function ItemModifierSheet({ item, isOpen, onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
-      <div className="bg-card border border-border rounded-t-3xl sm:rounded-3xl max-w-lg w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-200">
+      <div className="bg-card border border-border rounded-t-3xl sm:rounded-3xl max-w-lg w-full max-h-[92vh] flex flex-col shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-200">
         
+        {/* Top Swipe Drag-Handle for Mobile Bottom Sheet */}
+        <div className="w-full flex items-center justify-center pt-2 pb-1 bg-card sm:hidden shrink-0">
+          <div className="w-12 h-1.5 rounded-full bg-muted-foreground/30" />
+        </div>
+
         {/* Full-Bleed Cover Image / Header */}
-        <div className="relative w-full h-48 sm:h-56 bg-muted shrink-0 overflow-hidden">
+        <div className="relative w-full h-36 sm:h-52 bg-muted shrink-0 overflow-hidden">
           {item.imageCover ? (
             <img
               src={item.imageCover}
               alt={item.name}
+              loading="lazy"
+              decoding="async"
               className="w-full h-full object-cover"
             />
           ) : (
             <div className="w-full h-full bg-gradient-to-br from-primary/20 via-muted to-accent/20 flex items-center justify-center">
-              <Sparkles size={48} className="text-primary/40" />
+              <Sparkles size={40} className="text-primary/40" />
             </div>
           )}
 
-          {/* Top Gradient Overlay & Close Button */}
+          {/* Top Gradient Overlay & 44px Tappable Close Button */}
           <div className="absolute inset-0 bg-gradient-to-t from-card via-transparent to-black/40" />
           <button
+            type="button"
             onClick={onClose}
-            className="absolute top-3 right-3 bg-black/50 hover:bg-black/70 text-white rounded-full p-2 backdrop-blur-md transition-colors"
+            aria-label="Close modifier sheet"
+            className="absolute top-2.5 right-2.5 bg-black/60 hover:bg-black/80 text-white rounded-full w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center backdrop-blur-md transition-colors active:scale-95 touch-manipulation"
           >
-            <X size={18} />
+            <X size={20} />
           </button>
 
           {/* Dietary & Spice Badge Overlays */}
-          <div className="absolute bottom-3 left-4 flex items-center gap-2">
+          <div className="absolute bottom-2.5 left-3.5 flex items-center gap-2">
             {isVeg && (
               <span className="bg-emerald-600/90 text-white text-[11px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1 backdrop-blur-md">
                 <span className="w-2 h-2 rounded-full bg-white" /> Veg
@@ -144,17 +153,17 @@ export default function ItemModifierSheet({ item, isOpen, onClose }) {
         </div>
 
         {/* Scrollable Content Body */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
           {/* Dish Header Info */}
           <div>
             <div className="flex items-start justify-between gap-3">
-              <h2 className="text-xl font-bold font-display text-foreground">{item.name}</h2>
-              <span className="text-lg font-bold text-primary font-display shrink-0">
+              <h2 className="text-lg sm:text-xl font-bold font-display text-foreground leading-snug">{item.name}</h2>
+              <span className="text-base sm:text-lg font-bold text-primary font-display shrink-0">
                 ₹{basePrice.toLocaleString('en-IN')}
               </span>
             </div>
             {item.description && (
-              <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">{item.description}</p>
+              <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{item.description}</p>
             )}
           </div>
 
@@ -174,7 +183,7 @@ export default function ItemModifierSheet({ item, isOpen, onClose }) {
                 const isRequired = group.required;
 
                 return (
-                  <div key={idx} className="space-y-2.5">
+                  <div key={idx} className="space-y-2">
                     <div className="flex items-center justify-between">
                       <h4 className="text-xs font-bold text-foreground flex items-center gap-1.5 uppercase tracking-wider">
                         <span>{group.groupName}</span>
@@ -201,7 +210,7 @@ export default function ItemModifierSheet({ item, isOpen, onClose }) {
                           <div
                             key={mIdx}
                             onClick={() => handleToggleModifier(group, mod)}
-                            className={`flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer touch-manipulation min-h-[44px] ${
+                            className={`flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer touch-manipulation min-h-[48px] ${
                               isChecked
                                 ? 'bg-primary/10 border-primary text-foreground font-semibold shadow-xs'
                                 : 'bg-card border-border hover:bg-muted/50 text-foreground'
@@ -217,7 +226,7 @@ export default function ItemModifierSheet({ item, isOpen, onClose }) {
                               >
                                 {isChecked && <CheckCircle2 size={12} />}
                               </div>
-                              <span className="text-xs">{mod.name}</span>
+                              <span className="text-xs font-medium">{mod.name}</span>
                             </div>
 
                             {mod.price > 0 && (
@@ -249,21 +258,25 @@ export default function ItemModifierSheet({ item, isOpen, onClose }) {
           </div>
         </div>
 
-        {/* Sticky Action Footer */}
-        <div className="p-4 bg-card border-t border-border flex items-center justify-between gap-4 shadow-lg shrink-0">
-          {/* Quantity Stepper */}
-          <div className="flex items-center gap-3 bg-muted p-1.5 rounded-2xl border border-border">
+        {/* Sticky Action Footer with Safe-Area Clearance */}
+        <div className="p-3.5 sm:p-4 bg-card border-t border-border flex items-center justify-between gap-3 shadow-lg shrink-0 pb-[calc(0.875rem+env(safe-area-inset-bottom,0px))]">
+          {/* Quantity Stepper (44px touch targets) */}
+          <div className="flex items-center gap-2 bg-muted p-1 rounded-2xl border border-border min-h-[44px]">
             <button
+              type="button"
               onClick={() => setQuantity((prev) => Math.max(1, prev - 1))}
               disabled={quantity <= 1}
-              className="w-9 h-9 rounded-xl bg-card text-foreground font-bold flex items-center justify-center hover:bg-background disabled:opacity-40 transition-colors touch-manipulation"
+              className="w-10 h-10 min-w-[44px] min-h-[44px] rounded-xl bg-card text-foreground font-bold flex items-center justify-center hover:bg-background disabled:opacity-40 transition-colors touch-manipulation active:scale-95"
+              aria-label="Decrease quantity"
             >
               <Minus size={16} />
             </button>
-            <span className="w-6 text-center font-bold text-sm font-display">{quantity}</span>
+            <span className="w-5 text-center font-bold text-sm font-display">{quantity}</span>
             <button
+              type="button"
               onClick={() => setQuantity((prev) => prev + 1)}
-              className="w-9 h-9 rounded-xl bg-card text-foreground font-bold flex items-center justify-center hover:bg-background transition-colors touch-manipulation"
+              className="w-10 h-10 min-w-[44px] min-h-[44px] rounded-xl bg-card text-foreground font-bold flex items-center justify-center hover:bg-background transition-colors touch-manipulation active:scale-95"
+              aria-label="Increase quantity"
             >
               <Plus size={16} />
             </button>
@@ -273,7 +286,7 @@ export default function ItemModifierSheet({ item, isOpen, onClose }) {
           <Button
             onClick={handleAddToCart}
             disabled={isViewOnly}
-            className="flex-1 h-12 rounded-2xl text-xs font-bold gap-2 shadow-md hover:shadow-lg transition-all"
+            className="flex-1 h-12 min-h-[44px] rounded-2xl text-xs font-bold gap-2 shadow-md hover:shadow-lg transition-all active:scale-[0.99] touch-manipulation"
           >
             <ShoppingBag size={16} />
             <span>Add to Order</span>

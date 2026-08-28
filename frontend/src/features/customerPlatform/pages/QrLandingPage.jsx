@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
-import { Utensils, AlertTriangle, ArrowRight, Table as TableIcon, Lock, CheckCircle2, Eye } from 'lucide-react';
+import { Utensils, AlertTriangle, ArrowRight, Table as TableIcon, Lock, CheckCircle2, Eye, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Loader from '@/components/common/Loader';
 import useCartStore from '../store/cart.store';
+import CustomerAuthModal from '../components/CustomerAuthModal';
 import * as customerApi from '../api/customerPlatform.api';
 
 export default function QrLandingPage() {
@@ -12,6 +13,8 @@ export default function QrLandingPage() {
   const navigate = useNavigate();
   const setSessionContext = useCartStore((s) => s.setSessionContext);
   const tableHost = useCartStore((s) => s.tableHost);
+
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   // Support both short URL route parameter (/t/:tableId) and query params (?restaurantId=...&tableId=...)
   const tableIdFromPath = routeParams.tableId;
@@ -56,6 +59,20 @@ export default function QrLandingPage() {
           currentHostPhone: res.currentHostPhone || res.table?.currentHostPhone,
           orderType: res.type || 'Dine-In',
         });
+
+        // REPEAT SCAN CHECK (Phase 1, Step 5): If guest is already the verified Host of this table session, bypass landing choice screen
+        const isOccupied = tableStatus === 'Occupied';
+        const isAlreadyHost = Boolean(
+          tableHost &&
+          tableHost.phone &&
+          isOccupied &&
+          (res.currentHostPhone === tableHost.phone || res.table?.currentHostPhone === tableHost.phone)
+        );
+
+        if (isAlreadyHost) {
+          navigate('/menu/categories');
+          return;
+        }
       } catch (err) {
         setError(err.response?.data?.message || 'Invalid or expired Table QR code.');
       } finally {
@@ -72,13 +89,13 @@ export default function QrLandingPage() {
 
   const handleStartOrdering = () => {
     if (isTableInactive) {
-      navigate('/menu/browse');
+      navigate('/menu/categories');
     } else if (isTableOccupied && !isCurrentHost) {
-      // Navigate to digital menu in View-Only mode
-      navigate('/menu/browse');
+      // Navigate to digital menu categories in View-Only mode
+      navigate('/menu/categories');
     } else {
-      // Navigate to digital menu and trigger OTP login modal
-      navigate('/menu/browse?promptAuth=true');
+      // Navigate to digital menu categories and trigger OTP login modal
+      navigate('/menu/categories?promptAuth=true');
     }
   };
 
@@ -109,7 +126,7 @@ export default function QrLandingPage() {
 
         {!isLoading && !error && session && (
           <div className="space-y-5 py-2">
-            <div className="w-16 h-16 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto">
+            <div className="w-16 h-16 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto shrink-0 shadow-xs">
               <Utensils size={32} />
             </div>
 
@@ -142,7 +159,7 @@ export default function QrLandingPage() {
                 ) : isTableOccupied && !isCurrentHost ? (
                   <div className="bg-amber-500/10 border border-amber-500/20 text-amber-600 rounded-lg p-2 text-[11px] font-semibold flex items-center justify-center gap-1.5">
                     <Lock size={13} />
-                    <span>Table Occupied — View-Only Mode Active</span>
+                    <span>Table Active with Host — View-Only Mode</span>
                   </div>
                 ) : (
                   <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 rounded-lg p-2 text-[11px] font-semibold flex items-center justify-center gap-1.5">
@@ -153,33 +170,60 @@ export default function QrLandingPage() {
               </div>
             )}
 
+            {/* TWO WEIGHTED ACTIONS */}
             {isTableInactive ? (
-              <Button onClick={handleStartOrdering} className="w-full h-11 gap-2 text-sm font-bold rounded-xl active:scale-[0.99] touch-manipulation">
+              <Button onClick={() => navigate('/menu/categories')} className="w-full h-11 gap-2 text-xs font-bold rounded-xl active:scale-[0.99] touch-manipulation min-h-[44px]">
                 <Utensils size={16} />
                 <span>Browse Digital Menu</span>
                 <ArrowRight size={16} />
               </Button>
             ) : isTableOccupied && !isCurrentHost ? (
-              <Button onClick={handleStartOrdering} variant="secondary" className="w-full h-11 gap-2 text-xs font-bold rounded-xl active:scale-[0.99] touch-manipulation">
-                <Eye size={15} />
-                <span>Browse Menu (View Only)</span>
-              </Button>
+              <div className="space-y-3">
+                <Button onClick={() => navigate('/menu/categories')} className="w-full h-11 gap-2 text-xs font-bold rounded-xl active:scale-[0.99] touch-manipulation min-h-[44px]">
+                  <Eye size={16} />
+                  <span>Just Browse the Menu</span>
+                </Button>
+                <p className="text-[11px] text-muted-foreground leading-tight px-1">
+                  You can browse items or request ordering access from the table host anytime.
+                </p>
+              </div>
             ) : (
-              <Button onClick={handleStartOrdering} className="w-full h-11 gap-2 text-sm font-bold rounded-xl active:scale-[0.99] touch-manipulation">
-                <span>Start Table Ordering</span>
-                <ArrowRight size={16} />
-              </Button>
-            )}
+              <div className="space-y-3 pt-1">
+                {/* PRIMARY ACTION: VERIFY TO ORDER */}
+                <Button
+                  onClick={() => setIsAuthModalOpen(true)}
+                  className="w-full h-11 gap-2 text-xs font-bold rounded-xl shadow-md active:scale-[0.99] touch-manipulation min-h-[44px]"
+                >
+                  <ShieldCheck size={16} />
+                  <span>Verify to Order</span>
+                  <ArrowRight size={15} />
+                </Button>
 
-            <Button
-              variant="outline"
-              onClick={() => navigate('/menu/reservations')}
-              className="w-full h-11 text-xs font-semibold gap-1.5 border-primary/20 text-primary hover:bg-primary/5 rounded-xl touch-manipulation"
-            >
-              <span>Book Table in Advance</span>
-            </Button>
+                {/* SECONDARY ACTION: JUST BROWSE THE MENU */}
+                <Button
+                  variant="outline"
+                  onClick={() => navigate('/menu/categories')}
+                  className="w-full h-11 gap-2 text-xs font-semibold rounded-xl border-border text-foreground hover:bg-muted/50 touch-manipulation min-h-[44px]"
+                >
+                  <Eye size={15} />
+                  <span>Just Browse the Menu</span>
+                </Button>
+
+                {/* TRUST REASSURANCE */}
+                <p className="text-[11px] text-muted-foreground leading-tight px-1">
+                  Verifying your mobile number lets you place orders, track live food status, and settle your bill.
+                </p>
+              </div>
+            )}
           </div>
         )}
+
+        {/* REUSABLE OTP AUTH MODAL */}
+        <CustomerAuthModal
+          isOpen={isAuthModalOpen}
+          onClose={() => setIsAuthModalOpen(false)}
+          onSuccess={() => navigate('/menu/categories')}
+        />
       </div>
     </div>
   );

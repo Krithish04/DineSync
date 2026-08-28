@@ -88,6 +88,7 @@ const CustomerPortalDashboardPage = lazyLoad(() => import('@/features/customerPl
 const CustomerLoyaltyDashboardPage = lazyLoad(() => import('@/features/customerPlatform/pages/CustomerLoyaltyDashboardPage'));
 const FeedbackPage = lazyLoad(() => import('@/features/customerPlatform/pages/FeedbackPage'));
 const ReservationBookingPage = lazyLoad(() => import('@/features/customerPlatform/pages/ReservationBookingPage'));
+const CategoryGridPage = lazyLoad(() => import('@/features/customerPlatform/pages/CategoryGridPage'));
 const NotificationCenterPage = lazyLoad(() => import('@/features/notification/pages/NotificationCenterPage'));
 const NotificationSettingsPage = lazyLoad(() => import('@/features/notification/pages/NotificationSettingsPage'));
 const AlertDashboardPage = lazyLoad(() => import('@/features/notification/pages/AlertDashboardPage'));
@@ -484,6 +485,10 @@ const router = createBrowserRouter([
     element: <QrLandingPage />,
   },
   {
+    path: '/menu/categories',
+    element: <CategoryGridPage />,
+  },
+  {
     path: '/menu/browse',
     element: <DigitalMenuPage />,
   },
@@ -527,6 +532,11 @@ const router = createBrowserRouter([
     path: '*',
     element: <NotFound />,
   },
-]);
+], {
+  future: {
+    v7_startTransition: true,
+    v7_relativeSplatPath: true,
+  },
+});
 
 export default router;

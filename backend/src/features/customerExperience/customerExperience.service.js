@@ -4,6 +4,7 @@ const Category = require('../category/category.model');
 const Order = require('../order/order.model');
 const Table = require('../table/table.model');
 const TableSession = require('../table/tableSession.model');
+const TableSessionAudit = require('../table/tableSessionAudit.model');
 const Customer = require('../customer/customer.model');
 const Feedback = require('../customer/feedback.model');
 const ApiError = require('../../utils/ApiError');
@@ -526,42 +527,199 @@ const releaseTableSession = async (restaurantId, payload = {}) => {
     session = await TableSession.findOne({ table: tableId, status: 'active' });
   }
 
+  const targetTableId = tableId || session?.table;
+  let table = null;
+
+  if (targetTableId) {
+    table = await Table.findById(targetTableId);
+  }
+
+  // OPTION A FALLBACK: If active co-orderers exist, promote the longest-standing co-orderer to Host
+  if (session && session.coOrderers && session.coOrderers.length > 0) {
+    const sortedCoOrderers = [...session.coOrderers].sort(
+      (a, b) => new Date(a.approvedAt || 0) - new Date(b.approvedAt || 0)
+    );
+    const nextHost = sortedCoOrderers.shift();
+    session.coOrderers = sortedCoOrderers;
+    session.hostName = nextHost.name || 'Diner';
+    session.hostPhone = nextHost.phone || '';
+    await session.save();
+
+    if (table) {
+      table.status = 'Occupied';
+      table.currentHostName = session.hostName;
+      table.currentHostPhone = session.hostPhone;
+      await table.save();
+    }
+
+    try {
+      const TableSessionAudit = require('../table/tableSessionAudit.model');
+      await TableSessionAudit.create({
+        restaurant: restaurantId,
+        table: table._id,
+        session: session._id,
+        action: TableSessionAudit.AUDIT_ACTIONS.HOST_PROMOTED,
+        actorPhone: nextHost.phone,
+        actorName: nextHost.name,
+        reason: 'Original host session ended. Longest-standing co-orderer promoted to Host (Option A Fallback).',
+      });
+    } catch (auditErr) {
+      // eslint-disable-next-line no-console
+      console.error('[TableAudit] Failed to log HOST_PROMOTED audit event:', auditErr);
+    }
+
+    socketConfig.broadcastEvent(restaurantId, 'table:host-promoted', {
+      sessionId: session._id,
+      tableId: table._id,
+      newHostName: session.hostName,
+      newHostPhone: session.hostPhone,
+    });
+
+    socketConfig.broadcastEvent(restaurantId, 'table:updated', {
+      tableId: table._id,
+      tableNumber: table.tableNumber,
+      status: 'Occupied',
+      currentHostName: session.hostName,
+      currentHostPhone: session.hostPhone,
+    });
+
+    return { promoted: true, session, table, newHostPhone: session.hostPhone };
+  }
+
   if (session) {
     session.status = 'released';
     session.endedAt = new Date();
     await session.save();
   }
 
-  const targetTableId = tableId || session?.table;
-  let table = null;
+  if (table) {
+    table.status = 'Available';
+    table.currentHostName = '';
+    table.currentHostPhone = '';
+    await table.save();
 
-  if (targetTableId) {
-    table = await Table.findById(targetTableId);
-    if (table) {
-      table.status = 'Available';
-      table.currentHostName = '';
-      table.currentHostPhone = '';
-      await table.save();
+    socketConfig.broadcastEvent(restaurantId, 'table:session-ended', {
+      sessionId: session?._id,
+      tableId: table._id,
+      tableNumber: table.tableNumber,
+      status: 'released',
+    });
 
-      socketConfig.broadcastEvent(restaurantId, 'table:session-ended', {
-        sessionId: session?._id,
-        tableId: table._id,
-        tableNumber: table.tableNumber,
-        status: 'released',
+    socketConfig.broadcastEvent(restaurantId, 'table:updated', {
+      tableId: table._id,
+      tableNumber: table.tableNumber,
+      status: 'Available',
+      currentHostName: '',
+      currentHostPhone: '',
+      forceLogout: true,
+    });
+  }
+
+  return { session, table };
+};
+
+const requestTableAccess = async (restaurantId, tableId, payload) => {
+  const { requesterPhone, requesterName } = payload;
+  if (!requesterPhone) {
+    throw ApiError.badRequest('Verified phone number is required to request table access.');
+  }
+
+  const session = await TableSession.findOne({ table: tableId, status: 'active' });
+  if (!session) {
+    throw ApiError.notFound('No active host session found on this table.');
+  }
+
+  const table = await Table.findById(tableId);
+  const cleanPhone = requesterPhone.trim();
+  const maskedPhone = `•••• ${cleanPhone.slice(-4)}`;
+
+  const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
+
+  try {
+    const TableSessionAudit = require('../table/tableSessionAudit.model');
+    await TableSessionAudit.create({
+      restaurant: restaurantId,
+      table: tableId,
+      session: session._id,
+      action: TableSessionAudit.AUDIT_ACTIONS.ACCESS_REQUESTED,
+      actorPhone: cleanPhone,
+      actorName: requesterName || 'Diner',
+      targetHostPhone: session.hostPhone,
+      reason: `Guest ${maskedPhone} requested ordering access on Table #${table?.tableNumber || ''}.`,
+    });
+  } catch (auditErr) {
+    // eslint-disable-next-line no-console
+    console.error('[TableAudit] Failed to log ACCESS_REQUESTED audit event:', auditErr);
+  }
+
+  // Broadcast real-time event to Host session room
+  socketConfig.broadcastEvent(restaurantId, 'access:requested', {
+    requestId,
+    tableId,
+    tableNumber: table?.tableNumber || '',
+    requesterName: requesterName || 'Guest',
+    requesterPhone: cleanPhone,
+    maskedPhone,
+    timestamp: new Date().toISOString(),
+  });
+
+  return { requestId, tableId, maskedPhone, status: 'pending' };
+};
+
+const respondTableAccess = async (restaurantId, tableId, payload) => {
+  const { requestId, requesterPhone, requesterName, decision } = payload; // decision: 'approve' | 'deny'
+  if (!requesterPhone || !decision) {
+    throw ApiError.badRequest('Requester phone number and decision are required.');
+  }
+
+  const session = await TableSession.findOne({ table: tableId, status: 'active' });
+  if (!session) {
+    throw ApiError.notFound('Active table session not found.');
+  }
+
+  const isApproved = decision === 'approve';
+  const cleanPhone = requesterPhone.trim();
+
+  if (isApproved) {
+    const existingIndex = session.coOrderers.findIndex((c) => c.phone === cleanPhone);
+    if (existingIndex === -1) {
+      session.coOrderers.push({
+        name: requesterName || 'Co-Orderer',
+        phone: cleanPhone,
+        approvedAt: new Date(),
       });
-
-      socketConfig.broadcastEvent(restaurantId, 'table:updated', {
-        tableId: table._id,
-        tableNumber: table.tableNumber,
-        status: 'Available',
-        currentHostName: '',
-        currentHostPhone: '',
-        forceLogout: true,
-      });
+      await session.save();
     }
   }
 
-  return { released: true, session, table };
+  try {
+    const TableSessionAudit = require('../table/tableSessionAudit.model');
+    await TableSessionAudit.create({
+      restaurant: restaurantId,
+      table: tableId,
+      session: session._id,
+      action: isApproved
+        ? TableSessionAudit.AUDIT_ACTIONS.CO_ORDERER_APPROVED
+        : TableSessionAudit.AUDIT_ACTIONS.CO_ORDERER_DENIED,
+      actorPhone: session.hostPhone,
+      actorName: session.hostName,
+      targetHostPhone: cleanPhone,
+      reason: `Host ${isApproved ? 'approved' : 'denied'} ordering access for diner ${cleanPhone.slice(-4)}.`,
+    });
+  } catch (auditErr) {
+    // eslint-disable-next-line no-console
+    console.error('[TableAudit] Failed to log access response audit event:', auditErr);
+  }
+
+  socketConfig.broadcastEvent(restaurantId, 'access:responded', {
+    requestId,
+    tableId,
+    requesterPhone: cleanPhone,
+    approved: isApproved,
+    status: isApproved ? 'approved' : 'denied',
+  });
+
+  return { requestId, tableId, approved: isApproved, status: isApproved ? 'approved' : 'denied' };
 };
 
 const releaseTableHost = async (restaurantId, payload) => {
@@ -870,8 +1028,6 @@ const createCustomerReservation = async (restaurantId, payload, customerId) => {
     table: null,
   });
 
-  socketConfig.broadcastEvent(restaurantId, 'reservation:created', reservation);
-
   return { reservation };
 };
 
@@ -887,6 +1043,143 @@ const getMyCustomerReservations = async (restaurantId, customerId) => {
     .lean();
 
   return { reservations };
+};
+
+// ==========================================
+// 8. HOST HANDOFF AUTO-RESOLUTION & AUDIT LOGS
+// ==========================================
+const requestHostHandoff = async (restaurantId, payload, authenticatedUser = null) => {
+  const { tableId, requesterName, requesterPhone, reason = '' } = payload;
+  if (!tableId || !requesterPhone) {
+    throw ApiError.badRequest('Table ID and requester phone number are required for host transfer.');
+  }
+
+  const otpService = require('../auth/otp.service');
+  const cleanPhone = otpService.normalizePhone(requesterPhone) || requesterPhone.trim();
+
+  let table = await Table.findOne({ _id: tableId, restaurant: restaurantId, isDeleted: false });
+  if (!table) {
+    throw ApiError.notFound('Table not found.');
+  }
+
+  const activeSession = await TableSession.findOne({ table: table._id, status: 'active' });
+  if (!activeSession) {
+    // Table is un-claimed — claim directly!
+    return claimTableHost(restaurantId, { tableId, hostName: requesterName, hostPhone: cleanPhone }, authenticatedUser);
+  }
+
+  if (activeSession.hostPhone === cleanPhone) {
+    return { status: 'already_host', message: 'You are already the active host of this table.', session: activeSession };
+  }
+
+  // Check current active orders for this table
+  const activeOrdersCount = await Order.countDocuments({
+    table: table._id,
+    session: activeSession._id,
+    orderStatus: { $in: ['Pending', 'Accepted', 'Preparing', 'Ready'] },
+    isDeleted: false,
+  });
+
+  const lastActivity = activeSession.lastActivityAt || activeSession.updatedAt || activeSession.createdAt;
+  const idleMins = (Date.now() - new Date(lastActivity).getTime()) / 60000;
+
+  // Auto-approve handoff if current host is idle > 10 minutes AND has 0 active/unfinished orders
+  const canAutoApprove = activeOrdersCount === 0 && idleMins >= 10;
+
+  if (canAutoApprove) {
+    // 1. Mark previous idle session as released
+    activeSession.status = 'released';
+    activeSession.endedAt = new Date();
+    await activeSession.save();
+
+    // 2. Claim table for new host
+    const newHost = await claimTableHost(
+      restaurantId,
+      { tableId, hostName: requesterName, hostPhone: cleanPhone },
+      authenticatedUser
+    );
+
+    // 3. Log audit entry
+    await TableSessionAudit.create({
+      restaurant: restaurantId,
+      table: table._id,
+      session: newHost.session._id,
+      action: TableSessionAudit.AUDIT_ACTIONS.HANDOFF_APPROVED,
+      actorPhone: cleanPhone,
+      actorName: requesterName || 'Diner',
+      targetHostPhone: activeSession.hostPhone,
+      reason: `Auto-approved host handoff. Previous host idle for ${Math.round(idleMins)}m with 0 active orders.`,
+      metadata: { idleMins: Math.round(idleMins), previousHostName: activeSession.hostName },
+    }).catch(() => null);
+
+    return {
+      status: 'approved',
+      autoApproved: true,
+      message: `Host status auto-transferred to ${requesterName || 'you'} (previous host was inactive).`,
+      session: newHost.session,
+      hostToken: newHost.hostToken,
+    };
+  }
+
+  // Safe-by-default: If current host is active, log HANDOFF_REQUEST for staff review without overriding
+  await TableSessionAudit.create({
+    restaurant: restaurantId,
+    table: table._id,
+    session: activeSession._id,
+    action: TableSessionAudit.AUDIT_ACTIONS.HANDOFF_REQUEST,
+    actorPhone: cleanPhone,
+    actorName: requesterName || 'Diner',
+    targetHostPhone: activeSession.hostPhone,
+    reason: reason || `Requested host transfer. Flagged for review (current host has ${activeOrdersCount} active orders, idle ${Math.round(idleMins)}m).`,
+    metadata: { activeOrdersCount, idleMins: Math.round(idleMins), currentHostName: activeSession.hostName },
+  }).catch(() => null);
+
+  return {
+    status: 'flagged_for_review',
+    autoApproved: false,
+    message: `Table #${table.tableNumber} is actively managed by ${activeSession.hostName}. Transfer request logged for staff review.`,
+    currentHostName: activeSession.hostName,
+  };
+};
+
+const getTableSessionAuditLogs = async (restaurantId, tableId = null) => {
+  const query = { restaurant: restaurantId };
+  if (tableId) query.table = tableId;
+  const logs = await TableSessionAudit.find(query)
+    .sort({ createdAt: -1 })
+    .limit(50)
+    .populate('table', 'tableNumber tableName')
+    .lean();
+
+  return { logs };
+};
+
+const calculateTableTurnoverEstimate = async (restaurantId, tableId) => {
+  const activeOrders = await Order.find({
+    restaurant: restaurantId,
+    table: tableId,
+    orderStatus: { $in: ['Pending', 'Accepted', 'Preparing', 'Ready', 'Served'] },
+    isDeleted: false,
+  }).lean();
+
+  if (activeOrders.length === 0) {
+    return { estimatedMinutesRemaining: 0, status: 'Available' };
+  }
+
+  let remainingMins = 0;
+  activeOrders.forEach((ord) => {
+    switch (ord.orderStatus) {
+      case 'Pending': remainingMins += 30; break;
+      case 'Accepted': remainingMins += 25; break;
+      case 'Preparing': remainingMins += 15; break;
+      case 'Ready': remainingMins += 10; break;
+      case 'Served': remainingMins += 12; break;
+      default: remainingMins += 5; break;
+    }
+  });
+
+  const estimatedMins = Math.min(60, Math.max(5, Math.round(remainingMins / activeOrders.length)));
+  return { estimatedMinutesRemaining: estimatedMins, activeOrdersCount: activeOrders.length, status: 'Occupied' };
 };
 
 module.exports = {
@@ -906,4 +1199,9 @@ module.exports = {
   getActiveTableOrders,
   createCustomerReservation,
   getMyCustomerReservations,
+  requestHostHandoff,
+  getTableSessionAuditLogs,
+  calculateTableTurnoverEstimate,
+  requestTableAccess,
+  respondTableAccess,
 };

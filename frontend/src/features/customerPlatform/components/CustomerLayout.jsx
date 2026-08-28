@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { ShoppingBag, Menu as MenuIcon, User, Star, Lock, LogOut, CheckCircle2, ChevronRight, UserCheck, ShieldCheck, Receipt, Award, Bell } from 'lucide-react';
+import { ShoppingBag, Menu as MenuIcon, User, Star, Lock, LogOut, CheckCircle2, ChevronRight, UserCheck, ShieldCheck, Receipt, Award, Bell, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import useCartStore from '../store/cart.store';
 import useCustomerAuthStore from '../store/customerAuth.store';
@@ -103,7 +103,26 @@ export default function CustomerLayout({ title, children }) {
       .catch(() => null);
   }, [tableId, restaurantId, customer?.phoneNumber, tableHost?.phone, hostToken, setSessionId, setPlacedOrders, setSessionContext, setSessionOrderSummary]);
 
-  // Real-time listener for table session start, end & force release
+  const [pendingItemForAuth, setPendingItemForAuth] = useState(null);
+  const [incomingAccessRequest, setIncomingAccessRequest] = useState(null);
+  const [accessRequestStatus, setAccessRequestStatus] = useState(null); // null | 'pending' | 'approved' | 'denied'
+  const [accessRequestMessage, setAccessRequestMessage] = useState('');
+
+  const isCoOrderer = useCartStore((s) => s.isCoOrderer);
+
+  // Listen for custom event 'open-customer-auth' from menu item cards
+  useEffect(() => {
+    const handleOpenAuth = (e) => {
+      if (e.detail?.pendingItem) {
+        setPendingItemForAuth(e.detail.pendingItem);
+      }
+      setIsAuthModalOpen(true);
+    };
+    document.addEventListener('open-customer-auth', handleOpenAuth);
+    return () => document.removeEventListener('open-customer-auth', handleOpenAuth);
+  }, []);
+
+  // Real-time listener for table session start, end, force release & access requests
   useEffect(() => {
     if (!socket || !tableId) return;
 
@@ -137,16 +156,59 @@ export default function CustomerLayout({ title, children }) {
       }
     };
 
+    const handleAccessRequested = (data) => {
+      if (String(data?.tableId) === String(tableId)) {
+        const myPhone = customer?.phoneNumber || tableHost?.phone;
+        // Only host gets the approval banner prompt
+        if (tableHost && (!data.requesterPhone || data.requesterPhone !== myPhone)) {
+          setIncomingAccessRequest(data);
+        }
+      }
+    };
+
+    const handleAccessResponded = (data) => {
+      if (String(data?.tableId) === String(tableId)) {
+        const myPhone = customer?.phoneNumber || tableHost?.phone;
+        if (data.requesterPhone && data.requesterPhone === myPhone) {
+          if (data.approved) {
+            useCartStore.getState().setCoOrdererStatus('approved', true);
+            setAccessRequestStatus('approved');
+            setAccessRequestMessage('Request approved! You now have ordering access for this table session.');
+          } else {
+            useCartStore.getState().setCoOrdererStatus('denied', false);
+            setAccessRequestStatus('denied');
+            setAccessRequestMessage('Request declined — you can still view the menu and order status.');
+          }
+        }
+      }
+    };
+
+    const handleHostPromoted = (data) => {
+      if (String(data?.tableId) === String(tableId)) {
+        const myPhone = customer?.phoneNumber || tableHost?.phone;
+        if (data.newHostPhone && data.newHostPhone === myPhone) {
+          setAccessRequestStatus('approved');
+          setAccessRequestMessage('The original host departed. You have been promoted to Table Host!');
+        }
+      }
+    };
+
     socket.on('table:updated', handleTableUpdate);
     socket.on('table:session-started', handleSessionStarted);
     socket.on('table:session-ended', handleSessionEnded);
+    socket.on('access:requested', handleAccessRequested);
+    socket.on('access:responded', handleAccessResponded);
+    socket.on('table:host-promoted', handleHostPromoted);
 
     return () => {
       socket.off('table:updated', handleTableUpdate);
       socket.off('table:session-started', handleSessionStarted);
       socket.off('table:session-ended', handleSessionEnded);
+      socket.off('access:requested', handleAccessRequested);
+      socket.off('access:responded', handleAccessResponded);
+      socket.off('table:host-promoted', handleHostPromoted);
     };
-  }, [socket, tableId, customer?.phoneNumber, tableHost?.phone, setSessionContext, signOutHost, clearCustomerSession]);
+  }, [socket, tableId, customer?.phoneNumber, tableHost, setSessionContext, signOutHost, clearCustomerSession]);
 
   const handleCallStaff = async () => {
     if (isCallingStaff) return;
@@ -168,73 +230,176 @@ export default function CustomerLayout({ title, children }) {
 
   const handleSignOutClick = async () => {
     if (placedOrders && placedOrders.length > 0) {
-      // SCENARIO A: Food was ordered -> Open Payment Settlement modal!
       setIsPaymentModalOpen(true);
     } else {
-      // SCENARIO B: Logged in & signing out WITHOUT ordering -> Open Exit Feedback & Thank You Modal!
       setIsNoOrderExitModalOpen(true);
     }
   };
 
+  const handleRequestAccessSubmit = async () => {
+    const myPhone = customer?.phoneNumber || tableHost?.phone;
+    if (!myPhone) {
+      setIsAuthModalOpen(true);
+      return;
+    }
+    setAccessRequestStatus('pending');
+    setAccessRequestMessage('Request sent to Table Host. Awaiting approval...');
+    try {
+      await customerApi.requestTableAccess(restaurantId, tableId, {
+        requesterPhone: myPhone,
+        requesterName: activeName || 'Guest',
+      });
+    } catch (err) {
+      setAccessRequestStatus('denied');
+      setAccessRequestMessage(err.response?.data?.message || 'Failed to send access request.');
+    }
+  };
+
+  const handleApproveRequest = async () => {
+    if (!incomingAccessRequest) return;
+    try {
+      await customerApi.respondTableAccess(restaurantId, tableId, {
+        requestId: incomingAccessRequest.requestId,
+        requesterPhone: incomingAccessRequest.requesterPhone,
+        decision: 'approve',
+      });
+      setIncomingAccessRequest(null);
+    } catch (err) {
+      // Graceful error handling
+    }
+  };
+
+  const handleDenyRequest = async () => {
+    if (!incomingAccessRequest) return;
+    try {
+      await customerApi.respondTableAccess(restaurantId, tableId, {
+        requestId: incomingAccessRequest.requestId,
+        requesterPhone: incomingAccessRequest.requesterPhone,
+        decision: 'deny',
+      });
+      setIncomingAccessRequest(null);
+    } catch (err) {
+      // Graceful error handling
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-muted/20 flex flex-col pb-36 sm:pb-24">
+    <div className="min-h-screen bg-muted/20 flex flex-col pb-44 sm:pb-28">
       {/* Mobile Top App Header */}
-      <header className="sticky top-0 z-40 bg-card/95 backdrop-blur border-b border-border px-4 h-14 flex items-center justify-between shadow-xs">
-        <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/menu/browse')}>
-          <span className="font-display text-lg font-bold text-primary">
+      <header className="sticky top-0 z-40 bg-card/95 backdrop-blur border-b border-border px-3.5 sm:px-4 h-14 flex items-center justify-between shadow-xs w-full max-w-full overflow-hidden">
+        <div className="flex flex-col justify-center shrink-0 cursor-pointer" onClick={() => navigate('/menu/browse')}>
+          <span className="font-display text-sm sm:text-base font-bold text-primary tracking-tight leading-tight flex items-center gap-1">
             DineSync <span className="text-foreground">AI</span>
           </span>
-          {tableNumber ? (
-            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
-              Table #{tableNumber}
-            </span>
-          ) : (
-            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-              {orderType || 'Dine-In'}
-            </span>
-          )}
+          <span className="text-[10px] font-semibold text-muted-foreground flex items-center gap-1.5">
+            {tableNumber ? (
+              <span className="text-primary font-bold">Table #{tableNumber}</span>
+            ) : (
+              <span>{orderType || 'Dine-In Storefront'}</span>
+            )}
+
+            {/* Role Badge Indicator */}
+            {tableHost && tableHost.phone ? (
+              <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/15 text-amber-600 border border-amber-500/30 flex items-center gap-0.5">
+                <Star size={9} className="fill-amber-500 text-amber-500" /> Host
+              </span>
+            ) : isCoOrderer ? (
+              <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/15 text-emerald-600 border border-emerald-500/30 flex items-center gap-0.5">
+                <UserCheck size={9} /> Co-Orderer
+              </span>
+            ) : isViewOnly ? (
+              <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-slate-500/15 text-slate-600 border border-slate-500/30 flex items-center gap-0.5">
+                <Lock size={9} /> View-Only
+              </span>
+            ) : null}
+          </span>
         </div>
 
-        <div className="flex items-center gap-2">
-          {tableNumber && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handleCallStaff}
-              disabled={isCallingStaff}
-              className="text-xs gap-1 h-9 text-amber-700 border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 rounded-full font-semibold px-3 touch-manipulation min-h-[44px] sm:min-h-[36px]"
-              title="Call Waiter / Staff to Table"
-            >
-              <Bell size={14} className="text-amber-600 animate-pulse" />
-              <span>{isCallingStaff ? 'Notifying...' : 'Call Staff'}</span>
-            </Button>
-          )}
+        <div className="flex items-center gap-2.5 shrink-0 pr-0.5">
+          <button
+            type="button"
+            onClick={handleCallStaff}
+            disabled={isCallingStaff}
+            className="w-[34px] h-[34px] min-w-[34px] min-h-[34px] rounded-full bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 border border-amber-500/30 flex items-center justify-center transition-all active:scale-95 touch-manipulation"
+            title="Call Staff / Help"
+            aria-label="Call Staff / Help"
+          >
+            <Bell size={16} className="text-amber-600 animate-pulse shrink-0" />
+          </button>
 
           {activeName ? (
-            <div className="flex items-center gap-1.5 bg-primary/10 text-primary px-3 py-1.5 rounded-full text-xs font-semibold">
-              <UserCheck size={14} />
-              <span className="max-w-[90px] truncate">{activeName}</span>
-              <button
-                onClick={handleSignOutClick}
-                className="ml-1 text-muted-foreground hover:text-destructive p-1 min-w-[28px] min-h-[28px] flex items-center justify-center"
-                title="Sign Out & Settle Table Bill"
-              >
-                <LogOut size={13} />
-              </button>
-            </div>
-          ) : (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setIsAuthModalOpen(true)}
-              className="text-xs gap-1 h-9 min-h-[44px] sm:min-h-[36px] text-primary border-primary/30 px-3.5 touch-manipulation font-semibold"
+            <button
+              type="button"
+              onClick={handleSignOutClick}
+              className="w-[34px] h-[34px] min-w-[34px] min-h-[34px] rounded-full bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30 flex items-center justify-center transition-all active:scale-95 touch-manipulation"
+              title={`Logged in as ${activeName}. Tap to Settle Bill & Exit`}
+              aria-label="Account Settings"
             >
-              <ShieldCheck size={14} />
-              <span>Sign In</span>
-            </Button>
+              <UserCheck size={16} className="shrink-0" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setIsAuthModalOpen(true)}
+              className="w-[34px] h-[34px] min-w-[34px] min-h-[34px] rounded-full bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30 flex items-center justify-center transition-all active:scale-95 touch-manipulation"
+              title="Sign In / Guest Account"
+              aria-label="Sign In / Guest Account"
+            >
+              <ShieldCheck size={16} className="shrink-0" />
+            </button>
           )}
         </div>
       </header>
+
+      {/* HOST INCOMING ACCESS REQUEST PROMPT (NON-BLOCKING BANNER) */}
+      {incomingAccessRequest && (
+        <div className="bg-primary/10 border-b border-primary/30 px-3.5 py-2.5 flex items-center justify-between text-xs animate-in slide-in-from-top duration-200">
+          <div className="flex items-center gap-2 pr-2">
+            <UserCheck size={16} className="text-primary shrink-0 animate-pulse" />
+            <p className="text-foreground text-[11px] leading-tight">
+              Diner <strong>{incomingAccessRequest.maskedPhone}</strong> requested to join ordering on Table #{tableNumber}.
+            </p>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Button size="xs" onClick={handleApproveRequest} className="h-7 text-[11px] px-2.5 font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg">
+              Approve
+            </Button>
+            <Button size="xs" variant="outline" onClick={handleDenyRequest} className="h-7 text-[11px] px-2 text-rose-600 border-rose-200 hover:bg-rose-50 rounded-lg">
+              Deny
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* ACCESS REQUEST STATUS BANNER */}
+      {accessRequestMessage && (
+        <div className={`px-4 py-2 text-xs flex items-center justify-between font-medium shadow-xs animate-in slide-in-from-top duration-200 ${
+          accessRequestStatus === 'approved' ? 'bg-emerald-600 text-white' : accessRequestStatus === 'denied' ? 'bg-rose-600 text-white' : 'bg-blue-600 text-white'
+        }`}>
+          <span className="text-[11px] font-semibold">{accessRequestMessage}</span>
+          <button onClick={() => setAccessRequestMessage('')} className="text-white/80 hover:text-white text-xs font-bold p-1">✕</button>
+        </div>
+      )}
+
+      {/* VIEW-ONLY MODE INFORMATIONAL BANNER */}
+      {isViewOnly && !isCoOrderer && (
+        <div className="bg-amber-500/10 border-b border-amber-500/30 px-3.5 py-2 flex items-center justify-between text-xs text-amber-900 dark:text-amber-200">
+          <div className="flex items-center gap-2 pr-2">
+            <Lock size={15} className="shrink-0 text-amber-600" />
+            <p className="text-[11px] leading-tight">
+              Table #{tableNumber} is active with Host <strong>{activeSessionHostName || 'another diner'}</strong>. You can view the menu and order status.
+            </p>
+          </div>
+          <Button
+            size="xs"
+            onClick={handleRequestAccessSubmit}
+            disabled={accessRequestStatus === 'pending'}
+            className="h-7 text-[11px] px-2.5 font-bold bg-amber-600 hover:bg-amber-700 text-white rounded-lg shrink-0 shadow-xs"
+          >
+            {accessRequestStatus === 'pending' ? 'Requesting...' : 'Request to Order'}
+          </Button>
+        </div>
+      )}
 
       {/* CALL STAFF CONFIRMATION BANNER */}
       {callStaffSuccess && (
@@ -282,13 +447,21 @@ export default function CustomerLayout({ title, children }) {
 
       {/* VIEW-ONLY MODE ALERT BANNER */}
       {isViewOnly && (
-        <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-2 text-xs text-amber-600 flex items-center justify-between">
+        <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-2.5 text-xs text-amber-700 dark:text-amber-300 flex flex-wrap items-center justify-between gap-2 shadow-2xs">
           <div className="flex items-center gap-2">
-            <Lock size={15} className="shrink-0" />
+            <Lock size={15} className="shrink-0 text-amber-600 animate-pulse" />
             <span>
               Table currently active with <strong>{activeSessionHostName || 'another guest'}</strong>. You are in <strong>View-Only Mode</strong>.
             </span>
           </div>
+          <Button
+            size="xs"
+            variant="outline"
+            onClick={() => setIsAuthModalOpen(true)}
+            className="text-[11px] font-bold h-8 border-amber-500/40 text-amber-800 dark:text-amber-200 bg-amber-500/15 hover:bg-amber-500/25 px-2.5 rounded-lg shrink-0 touch-manipulation min-h-[36px]"
+          >
+            Request Host Transfer
+          </Button>
         </div>
       )}
 
@@ -379,6 +552,20 @@ export default function CustomerLayout({ title, children }) {
           <span>Menu</span>
         </NavLink>
 
+        {placedOrders && placedOrders.length > 0 && (
+          <NavLink
+            to={`/menu/orders/${placedOrders[placedOrders.length - 1]._id}/track`}
+            className={({ isActive }) =>
+              `flex flex-col items-center justify-center gap-1 text-[11px] font-semibold flex-1 h-full min-h-[44px] touch-manipulation transition-colors ${
+                isActive ? 'text-primary' : 'text-amber-600 dark:text-amber-400 hover:text-foreground font-bold'
+              }`
+            }
+          >
+            <Clock size={20} className="animate-pulse" />
+            <span>Track ({placedOrders.length})</span>
+          </NavLink>
+        )}
+
         <NavLink
           to="/customer/loyalty"
           className={({ isActive }) =>
@@ -419,7 +606,14 @@ export default function CustomerLayout({ title, children }) {
       </nav>
 
       {/* Customer OTP Login Modal */}
-      <CustomerAuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
+      <CustomerAuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => {
+          setIsAuthModalOpen(false);
+          setPendingItemForAuth(null);
+        }}
+        pendingItem={pendingItemForAuth}
+      />
 
       {/* Final Table Payment Settlement Modal */}
       <TablePaymentModal isOpen={isPaymentModalOpen} onClose={() => setIsPaymentModalOpen(false)} />
