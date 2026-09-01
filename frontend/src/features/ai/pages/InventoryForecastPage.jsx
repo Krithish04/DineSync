@@ -6,6 +6,7 @@ import useAuthStore from '@/features/auth/store/auth.store';
 import ForecastCard from '../components/ForecastCard';
 import PredictionTable from '../components/PredictionTable';
 import ConfidenceIndicator from '../components/ConfidenceIndicator';
+import ExecutionModeBadge from '../components/ExecutionModeBadge';
 import ExportToolbar from '@/features/reports/components/ExportToolbar';
 import * as aiApi from '../api/ai.api';
 
@@ -68,6 +69,19 @@ export default function InventoryForecastPage() {
   return (
     <RestaurantLayout title="Inventory & Stock Forecast" description="AI predictions for low stock dates, ingredient consumption velocity, and purchase orders.">
       <div className="space-y-8 max-w-full">
+        {/* Forecast Source & Execution Mode Badge Bar */}
+        {inventory && (
+          <div className="flex items-center justify-between bg-card border border-border rounded-2xl p-4 shadow-xs">
+            <div className="space-y-0.5">
+              <span className="text-xs uppercase font-extrabold text-muted-foreground tracking-wider block">Depletion Engine Source</span>
+              <p className="text-sm font-bold text-foreground">
+                Ingredient consumption velocity &amp; reorder prediction mode
+              </p>
+            </div>
+            <ExecutionModeBadge executionMode={inventory.execution_mode} />
+          </div>
+        )}
+
         {isLoading && <Loader />}
         {error && <div className="bg-rose-50 border border-rose-200 text-rose-700 rounded-xl p-4 text-sm">{error}</div>}
 

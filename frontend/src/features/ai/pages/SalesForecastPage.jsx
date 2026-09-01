@@ -6,6 +6,7 @@ import useAuthStore from '@/features/auth/store/auth.store';
 import ForecastCard from '../components/ForecastCard';
 import TrendGraph from '../components/TrendGraph';
 import ConfidenceIndicator from '../components/ConfidenceIndicator';
+import ExecutionModeBadge from '../components/ExecutionModeBadge';
 import ExportToolbar from '@/features/reports/components/ExportToolbar';
 import * as aiApi from '../api/ai.api';
 
@@ -45,6 +46,19 @@ export default function SalesForecastPage() {
   return (
     <RestaurantLayout title="AI Sales Revenue Forecast" description="Machine learning predictive revenue modeling for Tomorrow, Next 7 Days, and Next 30 Days.">
       <div className="space-y-6 max-w-full">
+        {/* Forecast Source & Execution Mode Badge Bar */}
+        {forecast && (
+          <div className="flex items-center justify-between bg-card border border-border rounded-2xl p-4 shadow-xs">
+            <div className="space-y-0.5">
+              <span className="text-xs uppercase font-extrabold text-muted-foreground tracking-wider block">Forecast Engine Source</span>
+              <p className="text-sm font-bold text-foreground">
+                Predictive sales revenue algorithm execution mode
+              </p>
+            </div>
+            <ExecutionModeBadge executionMode={forecast.execution_mode} />
+          </div>
+        )}
+
         {isLoading && <Loader />}
         {error && <div className="bg-rose-50 border border-rose-200 text-rose-700 rounded-xl p-4 text-xs">{error}</div>}
 

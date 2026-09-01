@@ -102,6 +102,19 @@ export default function DigitalMenuPage() {
     );
   }
 
+  // Extract IDs of items shown in AI Recommendations scroller to deduplicate main list
+  const recItemIds = new Set(
+    aiRecs
+      .map((rec) => {
+        const match = items.find(
+          (i) => i._id === rec._id || i.name?.toLowerCase() === (rec.item_name || rec.name || '').toLowerCase()
+        );
+        return match?._id || rec._id;
+      })
+      .filter(Boolean)
+  );
+  const mainListItems = aiRecs.length > 0 ? items.filter((item) => !recItemIds.has(item._id)) : items;
+
   return (
     <CustomerLayout title="Digital Menu">
       {/* Table Reservation Lock & Phone Verification Modal */}
@@ -207,7 +220,7 @@ export default function DigitalMenuPage() {
           </div>
         ) : (
           <div className="space-y-3 pt-1">
-            {items.map((item) => (
+            {mainListItems.map((item) => (
               <CustomerMenuCard key={item._id} item={item} />
             ))}
           </div>

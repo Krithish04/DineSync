@@ -64,6 +64,29 @@ export function useKitchenTickets() {
     }
   }, [restaurantId, selectedStation, loadKDSData]);
 
+  const [isMuted, setIsMuted] = useState(() => {
+    return localStorage.getItem('dinesync_kds_muted') === 'true';
+  });
+  const [hasVisualFlashSignal, setHasVisualFlashSignal] = useState(false);
+
+  const toggleMute = useCallback(() => {
+    setIsMuted((prev) => {
+      const next = !prev;
+      localStorage.setItem('dinesync_kds_muted', String(next));
+      return next;
+    });
+  }, []);
+
+  const triggerNewTicketAlert = useCallback(() => {
+    // 1. Play audible chime if NOT muted
+    if (!isMuted) {
+      playKitchenAlertSound();
+    }
+    // 2. ALWAYS trigger visual pulse signal equivalent (hearing-impaired staff accessibility signal)
+    setHasVisualFlashSignal(true);
+    setTimeout(() => setHasVisualFlashSignal(false), 4500);
+  }, [isMuted]);
+
   // Real-time Socket.IO Connection for KDS Ticket Updates
   useEffect(() => {
     if (!restaurantId) return;
@@ -74,6 +97,8 @@ export function useKitchenTickets() {
     const socket = io(socketURL, {
       withCredentials: true,
       transports: ['websocket'],
+      reconnectionAttempts: 10,
+      reconnectionDelay: 2000,
     });
 
     socket.on('connect', () => {
@@ -93,7 +118,7 @@ export function useKitchenTickets() {
     });
 
     socket.on('kitchen:tickets_created', (newTickets) => {
-      playKitchenAlertSound();
+      triggerNewTicketAlert();
       const ticketsArray = Array.isArray(newTickets) ? newTickets : [newTickets];
       const matched = ticketsArray.filter((t) => t.station === selectedStation && t.status !== 'Served');
 
@@ -117,7 +142,7 @@ export function useKitchenTickets() {
     });
 
     socket.on('order:created', () => {
-      playKitchenAlertSound();
+      triggerNewTicketAlert();
       loadKDSData();
     });
 
@@ -218,6 +243,9 @@ export function useKitchenTickets() {
     handleStatusChange,
     handleTicketDrop,
     handleItemStatusChange,
+    isMuted,
+    toggleMute,
+    hasVisualFlashSignal,
     refreshData: loadKDSData,
   };
 }
