@@ -17,12 +17,17 @@ def get_sentiment_pipeline():
     if _sentiment_pipeline is None:
         try:
             from transformers import pipeline
-            _sentiment_pipeline = pipeline(
-                "sentiment-analysis",
-                model="distilbert-base-uncased-finetuned-sst-2-english",
-                truncation=True,
-                max_length=512,
-            )
+            from app.core.config import get_settings
+            settings = get_settings()
+            pipeline_kwargs = {
+                "task": "sentiment-analysis",
+                "model": "distilbert-base-uncased-finetuned-sst-2-english",
+                "truncation": True,
+                "max_length": 512,
+            }
+            if settings.hf_token:
+                pipeline_kwargs["token"] = settings.hf_token
+            _sentiment_pipeline = pipeline(**pipeline_kwargs)
         except Exception as e:
             logger.warning(f"Could not load HuggingFace DistilBERT pipeline: {e}. Using rating fallbacks.")
             _sentiment_pipeline = False

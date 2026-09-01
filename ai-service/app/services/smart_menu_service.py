@@ -21,10 +21,15 @@ def get_zero_shot_pipeline():
     if _zero_shot_pipeline is None:
         try:
             from transformers import pipeline
-            _zero_shot_pipeline = pipeline(
-                "zero-shot-classification",
-                model="facebook/bart-large-mnli",
-            )
+            from app.core.config import get_settings
+            settings = get_settings()
+            pipeline_kwargs = {
+                "task": "zero-shot-classification",
+                "model": "facebook/bart-large-mnli",
+            }
+            if settings.hf_token:
+                pipeline_kwargs["token"] = settings.hf_token
+            _zero_shot_pipeline = pipeline(**pipeline_kwargs)
         except Exception as e:
             logger.warning(f"Could not load HuggingFace zero-shot BART pipeline: {e}. Using quantitative thresholding.")
             _zero_shot_pipeline = False
@@ -55,8 +60,8 @@ def calculate_smart_menu(req: SmartMenuRequest) -> SmartMenuResponse:
     else:
         # Use fast quantitative percentile ranking by default to ensure sub-millisecond response times
         # Heavy zero-shot HuggingFace inference can be enabled via USE_ZERO_SHOT_NLP=true environment flag
-        import os
-        use_nlp = os.environ.get("USE_ZERO_SHOT_NLP", "false").lower() in ("true", "1")
+        from app.core.config import get_settings
+        use_nlp = get_settings().use_zero_shot_nlp
         pipeline_obj = get_zero_shot_pipeline() if use_nlp else None
 
         revenues = [float(item.get("total_revenue") or item.get("revenue") or 0.0) for item in items_data]
