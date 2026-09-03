@@ -112,11 +112,15 @@ const CustomerMenuCard = memo(function CustomerMenuCard({ item }) {
           )}
         </div>
 
-        {(item.isPopular || item.isRecommended || item.aiRecommended) && (
+        {(item.isRecommended || item.isChefSpecial) ? (
+          <span className="absolute bottom-1.5 left-1.5 bg-amber-500 text-slate-950 text-[9px] font-extrabold px-2 py-0.5 rounded-full flex items-center gap-0.5 shadow-xs backdrop-blur-xs">
+            <Sparkles size={9} className="text-slate-950" /> Chef Special
+          </span>
+        ) : (item.isPopular || item.aiRecommended) ? (
           <span className="absolute bottom-1.5 left-1.5 bg-amber-500/95 text-slate-950 text-[9px] font-extrabold px-2 py-0.5 rounded-full flex items-center gap-0.5 shadow-xs backdrop-blur-xs">
             <Sparkles size={9} className="text-slate-950" /> AI pick
           </span>
-        )}
+        ) : null}
       </div>
 
       {/* Item Details */}

@@ -7,7 +7,7 @@ const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api/
 
 /**
  * Reads the persisted staff auth store directly from localStorage.
- */
+ */c
 function readPersistedAuth() {
   try {
     const raw = localStorage.getItem(AUTH_STORAGE_KEY);

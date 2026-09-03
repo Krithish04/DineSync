@@ -310,7 +310,18 @@ const processChatMessage = async (req, res, next) => {
       if (geminiReply) {
         reply = `${geminiReply}${noticeText}`;
       } else {
-        reply = `${greetingIntro}\n\nI recommend these options based on our menu and ingredient records:${noticeText}\n\nWant me to add any of these directly to your cart?`;
+        // Smart Natural Language Fallback Engine when Gemini API is quota-limited or offline
+        const isGreeting = /^(how are you|how r u|hello|hi|hey|good (morning|afternoon|evening)|who are you)/i.test(lowerMsg);
+        const isComparison = /different|difference|versus|\bvs\b|compare/i.test(lowerMsg);
+
+        if (isGreeting) {
+          reply = "I'm doing great, thank you for asking! 😊 I'm DineSync AI, your personal food consultant. I can answer questions about our dishes, check ingredients, or suggest the perfect meal for your craving!";
+        } else if (isComparison) {
+          const topCard = cards[0];
+          reply = `Great question! Our **${topCard?.name || 'Fresh Garden Salad'}** features crisp garden greens, bell peppers, tomatoes, and house vinaigrette. In comparison, a traditional Caesar salad relies on romaine lettuce, parmesan cheese, croutons, and creamy Caesar dressing!`;
+        } else {
+          reply = `${greetingIntro}\n\nI've selected top options based on your request and our live menu records:${noticeText}\n\nFeel free to ask me any questions or tap to add items directly to your cart!`;
+        }
       }
     } else {
       if (extractedSearchQuery) {

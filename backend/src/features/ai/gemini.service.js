@@ -1,16 +1,23 @@
 const axios = require('axios');
 const env = require('../../config/env.config');
 
+// List of fallback Gemini model identifiers in order of preference
+const GEMINI_MODELS = [
+  'gemini-2.5-flash',
+  'gemini-3.5-flash-lite',
+  'gemini-3.1-flash-lite',
+  'gemini-2.0-flash',
+  'gemini-1.5-flash-latest',
+];
+
 /**
- * Executes a direct HTTP request to Google Gemini API (v1beta/models/gemini-1.5-flash)
+ * Executes a direct HTTP request to Google Gemini API with model fallback
  */
 const callGeminiApi = async (prompt, systemInstruction = '') => {
   const apiKey = env.GEMINI_API_KEY;
   if (!apiKey) {
-    return null; // Graceful fallback when API key is not configured
+    return null;
   }
-
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
   const payload = {
     contents: [
@@ -27,35 +34,58 @@ const callGeminiApi = async (prompt, systemInstruction = '') => {
     };
   }
 
-  try {
-    const response = await axios.post(url, payload, {
-      headers: { 'Content-Type': 'application/json' },
-      timeout: 8000,
-    });
+  for (const modelName of GEMINI_MODELS) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
 
-    const candidates = response.data?.candidates;
-    if (candidates && candidates.length > 0) {
-      const textPart = candidates[0]?.content?.parts?.[0]?.text;
-      return textPart ? textPart.trim() : null;
+    try {
+      const response = await axios.post(url, payload, {
+        headers: { 'Content-Type': 'application/json' },
+        timeout: 7000,
+      });
+
+      const candidates = response.data?.candidates;
+      if (candidates && candidates.length > 0) {
+        const textPart = candidates[0]?.content?.parts?.[0]?.text;
+        if (textPart && textPart.trim()) {
+          return textPart.trim();
+        }
+      }
+    } catch (err) {
+      if (err.response?.status === 429) {
+        // Quota / Prepayment credits depleted on Google AI Studio
+        // eslint-disable-next-line no-console
+        console.warn(`[Gemini AI Service] Quota depleted (429) for key on model ${modelName}. Falling back to Smart Engine.`);
+        break; // Stop attempting other models if account quota is 0
+      }
+      // Continue to next model if model not found or deprecated
     }
-    return null;
-  } catch (err) {
-    // eslint-disable-next-line no-console
-    console.warn(`[Gemini AI Service] API call error: ${err.message}`);
-    return null;
   }
+
+  return null;
 };
 
 /**
  * Enhances Chatbot Waiter Response using Gemini LLM reasoning
  */
-const enhanceChatbotResponse = async ({ userMessage, candidateCards, allergyNotice, tone = 'friendly' }) => {
+const enhanceChatbotResponse = async ({ userMessage, candidateCards = [], allergyNotice, tone = 'friendly' }) => {
   if (!env.GEMINI_API_KEY) return null;
 
-  const cardSummaries = candidateCards.map((c) => `- ${c.name} (₹${c.price}, ${c.dietaryType}, ${c.rating || 4.5}⭐)`).join('\n');
+  const cardSummaries = candidateCards.length > 0
+    ? candidateCards.map((c) => `- ${c.name} (₹${c.price}, ${c.dietaryType || 'Veg'}, Description: ${c.description || 'Delicious dish'}, ${c.rating || 4.5}⭐)`).join('\n')
+    : 'No specific menu items matched.';
 
-  const systemInstruction = `You are DineSync AI Assistant, a friendly, concise, michelin-star restaurant waiter & food consultant. Tone: ${tone}. Keep responses helpful, warm, and brief under 3 short sentences. Avoid long preamble.`;
-  const prompt = `Customer asked: "${userMessage}".\nRecommended dishes from database:\n${cardSummaries}\nAllergy Notice: ${allergyNotice || 'None'}\nFormulate a warm waiter reply introducing these dishes.`;
+  const systemInstruction = `You are DineSync AI Assistant, a friendly, charming, and knowledgeable restaurant food consultant & waiter. Tone: ${tone}.
+Directly answer the customer's query in 2-3 warm, helpful sentences.
+If they ask a greeting like "how are you?", respond naturally.
+If they ask about ingredients or differences between dishes (e.g., Caesar salad vs Garden salad), explain clearly.
+Reference menu items from the database context when relevant. Do not include robotic headers or preambles.`;
+
+  const prompt = `Customer Query: "${userMessage}"
+Available Restaurant Menu Context:
+${cardSummaries}
+Allergy Notice: ${allergyNotice || 'None'}
+
+Please provide a direct, helpful, and natural response answering the customer query.`;
 
   return await callGeminiApi(prompt, systemInstruction);
 };

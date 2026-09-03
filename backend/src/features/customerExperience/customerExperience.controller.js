@@ -5,7 +5,7 @@ const ApiError = require('../../utils/ApiError');
 const customerExperienceService = require('./customerExperience.service');
 
 const validateObjectId = (id, name = 'ID') => {
-  if (id && (!mongoose.Types.ObjectId.isValid(id) || typeof id !== 'string')) {
+  if (id && id !== 'null' && id !== 'undefined' && (!mongoose.Types.ObjectId.isValid(id) || typeof id !== 'string')) {
     throw ApiError.badRequest(`Invalid ${name} format.`);
   }
 };

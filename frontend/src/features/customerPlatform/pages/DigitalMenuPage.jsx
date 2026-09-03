@@ -102,18 +102,8 @@ export default function DigitalMenuPage() {
     );
   }
 
-  // Extract IDs of items shown in AI Recommendations scroller to deduplicate main list
-  const recItemIds = new Set(
-    aiRecs
-      .map((rec) => {
-        const match = items.find(
-          (i) => i._id === rec._id || i.name?.toLowerCase() === (rec.item_name || rec.name || '').toLowerCase()
-        );
-        return match?._id || rec._id;
-      })
-      .filter(Boolean)
-  );
-  const mainListItems = aiRecs.length > 0 ? items.filter((item) => !recItemIds.has(item._id)) : items;
+  // Include all items in the main list of selected categories (including Chef Recommendations & AI Picks)
+  const mainListItems = items;
 
   return (
     <CustomerLayout title="Digital Menu">
