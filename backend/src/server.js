@@ -5,7 +5,8 @@ const { connectDB, disconnectDB } = require('./config/db.config');
 const { initSocket } = require('./config/socket.config');
 const { startScheduledReportRunner } = require('./features/reports/scheduledReport.service');
 const { startJobScheduler } = require('./features/notification/jobScheduler.service');
-const { startAiReservationMonitor } = require('./features/reservation/aiReservation.service');
+const { startAiReservationMonitor, startRecurringReservationScheduler } = require('./features/reservation/aiReservation.service');
+const { startRecurringReservationScheduler: startRecurringScheduler } = require('./features/reservation/reservationAi.service');
 
 const tenantService = require('./features/tenant/tenant.service');
 
@@ -32,6 +33,7 @@ const start = async () => {
     startScheduledReportRunner();
     startJobScheduler();
     startAiReservationMonitor();
+    startRecurringScheduler();
     // eslint-disable-next-line no-console
     console.log(`[Server] DineSync AI backend running in ${env.NODE_ENV} mode on port ${env.PORT}`);
   });

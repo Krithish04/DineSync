@@ -12,6 +12,15 @@ const canManage = authorize(ROLES.SUPER_ADMIN, ROLES.OWNER, ROLES.MANAGER);
 // All routes require authentication and tenant-isolation
 router.use(protect, enforceTenantIsolation);
 
+// AI Reservation Endpoints
+router.post('/ai-parse', reservationController.parseAiBookingQuery);
+router.get('/ai-slots', reservationController.getRecommendedTimeSlots);
+
+router
+  .route('/recurring')
+  .post(canManage, reservationController.createRecurringReservation)
+  .get(reservationController.listRecurringReservations);
+
 router
   .route('/')
   .post(canManage, validateBody(createReservationSchema), reservationController.createReservation)

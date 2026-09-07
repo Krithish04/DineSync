@@ -10,18 +10,15 @@ const routes = require('./routes/index.routes');
 const notFoundMiddleware = require('./middlewares/notFound.middleware');
 const errorMiddleware = require('./middlewares/error.middleware');
 
+const { corsOptions } = require('./config/cors.config');
+
 const app = express();
 
 // Security headers
 app.use(helmet());
 
-// CORS - restricted to the configured client origin, credentials enabled for cookies
-app.use(
-  cors({
-    origin: env.CLIENT_URL,
-    credentials: true,
-  })
-);
+// CORS - allows configured CLIENT_URL, dev tunnels, and local environments
+app.use(cors(corsOptions));
 
 // Body & cookie parsing
 app.use(express.json({ limit: '10mb' }));
