@@ -383,21 +383,31 @@ export default function CustomerLayout({ title, children }) {
 
       {/* VIEW-ONLY MODE INFORMATIONAL BANNER */}
       {isViewOnly && !isCoOrderer && (
-        <div className="bg-amber-500/10 border-b border-amber-500/30 px-3.5 py-2 flex items-center justify-between text-xs text-amber-900 dark:text-amber-200">
+        <div className="bg-amber-500/10 border-b border-amber-500/30 px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs text-amber-900 dark:text-amber-200">
           <div className="flex items-center gap-2 pr-2">
-            <Lock size={15} className="shrink-0 text-amber-600" />
+            <Lock size={15} className="shrink-0 text-amber-600 animate-pulse" />
             <p className="text-[11px] leading-tight">
-              Table #{tableNumber} is active with Host <strong>{activeSessionHostName || 'another diner'}</strong>. You can view the menu and order status.
+              {tableNumber ? `Table #${tableNumber}` : 'Table'} is active with Host <strong>{activeSessionHostName || 'another diner'}</strong>. You are in <strong>View-Only Mode</strong>.
             </p>
           </div>
-          <Button
-            size="xs"
-            onClick={handleRequestAccessSubmit}
-            disabled={accessRequestStatus === 'pending'}
-            className="h-7 text-[11px] px-2.5 font-bold bg-amber-600 hover:bg-amber-700 text-white rounded-lg shrink-0 shadow-xs"
-          >
-            {accessRequestStatus === 'pending' ? 'Requesting...' : 'Request to Order'}
-          </Button>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Button
+              size="xs"
+              onClick={handleRequestAccessSubmit}
+              disabled={accessRequestStatus === 'pending'}
+              className="h-7 text-[11px] px-2.5 font-bold bg-amber-600 hover:bg-amber-700 text-white rounded-lg shadow-xs"
+            >
+              {accessRequestStatus === 'pending' ? 'Requesting...' : 'Request to Order'}
+            </Button>
+            <Button
+              size="xs"
+              variant="outline"
+              onClick={() => setIsAuthModalOpen(true)}
+              className="text-[11px] font-bold h-7 border-amber-500/40 text-amber-800 dark:text-amber-200 bg-amber-500/15 hover:bg-amber-500/25 px-2 rounded-lg"
+            >
+              Host Transfer
+            </Button>
+          </div>
         </div>
       )}
 
@@ -442,26 +452,6 @@ export default function CustomerLayout({ title, children }) {
               ✕
             </button>
           </div>
-        </div>
-      )}
-
-      {/* VIEW-ONLY MODE ALERT BANNER */}
-      {isViewOnly && (
-        <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-2.5 text-xs text-amber-700 dark:text-amber-300 flex flex-wrap items-center justify-between gap-2 shadow-2xs">
-          <div className="flex items-center gap-2">
-            <Lock size={15} className="shrink-0 text-amber-600 animate-pulse" />
-            <span>
-              Table currently active with <strong>{activeSessionHostName || 'another guest'}</strong>. You are in <strong>View-Only Mode</strong>.
-            </span>
-          </div>
-          <Button
-            size="xs"
-            variant="outline"
-            onClick={() => setIsAuthModalOpen(true)}
-            className="text-[11px] font-bold h-8 border-amber-500/40 text-amber-800 dark:text-amber-200 bg-amber-500/15 hover:bg-amber-500/25 px-2.5 rounded-lg shrink-0 touch-manipulation min-h-[36px]"
-          >
-            Request Host Transfer
-          </Button>
         </div>
       )}
 

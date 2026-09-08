@@ -12,6 +12,7 @@ from app.api.v1.endpoints import (
     sentiment_analysis,
     chatbot,
     reservation,
+    kitchen_schedule,
 )
 
 api_router = APIRouter()
@@ -27,4 +28,6 @@ api_router.include_router(waste_prediction.router, tags=["Food Waste Prediction"
 api_router.include_router(sentiment_analysis.router, tags=["Sentiment Analysis"])
 api_router.include_router(chatbot.router, tags=["AI Chatbot"])
 api_router.include_router(reservation.router, tags=["Reservation AI Services"])
+api_router.include_router(kitchen_schedule.router, tags=["Kitchen Schedule Optimization"])
+
 

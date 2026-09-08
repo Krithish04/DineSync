@@ -78,12 +78,12 @@ const CustomerMenuCard = memo(function CustomerMenuCard({ item }) {
   return (
     <div
       onClick={handleCardClick}
-      className={`bg-card border border-border/80 rounded-2xl p-3 sm:p-3.5 flex gap-2.5 sm:gap-3.5 hover:border-primary/50 transition-all shadow-xs overflow-hidden max-w-full ${
+      className={`bg-card border border-border/80 rounded-xl p-2.5 sm:p-3 flex gap-2.5 sm:gap-3 hover:border-primary/60 transition-all shadow-xs overflow-hidden max-w-full ${
         hasModifiers ? 'cursor-pointer' : ''
       }`}
     >
-      {/* Cover Image with Dietary Badge */}
-      <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-xl overflow-hidden shrink-0 bg-muted">
+      {/* Cover Image with High Contrast Dietary Badge */}
+      <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-lg overflow-hidden shrink-0 bg-muted">
         {item.imageCover ? (
           <img
             src={item.imageCover}
@@ -94,57 +94,57 @@ const CustomerMenuCard = memo(function CustomerMenuCard({ item }) {
           />
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground/60 bg-muted/50 p-2">
-            <Utensils size={24} className="opacity-40" />
+            <Utensils size={22} className="opacity-40" />
           </div>
         )}
 
-        {/* Dietary Veg/NonVeg Indicator Tag */}
-        <div className="absolute top-1.5 left-1.5 z-10">
+        {/* Dietary Veg/NonVeg Text Badge for Senior High Readability */}
+        <div className="absolute top-1 left-1 z-10">
           {isVeg && (
-            <span className="w-4 h-4 rounded-sm bg-white border border-emerald-600 flex items-center justify-center shadow-xs">
-              <span className="w-2 h-2 rounded-full bg-emerald-600" />
+            <span className="px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-emerald-600 text-white shadow-xs flex items-center gap-0.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-white" /> VEG
             </span>
           )}
           {isNonVeg && (
-            <span className="w-4 h-4 rounded-sm bg-white border border-rose-600 flex items-center justify-center shadow-xs">
-              <span className="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-b-[7px] border-b-rose-600" />
+            <span className="px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-rose-600 text-white shadow-xs flex items-center gap-0.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-white" /> NON-VEG
             </span>
           )}
         </div>
 
         {(item.isRecommended || item.isChefSpecial) ? (
-          <span className="absolute bottom-1.5 left-1.5 bg-amber-500 text-slate-950 text-[9px] font-extrabold px-2 py-0.5 rounded-full flex items-center gap-0.5 shadow-xs backdrop-blur-xs">
-            <Sparkles size={9} className="text-slate-950" /> Chef Special
+          <span className="absolute bottom-1 left-1 bg-amber-500 text-slate-950 text-[9px] font-extrabold px-1.5 py-0.5 rounded flex items-center gap-0.5 shadow-xs">
+            <Sparkles size={9} /> Special
           </span>
         ) : (item.isPopular || item.aiRecommended) ? (
-          <span className="absolute bottom-1.5 left-1.5 bg-amber-500/95 text-slate-950 text-[9px] font-extrabold px-2 py-0.5 rounded-full flex items-center gap-0.5 shadow-xs backdrop-blur-xs">
-            <Sparkles size={9} className="text-slate-950" /> AI pick
+          <span className="absolute bottom-1 left-1 bg-amber-500/95 text-slate-950 text-[9px] font-extrabold px-1.5 py-0.5 rounded flex items-center gap-0.5 shadow-xs">
+            <Sparkles size={9} /> Popular
           </span>
         ) : null}
       </div>
 
-      {/* Item Details */}
-      <div className="flex-1 flex flex-col justify-between min-w-0 overflow-hidden">
+      {/* Item Details — Senior Friendly Readability */}
+      <div className="flex-1 flex flex-col justify-between min-w-0 overflow-hidden py-0.5">
         <div>
           <div className="flex items-start justify-between gap-1">
-            <h4 className="text-sm sm:text-[15px] font-medium font-display text-foreground leading-snug truncate">
+            <h4 className="text-base sm:text-lg font-bold font-display text-foreground leading-snug tracking-tight truncate">
               {item.name}
             </h4>
           </div>
 
-          <p className="text-xs sm:text-[13px] text-muted-foreground mt-0.5 line-clamp-2 leading-relaxed">
+          <p className="text-xs sm:text-sm text-foreground/85 font-medium mt-0.5 line-clamp-2 leading-snug">
             {item.description}
           </p>
         </div>
 
-        {/* Price & Quantity Actions */}
-        <div className="flex items-center justify-between pt-1.5 gap-1.5 min-w-0">
+        {/* Price & Touch-Friendly Senior Add Actions */}
+        <div className="flex items-center justify-between pt-1 gap-2 min-w-0">
           <div className="min-w-0 shrink">
-            <p className="text-sm sm:text-[15px] font-semibold text-primary font-display truncate">
+            <p className="text-base sm:text-lg font-extrabold text-primary font-display truncate">
               ₹{Number(item.price || 0).toLocaleString('en-IN')}
             </p>
             {hasModifiers && (
-              <span className="text-[10px] text-muted-foreground flex items-center gap-0.5 truncate">
+              <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 flex items-center gap-0.5 truncate">
                 Customizable <ChevronRight size={10} />
               </span>
             )}
@@ -152,34 +152,34 @@ const CustomerMenuCard = memo(function CustomerMenuCard({ item }) {
 
           {canAdd && (
             cartQuantity > 0 ? (
-              <div className="flex items-center border border-primary/40 rounded-xl bg-primary/10 p-0.5 overflow-hidden shadow-xs shrink-0">
+              <div className="flex items-center border-2 border-primary rounded-xl bg-primary/10 p-0.5 overflow-hidden shadow-xs shrink-0">
                 <button
                   type="button"
                   onClick={handleDecrement}
-                  className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center text-primary font-bold hover:bg-primary/20 transition-colors rounded-lg active:scale-95 touch-manipulation min-w-[32px] min-h-[32px]"
+                  className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center text-primary font-extrabold hover:bg-primary/20 transition-colors rounded-lg active:scale-95 touch-manipulation min-w-[32px] min-h-[32px]"
                   aria-label="Decrease quantity"
                 >
-                  <Minus size={14} />
+                  <Minus size={16} />
                 </button>
-                <span className="px-1.5 min-w-[18px] text-center text-xs font-bold font-mono text-foreground">
+                <span className="px-2 min-w-[20px] text-center text-sm font-extrabold text-foreground">
                   {cartQuantity}
                 </span>
                 <button
                   type="button"
                   onClick={handleIncrement}
-                  className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center text-primary font-bold hover:bg-primary/20 transition-colors rounded-lg active:scale-95 touch-manipulation min-w-[32px] min-h-[32px]"
+                  className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center text-primary font-extrabold hover:bg-primary/20 transition-colors rounded-lg active:scale-95 touch-manipulation min-w-[32px] min-h-[32px]"
                   aria-label="Increase quantity"
                 >
-                  <Plus size={14} />
+                  <Plus size={16} />
                 </button>
               </div>
             ) : (
               <Button
                 size="sm"
                 onClick={handleAddClick}
-                className="h-9 sm:h-10 min-h-[36px] sm:min-h-[40px] text-xs font-bold gap-1 px-3 sm:px-4 rounded-xl shadow-xs active:scale-95 touch-manipulation shrink-0"
+                className="h-9 min-h-[36px] text-xs sm:text-sm font-extrabold gap-1 px-3.5 sm:px-4 rounded-xl shadow-xs active:scale-95 touch-manipulation shrink-0 bg-primary text-primary-foreground hover:bg-primary/90"
               >
-                <Plus size={14} /> Add
+                <Plus size={16} /> ADD
               </Button>
             )
           )}

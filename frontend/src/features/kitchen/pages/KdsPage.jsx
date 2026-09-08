@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Clock, Play, CheckSquare, AlertOctagon, Volume2, VolumeX, BellRing, Filter, Eye } from 'lucide-react';
+import { Clock, Play, CheckSquare, AlertOctagon, Volume2, VolumeX, BellRing, Filter, Eye, Zap } from 'lucide-react';
+
 import KdsShell from '../components/KdsShell';
 import KitchenQueue from '../components/KitchenQueue';
 import KitchenTicketDetailModal from '../components/KitchenTicketDetailModal';
@@ -33,6 +34,11 @@ export default function KdsPage() {
     isMuted,
     toggleMute,
     hasVisualFlashSignal,
+    isPeakMode,
+    isPeakModeAuto,
+    togglePeakMode,
+    atRiskCount,
+    lateCount,
   } = useKitchenTickets();
 
   const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'preparing' | 'ready' | 'delayed'
@@ -43,7 +49,7 @@ export default function KdsPage() {
     if (statusFilter === 'delayed') {
       const start = new Date(t.createdAt);
       const diffMins = Math.floor((Date.now() - start.getTime()) / 60000);
-      return t.status === 'Delayed' || diffMins >= 15;
+      return t.status === 'Delayed' || t.priorityFlag === 'late' || t.priorityFlag === 'at-risk' || diffMins >= 15;
     }
     if (statusFilter === 'preparing') {
       return t.status === 'Preparing' || t.status === 'Pending';
@@ -59,7 +65,7 @@ export default function KdsPage() {
       isFullscreen={isFullscreen}
       onToggleFullscreen={toggleFullscreen}
     >
-      <div className="space-y-5 select-none">
+      <div className="space-y-4 select-none">
         {/* Hearing-Impaired Accessibility Visual Flash Alert Banner */}
         {hasVisualFlashSignal && (
           <div className="bg-amber-500 text-slate-950 px-6 py-3 rounded-2xl border-4 border-amber-300 flex items-center justify-between shadow-2xl animate-bounce">
@@ -73,7 +79,20 @@ export default function KdsPage() {
           </div>
         )}
 
-        {/* Station & Sound Controls Header Bar */}
+        {/* Peak Mode Alert Banner */}
+        {isPeakMode && (
+          <div className="bg-gradient-to-r from-amber-500/20 via-orange-500/20 to-amber-500/20 border border-amber-500/40 p-3 rounded-2xl flex items-center justify-between shadow-xs">
+            <div className="flex items-center gap-2 font-extrabold text-xs sm:text-sm text-amber-900 dark:text-amber-200">
+              <Zap className="h-5 w-5 text-amber-600 animate-pulse shrink-0" />
+              <span>⚡ PEAK HOUR MODE ACTIVE — Ticket card density simplified & focus queue enabled for high scannability.</span>
+            </div>
+            <span className="text-[10px] font-mono font-extrabold bg-amber-500 text-slate-950 px-2.5 py-0.5 rounded-full uppercase">
+              {isPeakModeAuto ? 'Auto Detected' : 'Manual Mode'}
+            </span>
+          </div>
+        )}
+
+        {/* Station, SLA & Control Header Bar */}
         <div className="flex flex-wrap items-center justify-between gap-3 bg-card p-4 rounded-2xl border border-border shadow-xs">
           {/* Station Tabs */}
           <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 scrollbar-none max-w-full">
@@ -92,31 +111,61 @@ export default function KdsPage() {
             ))}
           </div>
 
-          {/* Sound Mute Toggle & Bell Test Control */}
-          <div className="flex items-center gap-2 shrink-0">
+          {/* SLA Badges & Toggles */}
+          <div className="flex items-center gap-2 shrink-0 flex-wrap">
+            {/* SLA Priority Summary Badges */}
+            <div className="flex items-center gap-1.5 bg-muted p-1 rounded-xl border">
+              <span className="text-[11px] font-extrabold text-emerald-700 dark:text-emerald-300 px-2 py-1 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
+                SLA Active
+              </span>
+              {atRiskCount > 0 && (
+                <span className="text-[11px] font-extrabold text-amber-800 dark:text-amber-200 px-2 py-1 bg-amber-500/20 rounded-lg border border-amber-500/40">
+                  ⚠️ {atRiskCount} At Risk
+                </span>
+              )}
+              {lateCount > 0 && (
+                <span className="text-[11px] font-extrabold text-rose-700 dark:text-rose-200 px-2 py-1 bg-rose-500/20 rounded-lg border border-rose-500/40 animate-pulse">
+                  🚨 {lateCount} Late
+                </span>
+              )}
+            </div>
+
+            {/* Peak Mode Toggle */}
+            <Button
+              size="sm"
+              variant={isPeakMode ? 'default' : 'outline'}
+              onClick={togglePeakMode}
+              className={`h-11 px-3 text-xs font-extrabold gap-1.5 rounded-xl touch-manipulation min-h-[44px] ${
+                isPeakMode ? 'bg-amber-600 hover:bg-amber-700 text-white' : 'border-border'
+              }`}
+            >
+              <Zap className="h-4 w-4" /> Peak Mode {isPeakMode ? 'ON' : 'OFF'}
+            </Button>
+
+            {/* Sound Mute Toggle */}
             <Button
               size="sm"
               variant={isMuted ? 'destructive' : 'outline'}
               onClick={toggleMute}
-              className={`h-11 px-4 text-xs sm:text-sm font-bold gap-2 rounded-xl border touch-manipulation min-h-[44px] ${
+              className={`h-11 px-3.5 text-xs font-bold gap-1.5 rounded-xl border touch-manipulation min-h-[44px] ${
                 isMuted
                   ? 'bg-rose-500/20 text-rose-600 border-rose-500/40 hover:bg-rose-500/30'
                   : 'border-emerald-500/30 text-emerald-600 bg-emerald-500/10 hover:bg-emerald-500/20'
               }`}
               title={isMuted ? 'Chime Muted (Visual Alerts Active)' : 'Chime Unmuted (Sound Alert Active)'}
             >
-              {isMuted ? <VolumeX className="h-5 w-5 text-rose-600" /> : <Volume2 className="h-5 w-5 text-emerald-600" />}
-              <span>{isMuted ? 'Muted' : 'Chime Active'}</span>
+              {isMuted ? <VolumeX className="h-4 w-4 text-rose-600" /> : <Volume2 className="h-4 w-4 text-emerald-600" />}
+              <span>{isMuted ? 'Muted' : 'Chime'}</span>
             </Button>
 
             <Button
               size="sm"
               variant="outline"
               onClick={() => playKitchenAlertSound()}
-              className="h-11 px-4 text-xs sm:text-sm gap-2 border-amber-500/40 text-amber-700 dark:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 font-bold rounded-xl touch-manipulation min-h-[44px]"
+              className="h-11 px-3 text-xs gap-1.5 border-amber-500/40 text-amber-700 dark:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 font-bold rounded-xl touch-manipulation min-h-[44px]"
               title="Test Kitchen Order Bell Sound"
             >
-              <BellRing className="h-5 w-5 text-amber-600" /> Test Bell
+              <BellRing className="h-4 w-4 text-amber-600" /> Bell
             </Button>
           </div>
         </div>
@@ -130,7 +179,7 @@ export default function KdsPage() {
             { id: 'all', label: 'All Tickets' },
             { id: 'preparing', label: 'Preparing / Cooking' },
             { id: 'ready', label: 'Ready for Service' },
-            { id: 'delayed', label: 'Delayed / Overdue ⚠️' },
+            { id: 'delayed', label: 'Delayed / SLA At-Risk ⚠️' },
           ].map((filter) => (
             <button
               key={filter.id}
@@ -138,7 +187,7 @@ export default function KdsPage() {
               className={`px-3.5 py-1.5 text-xs font-bold rounded-xl shrink-0 transition-all border min-h-[40px] touch-manipulation ${
                 statusFilter === filter.id
                   ? 'bg-primary text-primary-foreground border-primary shadow-xs font-extrabold'
-                  : 'bg-card text-muted-foreground border-border hover:bg-muted'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted border-transparent'
               }`}
             >
               {filter.label}
@@ -152,10 +201,10 @@ export default function KdsPage() {
           </div>
         )}
 
-        {/* KDS Stats Widget Counters */}
+        {/* Top KPI Metrics Bar */}
         {!isLoading && stats && (
           <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
-            <Card className="border-l-8 border-l-orange-500 shadow-sm rounded-2xl">
+            <Card className="border-l-8 border-l-amber-500 shadow-sm rounded-2xl">
               <CardContent className="p-4 flex items-center justify-between text-xs">
                 <div>
                   <span className="font-extrabold text-muted-foreground uppercase tracking-wider text-[11px]">
@@ -163,7 +212,7 @@ export default function KdsPage() {
                   </span>
                   <p className="text-2xl sm:text-3xl font-extrabold font-mono text-foreground mt-0.5">{stats.preparingTickets || 0}</p>
                 </div>
-                <div className="h-10 w-10 rounded-2xl bg-orange-500/15 text-orange-600 flex items-center justify-center">
+                <div className="h-10 w-10 rounded-2xl bg-amber-500/15 text-amber-600 flex items-center justify-center">
                   <Play className="h-5 w-5" />
                 </div>
               </CardContent>
@@ -173,7 +222,7 @@ export default function KdsPage() {
               <CardContent className="p-4 flex items-center justify-between text-xs">
                 <div>
                   <span className="font-extrabold text-muted-foreground uppercase tracking-wider text-[11px]">
-                    Ready Tickets
+                    Ready For Pickup
                   </span>
                   <p className="text-2xl sm:text-3xl font-extrabold font-mono text-foreground mt-0.5">{stats.readyTickets || 0}</p>
                 </div>
@@ -187,7 +236,7 @@ export default function KdsPage() {
               <CardContent className="p-4 flex items-center justify-between text-xs">
                 <div>
                   <span className="font-extrabold text-muted-foreground uppercase tracking-wider text-[11px]">
-                    Delayed Tickets
+                    Delayed / Overdue
                   </span>
                   <p className="text-2xl sm:text-3xl font-extrabold font-mono text-foreground mt-0.5">{stats.delayedTickets || 0}</p>
                 </div>
@@ -237,6 +286,7 @@ export default function KdsPage() {
               onStatusChange={handleStatusChange}
               onItemStatusChange={handleItemStatusChange}
               onSelectTicket={(t) => setSelectedTicketForDetail(t)}
+              isPeakMode={isPeakMode}
             />
 
             <KitchenQueue
@@ -247,6 +297,7 @@ export default function KdsPage() {
               onStatusChange={handleStatusChange}
               onItemStatusChange={handleItemStatusChange}
               onSelectTicket={(t) => setSelectedTicketForDetail(t)}
+              isPeakMode={isPeakMode}
             />
           </div>
         )}

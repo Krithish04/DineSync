@@ -124,9 +124,28 @@ const kitchenTicketSchema = new Schema(
       type: String,
       default: '',
     },
+    targetReadyTime: {
+      type: Date,
+      default: null,
+    },
+    priorityFlag: {
+      type: String,
+      enum: ['on-track', 'at-risk', 'late'],
+      default: 'on-track',
+      index: true,
+    },
+    calculatedPriorityScore: {
+      type: Number,
+      default: 0,
+    },
+    sequenceOrder: {
+      type: Number,
+      default: 0,
+    },
   },
   { timestamps: true }
 );
+
 
 // Compound Index for KDS query acceleration & duplicate prevention
 kitchenTicketSchema.index({ restaurant: 1, status: 1 });

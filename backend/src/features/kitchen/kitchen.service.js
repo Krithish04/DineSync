@@ -5,6 +5,25 @@ const ApiError = require('../../utils/ApiError');
 const socketConfig = require('../../config/socket.config');
 
 /**
+ * Helper to update rolling average preparation time for a menu item based on actual observed durations.
+ */
+const updateRollingPrepDuration = async (menuItemId, actualDuration) => {
+
+  if (!menuItemId || !actualDuration || actualDuration <= 0) return;
+  try {
+    const item = await MenuItem.findById(menuItemId);
+    if (!item) return;
+    const current = item.preparationTime || 15;
+    const updated = Math.max(1, Math.round(current * 0.8 + actualDuration * 0.2));
+    item.preparationTime = updated;
+    await item.save();
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn('[KDS] Rolling prep duration update failed:', err.message);
+  }
+};
+
+/**
  * Automatically groups confirmed order items by their menu items' kitchenStation,
  * creating separate KitchenTickets. Called when an order becomes "Accepted".
  */
@@ -79,6 +98,14 @@ const createTicketsFromOrder = async (restaurantId, order) => {
     }).populate('table', 'tableNumber tableName');
 
     socketConfig.broadcastEvent(restaurantId, 'kitchen:tickets_created', populatedTickets.length > 0 ? populatedTickets : createdTickets);
+
+    // Trigger Orchestration Agent Queue Rescoring asynchronously
+    try {
+      const kitchenOrchestrator = require('./kitchenOrchestrator.service');
+      kitchenOrchestrator.rescoreKitchenQueue(restaurantId).catch(() => null);
+    } catch (err) {
+      // Non-blocking
+    }
   }
 
   return createdTickets;
@@ -106,7 +133,7 @@ const listTickets = async (restaurantId, { station, status, priority, search = '
     ];
   }
 
-  // Active tickets sorted by priority and age
+  // Active tickets sorted by sequenceOrder & calculatedPriorityScore descending
   const tickets = await KitchenTicket.find(query)
     .populate('table', 'tableNumber tableName')
     .populate({
@@ -115,16 +142,9 @@ const listTickets = async (restaurantId, { station, status, priority, search = '
       populate: { path: 'table', select: 'tableNumber tableName' },
     })
     .sort({
+      calculatedPriorityScore: -1,
       createdAt: 1,
     });
-
-  // Sort priority in JS
-  const priorityWeight = { high: 3, medium: 2, low: 1 };
-  tickets.sort((a, b) => {
-    const priorityA = Math.max(...a.items.map((i) => priorityWeight[i.priority] || 2));
-    const priorityB = Math.max(...b.items.map((i) => priorityWeight[i.priority] || 2));
-    return priorityB - priorityA; // high priority first
-  });
 
   return tickets;
 };
@@ -224,7 +244,7 @@ const updateTicketStatus = async (restaurantId, ticketId, newStatus) => {
   ticket.status = newStatus;
   const now = new Date();
 
-  ticket.items.forEach((item) => {
+  for (const item of ticket.items) {
     item.kitchenStatus = newStatus;
     if (newStatus === 'Preparing') {
       item.preparingAt = now;
@@ -232,13 +252,14 @@ const updateTicketStatus = async (restaurantId, ticketId, newStatus) => {
       item.readyAt = now;
       if (item.preparingAt) {
         item.actualDuration = Math.round(((now - item.preparingAt) / 60000) * 100) / 100;
+        await updateRollingPrepDuration(item.menuItem, item.actualDuration);
       }
     } else if (newStatus === 'Served') {
       item.servedAt = now;
     } else if (newStatus === 'Delayed') {
       item.delayedAt = now;
     }
-  });
+  }
 
   await ticket.save();
 
@@ -260,6 +281,14 @@ const updateTicketStatus = async (restaurantId, ticketId, newStatus) => {
 
   // Broadcast KDS event
   socketConfig.broadcastEvent(restaurantId, 'kitchen:ticket_updated', ticket);
+
+  // Trigger Orchestration Agent Queue Rescoring
+  try {
+    const kitchenOrchestrator = require('./kitchenOrchestrator.service');
+    kitchenOrchestrator.rescoreKitchenQueue(restaurantId).catch(() => null);
+  } catch (err) {
+    // Non-blocking
+  }
 
   return ticket;
 };
@@ -287,6 +316,7 @@ const updateTicketItemStatus = async (restaurantId, ticketId, itemId, newStatus)
     item.readyAt = now;
     if (item.preparingAt) {
       item.actualDuration = Math.round(((now - item.preparingAt) / 60000) * 100) / 100;
+      await updateRollingPrepDuration(item.menuItem, item.actualDuration);
     }
   } else if (newStatus === 'Served') {
     item.servedAt = now;
@@ -325,6 +355,14 @@ const updateTicketItemStatus = async (restaurantId, ticketId, itemId, newStatus)
   // Broadcast KDS event
   socketConfig.broadcastEvent(restaurantId, 'kitchen:ticket_updated', ticket);
 
+  // Trigger Orchestration Agent Queue Rescoring
+  try {
+    const kitchenOrchestrator = require('./kitchenOrchestrator.service');
+    kitchenOrchestrator.rescoreKitchenQueue(restaurantId).catch(() => null);
+  } catch (err) {
+    // Non-blocking
+  }
+
   return ticket;
 };
 
@@ -338,7 +376,7 @@ const getKitchenStats = async (restaurantId) => {
     KitchenTicket.countDocuments({ ...query, status: 'Preparing' }),
     KitchenTicket.countDocuments({ ...query, status: 'Ready' }),
     KitchenTicket.countDocuments({ ...query, status: 'Delayed' }),
-    
+
     // Find all items with actualDuration > 0 to average them
     KitchenTicket.find({
       ...query,
@@ -377,3 +415,4 @@ module.exports = {
   updateTicketItemStatus,
   getKitchenStats,
 };
+

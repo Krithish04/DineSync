@@ -7,7 +7,7 @@
 [![MongoDB](https://img.shields.io/badge/Database-MongoDB-47A248?logo=mongodb)](https://www.mongodb.com/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-> **DineSync AI** is an enterprise-grade, multi-tenant restaurant management ecosystem built with modern web technologies. It seamlessly unifies **POS Billing**, **Real-Time KDS (Kitchen Display System)**, **QR Code Guest Self-Ordering**, **CRM & Loyalty Programs**, **Inventory Ledger**, and **Predictive AI Intelligence** into a single cohesive platform.
+> **DineSync AI** is an enterprise-grade, multi-tenant restaurant management ecosystem built with modern web technologies. It seamlessly unifies **POS Billing**, **Real-Time KDS (Kitchen Display System)**, **QR Code Guest Self-Ordering**, **CRM & Loyalty Programs**, **Inventory Ledger**, **Reservation AI Concierge**, and **Predictive AI Intelligence** into a single cohesive platform.
 
 ---
 
@@ -62,19 +62,59 @@ graph TD
 * **Live Stepper Tracking**: WebSocket-driven live order status progress bar (*Accepted* ➔ *Preparing* ➔ *Ready* ➔ *Served*).
 * **Self-Checkout**: Digital payments (UPI, Card, Cash) with automated thermal e-receipts.
 
+### 🤖 SmartDine Reservation AI Services
+* **NLU Slot Parser (`POST /reservations/ai-parse`)**: Converts plain-English queries (e.g. *"Book a table for 4 guests tomorrow at 8pm, window seat please"*) into structured booking slots and auto-selects available table documents.
+* **Time Slot Congestion Recommender (`GET /reservations/ai-slots`)**: Evaluates active floor traffic and peak windows ($19:00 - 21:00$) to recommend non-congested, chef-recommended reservation slots.
+* **Recurring Weekly Auto-Booking Engine (`POST /reservations/recurring`)**: Automatically creates upcoming weekly table bookings, locks tables, and dispatches staff notifications every Monday at 8 AM.
+* **Automated 30s Table Monitor Loop**: Dynamic 15-minute pre-arrival table locking (`"Reserved"`) and 15-minute post-arrival no-show auto-cancellation (`"No Show"` & table release to `"Available"`).
+
 ### 🧠 Predictive AI Intelligence Engine
-* **Sales & Revenue Forecast**: Predictive revenue modeling (7-day & 30-day forecast horizons) with confidence metrics.
-* **Inventory Depletion Forecast**: Smart stock consumption velocity analysis & auto-reorder recommendations.
+* **Sales & Revenue Forecast**: Facebook Prophet time-series modeling (7-day & 30-day horizons) with prediction uncertainty spread confidence scoring.
+* **Demand & Volume Forecast**: Scikit-learn `RandomForestRegressor` peak hour ($12\text{ PM} - 11\text{ PM}$) and day traffic classification.
+* **Inventory Depletion Forecast**: LinearRegression stock consumption trend velocity analysis & auto-reorder recommendations.
+* **Food Waste Prevention**: XGBoost `XGBClassifier` overstock & expiry risk classification (**High**, **Medium**, **Low**).
 * **Smart Menu Matrix**: Automatic dish categorization (*Best Sellers*, *Seasonal Favorites*, *Underperforming Items*).
-* **NLP Sentiment Scoring**: Automatic AI sentiment analysis on customer reviews & feedback ratings.
+* **NLP Sentiment Scoring**: Pretrained DistilBERT transformer analysis on diner reviews & feedback ratings.
 
-### 📦 Inventory & Vendor Management
-* **Recipe-Based Auto Consumption**: Instant ingredient decrementing upon kitchen ticket completion.
-* **Vendor Ledger & Purchase Orders**: Automated invoice generation, manual audits, waste logs, and low-stock alerts.
+---
 
-### 👥 CRM, Loyalty & Employee Payroll
-* **Tiered Loyalty Program**: Automated diner tiering (*Bronze*, *Silver*, *Gold*, *Platinum*) with point redemption.
-* **Staff Attendance & Payroll**: Attendance clock-in/out timers, break duration tracking, leave workflows, and monthly pay slips.
+## 🤖 Workspace AI Maintainer Agents (`.agents/skills/`)
+
+DineSync AI includes 4 workspace maintainer agents that continuously monitor, audit, and benchmark all AI services:
+
+| Agent / Skill Name | Description & Audit Responsibilities |
+| :--- | :--- |
+| **`ai-health-monitor`** | Audits FastAPI `/api/v1/health` connectivity, Node.js proxy timeout (2000ms), `GEMINI_API_KEY`, and `HF_TOKEN` environment configs. |
+| **`ai-sales-demand-maintainer`** | Audits Prophet sales fitting ($\ge 14$ daily sales requirement) and `RandomForestRegressor` peak traffic classifications. |
+| **`ai-chatbot-reservation-maintainer`** | Audits 5-tier Gemini model retry cascade, NLU slot parsing, recurring weekly auto-bookings, and 30s table buffer lock & no-show cycle. |
+| **`ai-inventory-waste-maintainer`** | Audits `LinearRegression` stock exhaustion slopes, `XGBClassifier` perishable risk levels, and 100% deterministic allergen safety filters. |
+
+### 🛠️ How to Verify Agent Functionality
+
+You can verify that all agents and AI services are working properly using 3 methods:
+
+1. **Ask Antigravity in Chat (Automatic Skill Activation)**:
+   * `"Run AI health monitor"`
+   * `"Audit sales and demand forecasting models"`
+   * `"Check chatbot reservation maintainer"`
+   * `"Verify inventory waste and allergen safety rules"`
+
+2. **Run Terminal Verification Commands**:
+   ```powershell
+   # 1. Test Python ML Libraries
+   python -c "import sklearn, xgboost, pandas, numpy; print('✅ ML Stack OK')"
+
+   # 2. Test FastAPI NLU Booking Parser (Native PowerShell cmdlet)
+   Invoke-RestMethod -Uri "http://localhost:8000/api/v1/reservation/parse" -Method Post -ContentType "application/json" -Body '{"query":"Book a table for 4 guests tomorrow at 8pm, window seat"}' | ConvertTo-Json
+
+   # 3. Test Time Slot Recommender (Native PowerShell cmdlet)
+   Invoke-RestMethod -Uri "http://localhost:8000/api/v1/reservation/recommend-slots" -Method Post -ContentType "application/json" -Body '{"reservation_date":"2026-09-08","party_size":4}' | ConvertTo-Json
+   ```
+
+
+3. **Verify 2-Tier Automatic Failover**:
+   * Stop the Python FastAPI microservice (or unset `GEMINI_API_KEY`).
+   * Trigger an AI endpoint — the system will automatically return `execution_mode: "HEURISTIC_FALLBACK"` without crashing.
 
 ---
 
@@ -82,11 +122,9 @@ graph TD
 
 | Component | Stack & Tools | Description |
 | :--- | :--- | :--- |
-| **Frontend** | React 18, Vite, Tailwind CSS, shadcn/ui, Recharts, Axios, Socket.IO Client | Responsive, SPA with Dark/Light modes & dashboard visualizations |
+| **Frontend** | React 18, Vite, Tailwind CSS, shadcn/ui, Recharts, Axios, Socket.IO Client | Responsive SPA with Dark/Light modes & dashboard visualizations |
 | **Backend API** | Node.js, Express.js, MongoDB (Mongoose), Socket.IO, Nodemailer, Node-cron | Clean Architecture REST API with real-time WebSocket event dispatching |
-| **AI Microservice** | Python 3.10+, FastAPI, PyData Stack, Uvicorn | High-performance microservice providing predictive models & NLP |
-
----
+| **AI Microservice** | Python 3.10+, FastAPI, PyData Stack (Prophet, XGBoost, Scikit-learn, HuggingFace), Uvicorn | High-performance microservice providing predictive models, NLU & NLP |
 
 ---
 
@@ -123,6 +161,7 @@ npm run seed
 | **Auth & Tenants** | `/api/v1/auth` | Tenant registration, user auth & JWT verification |
 | **Catalog** | `/api/v1/restaurants/:id/categories` | Categories & Menu items management |
 | **Tables & QR** | `/api/v1/restaurants/:id/tables` | Seating layout & QR code generation |
+| **Reservations AI** | `/api/v1/restaurants/:id/reservations` | NLU slot parsing, recurring weekly auto-bookings & time slot recommendations |
 | **POS & Orders** | `/api/v1/restaurants/:id/orders` | Order creation, item modifiers, bill splitting |
 | **Kitchen (KDS)** | `/api/v1/restaurants/:id/kitchen` | Kitchen ticket status tracking & station logs |
 | **Inventory** | `/api/v1/restaurants/:id/inventory` | Ingredient balances, purchase invoices & stock adjustments |

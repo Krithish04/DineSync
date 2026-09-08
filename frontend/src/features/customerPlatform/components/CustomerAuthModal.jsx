@@ -40,6 +40,11 @@ export default function CustomerAuthModal({ isOpen, onClose, onSuccess, pendingI
     if (e) e.preventDefault();
     setError('');
 
+    if (!name.trim()) {
+      setError('Please enter your full name');
+      return;
+    }
+
     const cleanPhone = phone.replace(/\D/g, '');
     if (!cleanPhone || cleanPhone.length < 10) {
       setError('Please enter a valid 10-digit phone number');
@@ -195,10 +200,22 @@ export default function CustomerAuthModal({ isOpen, onClose, onSuccess, pendingI
           </div>
         )}
 
-        {/* STEP 1: Enter Phone & Name */}
+        {/* STEP 1: Enter Name & Phone */}
         {step === 'phone' && (
           <form onSubmit={handleSendOtp} className="space-y-4">
             <div className="space-y-3">
+              <div className="relative">
+                <User size={16} className="absolute left-3.5 top-3.5 text-muted-foreground" />
+                <input
+                  type="text"
+                  required
+                  placeholder="Full Name *"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full pl-10 pr-3.5 py-2.5 text-base sm:text-xs border border-border rounded-xl bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+              </div>
+
               <div className="relative">
                 <Phone size={16} className="absolute left-3.5 top-3.5 text-muted-foreground" />
                 <input
@@ -207,17 +224,6 @@ export default function CustomerAuthModal({ isOpen, onClose, onSuccess, pendingI
                   placeholder="10-Digit Mobile Number *"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  className="w-full pl-10 pr-3.5 py-2.5 text-base sm:text-xs border border-border rounded-xl bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
-                />
-              </div>
-
-              <div className="relative">
-                <User size={16} className="absolute left-3.5 top-3.5 text-muted-foreground" />
-                <input
-                  type="text"
-                  placeholder="Your Full Name (Optional)"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
                   className="w-full pl-10 pr-3.5 py-2.5 text-base sm:text-xs border border-border rounded-xl bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
                 />
               </div>
@@ -234,6 +240,7 @@ export default function CustomerAuthModal({ isOpen, onClose, onSuccess, pendingI
         {step === 'otp' && (
           <form onSubmit={handleVerifyOtp} className="space-y-4">
             <div className="bg-muted/40 p-3 rounded-xl text-xs space-y-1 text-center">
+              <p className="font-bold text-foreground">Diner: {name}</p>
               <p className="text-muted-foreground">OTP code sent to <strong>{phone}</strong></p>
               {devOtpHint && (
                 <p className="text-[11px] text-primary font-semibold">Dev OTP Code: {devOtpHint}</p>

@@ -189,11 +189,11 @@ export default function DineSyncAssistantModal() {
 
   return (
     <>
-      {/* Floating Trigger Button (Positioned dynamically to clear sticky cart bar) */}
-      <div className={`fixed right-4 z-40 md:right-6 transition-all duration-300 ${
+      {/* Floating Trigger Button (Positioned dynamically to clear sticky cart bar & mobile bottom nav) */}
+      <div className={`fixed right-4 z-40 sm:right-6 transition-all duration-300 ${
         items && items.length > 0
-          ? 'bottom-[calc(5.75rem+env(safe-area-inset-bottom,0px))] md:bottom-6'
-          : 'bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:bottom-6'
+          ? 'bottom-36 sm:bottom-6'
+          : 'bottom-20 sm:bottom-6'
       }`}>
         <button
           type="button"

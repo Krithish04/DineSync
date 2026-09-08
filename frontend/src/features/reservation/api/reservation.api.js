@@ -58,3 +58,35 @@ export const getDashboardStats = async (restaurantId, params = {}) => {
   const { data } = await api.get(`${reservationsUrl(restaurantId)}/stats`, { params });
   return data.data.stats;
 };
+
+/**
+ * AI Reservation: Parses natural language query into structured reservation slots
+ */
+export const parseAiBookingQuery = async (restaurantId, query) => {
+  const { data } = await api.post(`${reservationsUrl(restaurantId)}/ai-parse`, { query });
+  return data.data;
+};
+
+/**
+ * AI Reservation: Fetches optimal recommended time slots based on demand forecasts
+ */
+export const getRecommendedTimeSlots = async (restaurantId, params = {}) => {
+  const { data } = await api.get(`${reservationsUrl(restaurantId)}/ai-slots`, { params });
+  return data.data;
+};
+
+/**
+ * AI Reservation: Creates a recurring weekly reservation profile
+ */
+export const createRecurringReservation = async (restaurantId, payload) => {
+  const { data } = await api.post(`${reservationsUrl(restaurantId)}/recurring`, payload);
+  return data.data.recurringProfile;
+};
+
+/**
+ * AI Reservation: Lists active recurring weekly reservation profiles
+ */
+export const listRecurringReservations = async (restaurantId) => {
+  const { data } = await api.get(`${reservationsUrl(restaurantId)}/recurring`);
+  return data.data.recurringProfiles;
+};

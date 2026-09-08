@@ -87,6 +87,20 @@ export function useKitchenTickets() {
     setTimeout(() => setHasVisualFlashSignal(false), 4500);
   }, [isMuted]);
 
+  const [isManualPeakMode, setIsManualPeakMode] = useState(false);
+  const [slaCounts, setSlaCounts] = useState({ atRiskCount: 0, lateCount: 0 });
+
+  // Auto-detect Peak Mode if active tickets for selected station > 8 or total tickets > 15
+  const isPeakModeAuto = useMemo(() => {
+    return tickets.length > 8;
+  }, [tickets]);
+
+  const isPeakMode = isManualPeakMode || isPeakModeAuto;
+
+  const togglePeakMode = useCallback(() => {
+    setIsManualPeakMode((prev) => !prev);
+  }, []);
+
   // Real-time Socket.IO Connection for KDS Ticket Updates
   useEffect(() => {
     if (!restaurantId) return;
@@ -114,6 +128,43 @@ export function useKitchenTickets() {
       if (updatedSettings?.kitchenStations && updatedSettings.kitchenStations.length > 0) {
         setStations(updatedSettings.kitchenStations);
         setSelectedStation((prev) => (updatedSettings.kitchenStations.includes(prev) ? prev : updatedSettings.kitchenStations[0]));
+      }
+    });
+
+    socket.on('kitchen:queue_rescored', (rescoredData) => {
+      if (rescoredData) {
+        setSlaCounts({
+          atRiskCount: rescoredData.atRiskCount || 0,
+          lateCount: rescoredData.lateCount || 0,
+        });
+
+        // Update local ticket state priorityFlags and calculatedPriorityScores
+        if (rescoredData.tickets) {
+          const scoreMap = {};
+          rescoredData.tickets.forEach((st) => {
+            scoreMap[st.ticketId] = st;
+          });
+
+          setTickets((prev) => {
+            const updated = prev.map((t) => {
+              const matchedScored = scoreMap[String(t._id)];
+              if (matchedScored) {
+                return {
+                  ...t,
+                  priorityFlag: matchedScored.priorityFlag,
+                  calculatedPriorityScore: matchedScored.calculatedPriorityScore,
+                  targetReadyTime: matchedScored.targetReadyTime,
+                  sequenceOrder: matchedScored.sequenceOrder,
+                };
+              }
+              return t;
+            });
+
+            // Re-sort by calculatedPriorityScore descending
+            updated.sort((a, b) => (b.calculatedPriorityScore || 0) - (a.calculatedPriorityScore || 0));
+            return updated;
+          });
+        }
       }
     });
 
@@ -171,7 +222,7 @@ export function useKitchenTickets() {
     return () => {
       socket.disconnect();
     };
-  }, [restaurantId, selectedStation, loadKDSData]);
+  }, [restaurantId, selectedStation, loadKDSData, triggerNewTicketAlert]);
 
   // Full Screen toggle
   const toggleFullscreen = () => {
@@ -246,6 +297,12 @@ export function useKitchenTickets() {
     isMuted,
     toggleMute,
     hasVisualFlashSignal,
+    isPeakMode,
+    isPeakModeAuto,
+    togglePeakMode,
+    atRiskCount: slaCounts.atRiskCount,
+    lateCount: slaCounts.lateCount,
     refreshData: loadKDSData,
   };
 }
+

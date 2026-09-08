@@ -139,6 +139,8 @@ const createAndSendOtp = async ({ email = null, phone = null, restaurantId = nul
   }
 
   const isDevOrUnconfigured =
+    env.isDevelopment ||
+    process.env.NODE_ENV === 'test' ||
     (!cleanPhone && (!env.SMTP_HOST || !emailSent)) ||
     (cleanPhone && (!env.SMS_GATEWAY_URL || !smsSent));
 
