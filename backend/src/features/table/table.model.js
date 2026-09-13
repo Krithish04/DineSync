@@ -18,6 +18,21 @@ const TABLE_STATUSES = Object.freeze({
   INACTIVE: 'Inactive',
 });
 
+const TABLE_SHAPES = Object.freeze({
+  SQUARE: 'Square',
+  ROUND: 'Round',
+  RECTANGLE: 'Rectangle',
+  BOOTH: 'Booth',
+});
+
+const TABLE_ZONES = Object.freeze({
+  MAIN_HALL: 'Main Hall',
+  PATIO_OUTDOOR: 'Patio/Outdoor',
+  VIP_LOUNGE: 'VIP Lounge',
+  PRIVATE_DINING: 'Private Dining',
+  BAR_AREA: 'Bar Area',
+});
+
 const tableSchema = new Schema(
   {
     restaurant: {
@@ -75,6 +90,40 @@ const tableSchema = new Schema(
       trim: true,
       default: '',
     },
+    // Architectural Floor Plan Layout properties
+    positionX: {
+      type: Number,
+      default: 100,
+    },
+    positionY: {
+      type: Number,
+      default: 100,
+    },
+    shape: {
+      type: String,
+      enum: Object.values(TABLE_SHAPES),
+      default: TABLE_SHAPES.SQUARE,
+    },
+    zone: {
+      type: String,
+      default: TABLE_ZONES.MAIN_HALL,
+    },
+    isAccessible: {
+      type: Boolean,
+      default: false,
+    },
+    rotation: {
+      type: Number,
+      default: 0,
+    },
+    width: {
+      type: Number,
+      default: 90,
+    },
+    height: {
+      type: Number,
+      default: 90,
+    },
     mergedInto: {
       type: Schema.Types.ObjectId,
       ref: 'Table',
@@ -109,5 +158,7 @@ tableSchema.index(
 const TableModel = mongoose.model('Table', tableSchema);
 TableModel.TABLE_TYPES = TABLE_TYPES;
 TableModel.TABLE_STATUSES = TABLE_STATUSES;
+TableModel.TABLE_SHAPES = TABLE_SHAPES;
+TableModel.TABLE_ZONES = TABLE_ZONES;
 
 module.exports = TableModel;

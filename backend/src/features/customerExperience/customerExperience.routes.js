@@ -62,4 +62,9 @@ router.get('/session-audit-logs', customerExperienceController.getTableSessionAu
 router.get('/guest-history', optionalProtect, customerExperienceController.getGuestOrderHistory);
 router.post('/forget-guest-history', optionalProtect, customerExperienceController.forgetGuestHistory);
 
+// Razorpay Test Mode Endpoints
+router.post('/razorpay/create-order', optionalProtect, customerExperienceController.createRazorpayOrder);
+router.post('/razorpay/webhook', customerExperienceController.handleRazorpayWebhook);
+router.post('/razorpay/verify-payment', optionalProtect, customerExperienceController.verifyRazorpayPayment);
+
 module.exports = router;

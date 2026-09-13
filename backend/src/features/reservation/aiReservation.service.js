@@ -2,6 +2,7 @@ const Reservation = require('./reservation.model');
 const Table = require('../table/table.model');
 const socketConfig = require('../../config/socket.config');
 const ApiError = require('../../utils/ApiError');
+const { getNotificationProvider } = require('../notification/providers/notificationProviderFactory');
 
 // Helper to convert "HH:mm" string to minutes from midnight
 const timeToMinutes = (timeStr) => {
@@ -22,13 +23,44 @@ const normalizePhone = (phoneStr) => {
   return phoneStr.replace(/\D/g, '').slice(-10); // Match last 10 digits
 };
 
+// Fetch restaurant configurable reservation settings with fallback defaults
+const getRestaurantReservationSettings = async (restaurantId) => {
+  const defaultSettings = {
+    preArrivalBufferMins: 30,
+    hardLockOffsetMins: 15,
+    gracePeriodMins: 15,
+    midGraceNudgeMins: 8,
+  };
+
+  if (!restaurantId) return defaultSettings;
+
+  try {
+    const Tenant = require('../tenant/tenant.model');
+    const tenant = await Tenant.findById(restaurantId).lean();
+    const customSettings = tenant?.settings?.reservationSettings;
+    if (customSettings) {
+      return {
+        preArrivalBufferMins: customSettings.preArrivalBufferMins ?? 30,
+        hardLockOffsetMins: customSettings.hardLockOffsetMins ?? 15,
+        gracePeriodMins: customSettings.gracePeriodMins ?? 15,
+        midGraceNudgeMins: customSettings.midGraceNudgeMins ?? 8,
+      };
+    }
+  } catch {
+    // Ignore error and return defaults
+  }
+
+  return defaultSettings;
+};
+
 /**
  * Checks if a table is currently locked by an upcoming or active reservation
- * (Active window: 15 mins BEFORE reservationTime to 15 mins AFTER reservationTime).
+ * (Active window: hardLockOffsetMins BEFORE reservationTime to gracePeriodMins AFTER reservationTime).
  */
 const checkTableLockStatus = async (restaurantId, tableId) => {
   if (!tableId) return { isLocked: false };
 
+  const settings = await getRestaurantReservationSettings(restaurantId);
   const todayStr = new Date().toISOString().slice(0, 10);
   const currentMins = getCurrentTimeMinutes();
 
@@ -41,8 +73,8 @@ const checkTableLockStatus = async (restaurantId, tableId) => {
 
   for (const res of reservations) {
     const resMins = timeToMinutes(res.reservationTime);
-    const lockStart = resMins - 15; // 15 mins before reservation time
-    const lockEnd = resMins + 15;   // 15 mins grace period after reservation time
+    const lockStart = resMins - settings.hardLockOffsetMins;
+    const lockEnd = resMins + settings.gracePeriodMins;
 
     if (currentMins >= lockStart && currentMins <= lockEnd) {
       return {
@@ -60,6 +92,45 @@ const checkTableLockStatus = async (restaurantId, tableId) => {
   }
 
   return { isLocked: false };
+};
+
+/**
+ * Pre-Arrival Turnover Guard:
+ * Checks if seating a walk-in party at table for expectedDiningDuration minutes
+ * will overlap with an upcoming reservation starting within preArrivalBufferMins.
+ */
+const isTableAvailableForWalkIn = async (restaurantId, tableId, expectedDiningDuration = 60) => {
+  if (!tableId) return { available: true };
+
+  const settings = await getRestaurantReservationSettings(restaurantId);
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const currentMins = getCurrentTimeMinutes();
+  const estimatedEndMins = currentMins + expectedDiningDuration;
+
+  const upcomingReservations = await Reservation.find({
+    table: tableId,
+    reservationDate: todayStr,
+    reservationStatus: { $in: ['Pending', 'Confirmed'] },
+    isDeleted: false,
+  });
+
+  for (const res of upcomingReservations) {
+    const resMins = timeToMinutes(res.reservationTime);
+    const bufferStartMins = resMins - settings.preArrivalBufferMins;
+
+    if (estimatedEndMins > bufferStartMins && currentMins < resMins + settings.gracePeriodMins) {
+      return {
+        available: false,
+        reservationId: res._id,
+        customerName: res.customerName,
+        reservationTime: res.reservationTime,
+        bufferMins: settings.preArrivalBufferMins,
+        reason: `Walk-in dining duration (${expectedDiningDuration} mins) overlaps with upcoming ${res.reservationTime} reservation for ${res.customerName}.`,
+      };
+    }
+  }
+
+  return { available: true };
 };
 
 /**
@@ -115,8 +186,9 @@ const verifyGuestPhoneToUnlock = async (restaurantId, { tableId, phoneNumber }) 
 
 /**
  * AI Reservation Monitor Loop — Executed every 30 seconds:
- * 1. Locks table to "Reserved" 15 mins BEFORE reservation time.
- * 2. Auto-cancels reservation to "No Show" and frees table 15 mins AFTER reservation time if guest fails to arrive.
+ * 1. Hard Lock: Locks table to "Reserved" hardLockOffsetMins BEFORE reservation time.
+ * 2. Mid-Grace Nudge: Sends automated check-in nudge SMS via NotificationProvider mid-grace period.
+ * 3. Auto No-Show: Marks "No Show" & releases table when grace period expires.
  */
 const runAiReservationMonitorCycle = async () => {
   try {
@@ -129,21 +201,25 @@ const runAiReservationMonitorCycle = async () => {
       isDeleted: false,
     }).populate('table');
 
+    const provider = getNotificationProvider();
+
     for (const res of activeReservations) {
       if (!res.table) continue;
 
-      const resMins = timeToMinutes(res.reservationTime);
-      const lockStart = resMins - 15; // 15 mins before
-      const autoCancelTime = resMins + 15; // 15 mins after
-
       const restId = res.restaurant.toString();
-      const tableId = res.table._id.toString();
+      const settings = await getRestaurantReservationSettings(restId);
+      const resMins = timeToMinutes(res.reservationTime);
 
+      const hardLockStart = resMins - settings.hardLockOffsetMins;
+      const midGraceNudgeTime = resMins + settings.midGraceNudgeMins;
+      const autoCancelTime = resMins + settings.gracePeriodMins;
+
+      const tableId = res.table._id.toString();
       const TableSession = require('../table/tableSession.model');
       const activeSession = await TableSession.findOne({ table: tableId, status: 'active' });
 
-      // 1. Buffer Lock: 15 mins before reservation time -> Mark Table "Reserved" if not currently occupied by active session
-      if (currentMins >= lockStart && currentMins <= resMins + 15) {
+      // 1. Hard Lock: Hold table empty & unavailable from hardLockOffsetMins before reservation time
+      if (currentMins >= hardLockStart && currentMins <= autoCancelTime) {
         if (res.table.status === 'Available' && !activeSession) {
           await Table.updateOne({ _id: tableId }, { status: 'Reserved' });
           socketConfig.broadcastEvent(restId, 'table:status_updated', {
@@ -154,8 +230,36 @@ const runAiReservationMonitorCycle = async () => {
         }
       }
 
-      // 2. Auto-Cancellation: 15 mins AFTER reservation time -> Mark "No Show" & Release Table (only if no active session)
-      if (currentMins > autoCancelTime) {
+      // 2. Mid-Grace Period Check-In Nudge via Notification Provider Layer
+      if (currentMins >= midGraceNudgeTime && currentMins < autoCancelTime && !res.nudgedAt) {
+        res.nudgedAt = new Date();
+        await res.save();
+
+        const nudgeMessage = `Hi ${res.customerName}, your table #${res.table.tableNumber} reservation at ${res.reservationTime} is waiting for you! Please reply or verify your phone at the table to hold your spot.`;
+
+        try {
+          await provider.sendMessage({
+            phone: res.customerPhone,
+            message: nudgeMessage,
+            template: 'RESERVATION_NUDGE',
+            data: { reservationId: res._id, tableNumber: res.table.tableNumber },
+          });
+
+          socketConfig.broadcastEvent(restId, 'reservation:nudged', {
+            reservationId: res._id,
+            customerName: res.customerName,
+            customerPhone: res.customerPhone,
+            tableNumber: res.table.tableNumber,
+          });
+        } catch (nudgeErr) {
+          // eslint-disable-next-line no-console
+          console.warn('[AI Reservation Monitor] Failed to dispatch check-in nudge:', nudgeErr.message);
+        }
+      }
+
+      // 3. Auto No-Show & Release Table (respects staff manual hold extension)
+      const isHoldExtended = Boolean(res.holdExtendedUntil && new Date(res.holdExtendedUntil) > new Date());
+      if (currentMins > autoCancelTime && !isHoldExtended) {
         res.reservationStatus = 'No Show';
         await res.save();
 
@@ -168,22 +272,22 @@ const runAiReservationMonitorCycle = async () => {
           });
         }
 
-        // Broadcast real-time Socket.IO cancellation event
+        // Broadcast Socket.IO auto-cancellation event
         socketConfig.broadcastEvent(restId, 'reservation:auto_cancelled', {
           reservationId: res._id,
           reservationNumber: res.reservationNumber,
           customerName: res.customerName,
           tableId,
           tableNumber: res.table.tableNumber,
-          reason: 'No-Show: Guest did not arrive or verify registered phone number within 15-minute window.',
+          reason: `No-Show: Guest did not arrive within ${settings.gracePeriodMins}-minute grace period.`,
         });
 
-        // Dispatch Notification to restaurant staff
+        // Notify staff
         try {
           const notificationService = require('../notification/notification.service');
           await notificationService.dispatchNotification(restId, {
             title: `Reservation Auto-Cancelled ⚠️`,
-            message: `Booking for ${res.customerName} (Table ${res.table.tableNumber}) was automatically cancelled due to 15-minute no-show.${activeSession ? ' Table remains occupied by live session.' : ' Table released.'}`,
+            message: `Booking for ${res.customerName} (Table ${res.table.tableNumber}) marked No-Show.${activeSession ? ' Table remains occupied by live session.' : ' Table released.'}`,
             category: 'Reservation',
             priority: 'Warning',
             channels: ['In-App'],
@@ -199,11 +303,100 @@ const runAiReservationMonitorCycle = async () => {
   }
 };
 
+/**
+ * Manual Staff Override: Extend reservation hold time when guest calls running late.
+ */
+const extendReservationHold = async (restaurantId, reservationId, extendMinutes = 15, userId = null) => {
+  const reservation = await Reservation.findOne({
+    _id: reservationId,
+    restaurant: restaurantId,
+    isDeleted: false,
+  }).populate('table');
+
+  if (!reservation) {
+    throw ApiError.notFound('Reservation not found.');
+  }
+
+  const extendUntil = new Date(Date.now() + extendMinutes * 60 * 1000);
+  reservation.holdExtendedUntil = extendUntil;
+  reservation.holdExtendedBy = userId;
+  await reservation.save();
+
+  if (reservation.table) {
+    await Table.updateOne({ _id: reservation.table._id }, { status: 'Reserved' });
+  }
+
+  socketConfig.broadcastEvent(restaurantId, 'reservation:updated', reservation);
+  socketConfig.broadcastEvent(restaurantId, 'table:status_updated', {
+    tableId: reservation.table?._id,
+    status: 'Reserved',
+    reason: `Staff extended hold until ${extendUntil.toLocaleTimeString()}`,
+  });
+
+  return { success: true, reservation, holdExtendedUntil: extendUntil };
+};
+
+/**
+ * Manual Staff Override: Release table early if guest cancels or leaves.
+ */
+const releaseReservationEarly = async (restaurantId, reservationId, userId = null) => {
+  const reservation = await Reservation.findOne({
+    _id: reservationId,
+    restaurant: restaurantId,
+    isDeleted: false,
+  }).populate('table');
+
+  if (!reservation) {
+    throw ApiError.notFound('Reservation not found.');
+  }
+
+  reservation.reservationStatus = 'Cancelled';
+  reservation.notes = `${reservation.notes || ''} [Early release by staff]`.trim();
+  await reservation.save();
+
+  if (reservation.table) {
+    const TableSession = require('../table/tableSession.model');
+    const activeSession = await TableSession.findOne({ table: reservation.table._id, status: 'active' });
+    if (!activeSession) {
+      await Table.updateOne({ _id: reservation.table._id }, { status: 'Available' });
+      socketConfig.broadcastEvent(restaurantId, 'table:status_updated', {
+        tableId: reservation.table._id,
+        status: 'Available',
+      });
+    }
+  }
+
+  socketConfig.broadcastEvent(restaurantId, 'reservation:updated', reservation);
+  return { success: true, message: 'Reservation released early by staff.' };
+};
+
+/**
+ * Surface repeat no-show history count for staff visibility.
+ */
+const getNoShowHistoryForPhone = async (restaurantId, phone) => {
+  if (!phone) return { phone: '', noShowCount: 0, isRepeatNoShow: false };
+
+  const norm = normalizePhone(phone);
+  if (!norm) return { phone: '', noShowCount: 0, isRepeatNoShow: false };
+
+  const noShowCount = await Reservation.countDocuments({
+    restaurant: restaurantId,
+    customerPhone: { $regex: norm },
+    reservationStatus: 'No Show',
+    isDeleted: false,
+  });
+
+  return {
+    phone,
+    noShowCount,
+    isRepeatNoShow: noShowCount >= 2,
+  };
+};
+
 let monitorInterval = null;
 
 const startAiReservationMonitor = () => {
   if (monitorInterval) return;
-  // Run first cycle immediately, then every 30 seconds
   runAiReservationMonitorCycle();
   monitorInterval = setInterval(runAiReservationMonitorCycle, 30000);
   // eslint-disable-next-line no-console
@@ -211,8 +404,13 @@ const startAiReservationMonitor = () => {
 };
 
 module.exports = {
+  getRestaurantReservationSettings,
   checkTableLockStatus,
+  isTableAvailableForWalkIn,
   verifyGuestPhoneToUnlock,
   runAiReservationMonitorCycle,
   startAiReservationMonitor,
+  extendReservationHold,
+  releaseReservationEarly,
+  getNoShowHistoryForPhone,
 };

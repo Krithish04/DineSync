@@ -197,3 +197,15 @@ export const respondHostTransfer = async (restaurantId, tableId, payload) => {
   const { data } = await api.post(`${publicUrl(restaurantId)}/tables/${tableId}/respond-host-transfer`, payload);
   return data.data;
 };
+
+// Razorpay Payment Integration APIs (Test Mode)
+export const createRazorpayOrder = async (restaurantId, payload) => {
+  const { data } = await api.post(`${publicUrl(restaurantId)}/razorpay/create-order`, payload);
+  return data.data;
+};
+
+export const verifyRazorpayPayment = async (restaurantId, payload) => {
+  const { data } = await api.post(`${publicUrl(restaurantId)}/razorpay/verify-payment`, payload);
+  return data.data;
+};
+

@@ -222,6 +222,27 @@ const respondHostTransfer = asyncHandler(async (req, res) => {
   return new ApiResponse(200, data, 'Host transfer decision processed successfully').send(res);
 });
 
+const createRazorpayOrder = asyncHandler(async (req, res) => {
+  const razorpayService = require('../billing/razorpay.service');
+  const data = await razorpayService.createRazorpayOrder(req.params.restaurantId, req.body);
+  return new ApiResponse(201, data, 'Razorpay test order generated successfully').send(res);
+});
+
+const handleRazorpayWebhook = asyncHandler(async (req, res) => {
+  const razorpayService = require('../billing/razorpay.service');
+  const signature = req.headers['x-razorpay-signature'] || req.headers['x-razorpay-signature-sha256'] || '';
+  const rawBody = req.rawBody || req.body;
+
+  const result = await razorpayService.processWebhookEvent(req.params.restaurantId, rawBody, signature);
+  return new ApiResponse(200, result, 'Razorpay webhook event processed').send(res);
+});
+
+const verifyRazorpayPayment = asyncHandler(async (req, res) => {
+  const razorpayService = require('../billing/razorpay.service');
+  const result = await razorpayService.verifyPaymentCallback(req.params.restaurantId, req.body);
+  return new ApiResponse(200, result, 'Razorpay payment signature verified successfully').send(res);
+});
+
 module.exports = {
   resolveQrCode,
   getPublicMenu,
@@ -249,4 +270,7 @@ module.exports = {
   respondHostTransfer,
   getGuestOrderHistory,
   forgetGuestHistory,
+  createRazorpayOrder,
+  handleRazorpayWebhook,
+  verifyRazorpayPayment,
 };

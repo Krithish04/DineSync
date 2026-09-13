@@ -67,6 +67,27 @@ const settingsSchema = new Schema(
       type: [String],
       default: ['Main Kitchen', 'Tandoor', 'Bar', 'Dessert', 'Beverage'],
     },
+    reservationSettings: {
+      preArrivalBufferMins: { type: Number, default: 30, min: 0 },
+      hardLockOffsetMins: { type: Number, default: 15, min: 0 },
+      gracePeriodMins: { type: Number, default: 15, min: 0 },
+      midGraceNudgeMins: { type: Number, default: 8, min: 0 },
+    },
+    payrollSettings: {
+      overtimeThresholdHours: { type: Number, default: 8, min: 0 },
+      overtimeMultiplier: { type: Number, default: 1.5, min: 1.0 },
+      tipDistributionModel: { type: String, default: 'ROLE_WEIGHTED', enum: ['ROLE_WEIGHTED', 'EQUAL_SPLIT', 'DIRECT'] },
+      departmentTipWeights: {
+        type: Map,
+        of: Number,
+        default: () => ({
+          Service: 50,
+          Kitchen: 30,
+          Cashier: 10,
+          Management: 10,
+        }),
+      },
+    },
   },
   { _id: false }
 );

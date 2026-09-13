@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 
 const { Schema } = mongoose;
 
-const ATTENDANCE_STATUSES = Object.freeze(['Present', 'Absent', 'On Leave', 'Late']);
+const ATTENDANCE_STATUSES = Object.freeze(['Present', 'Absent', 'On Leave', 'Late', 'Half-day', 'Holiday']);
 
 const attendanceSchema = new Schema(
   {
@@ -55,6 +55,22 @@ const attendanceSchema = new Schema(
       trim: true,
       default: '',
     },
+    source: {
+      type: String,
+      enum: ['POS_LOGIN', 'MANUAL_CLOCK_IN', 'MANAGER_ENTRY'],
+      default: 'MANUAL_CLOCK_IN',
+    },
+    corrections: [
+      {
+        modifiedBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+        previousCheckIn: Date,
+        previousCheckOut: Date,
+        newCheckIn: Date,
+        newCheckOut: Date,
+        reason: { type: String, trim: true, default: '' },
+        timestamp: { type: Date, default: Date.now },
+      },
+    ],
   },
   { timestamps: true }
 );

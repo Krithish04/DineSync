@@ -1,7 +1,7 @@
 const express = require('express');
 const tableController = require('./table.controller');
 const { validateBody } = require('../../middlewares/validate.middleware');
-const { createTableSchema, updateTableSchema, updateTableStatusSchema } = require('./table.validation');
+const { createTableSchema, updateTableSchema, updateTableStatusSchema, bulkUpdateLayoutSchema } = require('./table.validation');
 const { protect, authorize, enforceTenantIsolation } = require('../../middlewares/auth.middleware');
 const { ROLES } = require('../../constants/roles.constant');
 
@@ -11,6 +11,10 @@ const canManage = authorize(ROLES.SUPER_ADMIN, ROLES.OWNER, ROLES.MANAGER);
 
 // All routes require authentication and tenant-isolation
 router.use(protect, enforceTenantIsolation);
+
+router
+  .route('/floor-plan/layout')
+  .put(canManage, validateBody(bulkUpdateLayoutSchema), tableController.bulkUpdateLayout);
 
 router
   .route('/')

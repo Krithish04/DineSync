@@ -262,12 +262,32 @@ const mergeTables = async (restaurantId, primaryTableId, secondaryTableIds = [])
     throw ApiError.notFound('One or more secondary tables were not found.');
   }
 
+  const TableSession = require('./tableSession.model');
+  const Order = require('../order/order.model');
+
   for (const st of secondaryTables) {
     if (st.mergedInto && st.mergedInto.toString() !== primaryTableId.toString()) {
       throw ApiError.badRequest(`Table ${st.tableNumber} is already merged into Table ID ${st.mergedInto}. Unmerge it first.`);
     }
     if (st.mergedTables && st.mergedTables.length > 0) {
       throw ApiError.badRequest(`Table ${st.tableNumber} is currently acting as a primary table for other merged tables and cannot be merged into another group.`);
+    }
+
+    // Active session check for secondary tables (Option A)
+    const [activeSession, activeOrders] = await Promise.all([
+      TableSession.findOne({ table: st._id, status: 'active' }),
+      Order.find({
+        restaurant: restaurantId,
+        table: st._id,
+        orderStatus: { $nin: ['Completed', 'Cancelled'] },
+        paymentStatus: { $ne: 'Paid' },
+      }),
+    ]);
+
+    if (activeSession || activeOrders.length > 0) {
+      throw ApiError.badRequest(
+        `Table #${st.tableNumber} has an active diner session or open orders. Settle active orders or force empty the table before merging.`
+      );
     }
   }
 
@@ -398,6 +418,42 @@ const unmergeTables = async (restaurantId, primaryTableId, { force = false } = {
   return primaryTable;
 };
 
+/**
+ * Bulk updates layout position (x, y), shape, zone, and rotation for restaurant tables.
+ */
+const bulkUpdateFloorPlanLayout = async (restaurantId, tablesData) => {
+  if (!Array.isArray(tablesData) || tablesData.length === 0) {
+    return { success: true, count: 0 };
+  }
+
+  const operations = tablesData.map((item) => {
+    const updateSet = {};
+    if (item.positionX !== undefined) updateSet.positionX = item.positionX;
+    if (item.positionY !== undefined) updateSet.positionY = item.positionY;
+    if (item.shape) updateSet.shape = item.shape;
+    if (item.zone) updateSet.zone = item.zone;
+    if (item.rotation !== undefined) updateSet.rotation = item.rotation;
+    if (item.width !== undefined) updateSet.width = item.width;
+    if (item.height !== undefined) updateSet.height = item.height;
+    if (item.isAccessible !== undefined) updateSet.isAccessible = item.isAccessible;
+
+    return {
+      updateOne: {
+        filter: { _id: item._id, restaurant: restaurantId, isDeleted: false },
+        update: { $set: updateSet },
+      },
+    };
+  });
+
+  await Table.bulkWrite(operations);
+
+  socketConfig.broadcastEvent(restaurantId, 'tables:layout_updated', {
+    timestamp: new Date(),
+  });
+
+  return { success: true, count: operations.length };
+};
+
 module.exports = {
   createTable,
   listTables,
@@ -408,4 +464,5 @@ module.exports = {
   getTableSession,
   mergeTables,
   unmergeTables,
+  bulkUpdateFloorPlanLayout,
 };

@@ -221,6 +221,16 @@ const login = async ({ email, password, restaurantSlug }) => {
   user.lastLoginAt = new Date();
   await user.save({ validateBeforeSave: false });
 
+  // Auto clock-in employee on POS/KDS login if staff account
+  if (user.restaurant && ['staff', 'chef', 'manager'].includes(user.role)) {
+    try {
+      const employeeService = require('../employee/employee.service');
+      await employeeService.handlePosLoginClockIn(user.restaurant, user._id);
+    } catch (autoClockInErr) {
+      // Non-blocking fallback
+    }
+  }
+
   const token = signToken({
     id: user._id.toString(),
     role: user.role,

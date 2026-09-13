@@ -24,6 +24,13 @@ const createTableSchema = z.object({
     .max(500, 'Notes cannot exceed 500 characters')
     .optional()
     .or(z.literal('')),
+  positionX: z.number().optional(),
+  positionY: z.number().optional(),
+  shape: z.enum(['Square', 'Round', 'Rectangle', 'Booth']).optional(),
+  zone: z.enum(['Main Hall', 'Patio/Outdoor', 'VIP Lounge', 'Private Dining', 'Bar Area']).optional(),
+  rotation: z.number().optional(),
+  width: z.number().optional(),
+  height: z.number().optional(),
 });
 
 const updateTableSchema = createTableSchema.partial();
@@ -32,8 +39,24 @@ const updateTableStatusSchema = z.object({
   status: z.enum(['Available', 'Occupied', 'Reserved', 'Cleaning', 'Maintenance', 'Inactive']),
 });
 
+const bulkUpdateLayoutSchema = z.object({
+  tables: z.array(
+    z.object({
+      _id: z.string().regex(objectIdRegex, 'Invalid table ID'),
+      positionX: z.number().optional(),
+      positionY: z.number().optional(),
+      shape: z.enum(['Square', 'Round', 'Rectangle', 'Booth']).optional(),
+      zone: z.enum(['Main Hall', 'Patio/Outdoor', 'VIP Lounge', 'Private Dining', 'Bar Area']).optional(),
+      rotation: z.number().optional(),
+      width: z.number().optional(),
+      height: z.number().optional(),
+    })
+  ),
+});
+
 module.exports = {
   createTableSchema,
   updateTableSchema,
   updateTableStatusSchema,
+  bulkUpdateLayoutSchema,
 };

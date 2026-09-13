@@ -17,11 +17,28 @@ const TABLE_TYPES = [
   { value: 'Private', label: 'Private' },
 ];
 
+const TABLE_SHAPES = [
+  { value: 'Square', label: 'Square' },
+  { value: 'Round', label: 'Round' },
+  { value: 'Rectangle', label: 'Rectangle' },
+  { value: 'Booth', label: 'Plush Booth' },
+];
+
+const TABLE_ZONES = [
+  { value: 'Main Hall', label: 'Main Dining Hall' },
+  { value: 'Patio/Outdoor', label: 'Patio / Outdoor Deck' },
+  { value: 'VIP Lounge', label: 'VIP Lounge' },
+  { value: 'Private Dining', label: 'Private Dining' },
+  { value: 'Bar Area', label: 'Bar Area' },
+];
+
 const emptyForm = {
   tableNumber: '',
   tableName: '',
   capacity: 4,
   type: 'Indoor',
+  shape: 'Square',
+  zone: 'Main Hall',
   notes: '',
   isActive: true,
 };
@@ -52,6 +69,8 @@ export default function TableFormPage() {
         tableName: table.tableName || '',
         capacity: table.capacity || 4,
         type: table.type || 'Indoor',
+        shape: table.shape || 'Square',
+        zone: table.zone || 'Main Hall',
         notes: table.notes || '',
         isActive: table.isActive !== undefined ? table.isActive : true,
       });
@@ -199,6 +218,43 @@ export default function TableFormPage() {
                     {TABLE_TYPES.map((t) => (
                       <option key={t.value} value={t.value}>
                         {t.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Table Shape & Floor Zone */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="shape">Architectural Shape</Label>
+                  <select
+                    id="shape"
+                    name="shape"
+                    value={form.shape}
+                    onChange={handleChange}
+                    className="flex h-10 w-full appearance-none rounded-md border border-input bg-background px-3 py-2 pr-9 text-sm text-foreground shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                  >
+                    {TABLE_SHAPES.map((s) => (
+                      <option key={s.value} value={s.value}>
+                        {s.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="zone">Floor Architecture Zone</Label>
+                  <select
+                    id="zone"
+                    name="zone"
+                    value={form.zone}
+                    onChange={handleChange}
+                    className="flex h-10 w-full appearance-none rounded-md border border-input bg-background px-3 py-2 pr-9 text-sm text-foreground shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                  >
+                    {TABLE_ZONES.map((z) => (
+                      <option key={z.value} value={z.value}>
+                        {z.label}
                       </option>
                     ))}
                   </select>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pencil, Trash2, QrCode, Users, ClipboardList, LogOut, Eye, ChevronDown, User } from 'lucide-react';
+import { Pencil, Trash2, QrCode, Users, ClipboardList, LogOut, Eye, ChevronDown, User, Bell, CreditCard, Lock, ShieldAlert, CheckSquare, Square } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
@@ -41,6 +41,9 @@ export default function TableCard({
   onViewOrder,
   onUnmerge,
   canManage = false,
+  isSelected = false,
+  onToggleSelect,
+  isSelectionMode = false,
 }) {
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const isInactive = !table.isActive || table.status === 'Inactive';
@@ -48,7 +51,11 @@ export default function TableCard({
   const currentStatusObj = STATUS_OPTIONS.find((opt) => opt.value === effectiveStatus) || STATUS_OPTIONS[0];
 
   const handleCardClick = (e) => {
-    if (e.target.closest('button') || e.target.closest('select') || e.target.closest('a')) {
+    if (e.target.closest('button') || e.target.closest('select') || e.target.closest('input') || e.target.closest('a')) {
+      return;
+    }
+    if (isSelectionMode && onToggleSelect) {
+      onToggleSelect(table._id);
       return;
     }
     if (onViewOrder) {
@@ -93,46 +100,74 @@ export default function TableCard({
       onClick={handleCardClick}
       className={`relative overflow-hidden transition-all duration-200 border-l-4 hover:shadow-md cursor-pointer touch-manipulation min-h-[160px] ${
         BORDER_STATUS_COLORS[effectiveStatus] || 'border-l-emerald-500'
-      }`}
+      } ${isSelected ? 'ring-2 ring-primary border-primary bg-primary/5' : ''}`}
     >
       <CardContent className="p-4 space-y-3.5">
-        {/* Header - Title, Type Badges & Top Action Icons */}
+        {/* Header - Title, Selection Checkbox, Type Badges & Top Action Icons */}
         <div className="flex items-start justify-between gap-2">
-          <div>
-            <h4 className="font-display text-lg font-bold text-foreground flex items-center gap-1.5 flex-wrap">
-              <span>Table {table.tableNumber}</span>
-              {cleanTableName && (
-                <span className="text-xs font-normal text-muted-foreground/80 italic truncate max-w-[140px]" title={cleanTableName}>
-                  ({cleanTableName})
-                </span>
-              )}
-            </h4>
-            <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
-              <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase ${
-                TYPE_COLORS[table.type] || 'bg-muted text-muted-foreground'
-              }`}>
-                {table.type}
-              </span>
-              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground bg-muted/50 rounded-md px-2 py-0.5 border border-border/40">
-                <Users className="h-3 w-3" />
-                {table.mergedTables && table.mergedTables.length > 0
-                  ? `${table.capacity + table.mergedTables.reduce((sum, st) => sum + (st.capacity || 0), 0)} Seats (Group)`
-                  : `${table.capacity} Seats`}
-              </span>
+          <div className="flex items-start gap-2.5">
+            {(isSelectionMode || canManage) && onToggleSelect && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleSelect(table._id);
+                }}
+                className="mt-1 text-muted-foreground hover:text-primary transition-colors focus:outline-none"
+                title={isSelected ? 'Deselect table' : 'Select table for bulk action'}
+              >
+                {isSelected ? (
+                  <CheckSquare className="h-5 w-5 text-primary fill-primary/10" />
+                ) : (
+                  <Square className="h-5 w-5 text-muted-foreground/60" />
+                )}
+              </button>
+            )}
 
-              {/* Secondary Merged Table Badge */}
-              {table.mergedInto && (
-                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-purple-600 bg-purple-500/10 border border-purple-500/20 rounded-md px-2 py-0.5">
-                  Merged → Table #{table.mergedInto.tableNumber || 'Primary'}
+            <div>
+              <h4 className="font-display text-lg font-bold text-foreground flex items-center gap-1.5 flex-wrap">
+                <span>Table {table.tableNumber}</span>
+                {cleanTableName && (
+                  <span className="text-xs font-normal text-muted-foreground/80 italic truncate max-w-[140px]" title={cleanTableName}>
+                    ({cleanTableName})
+                  </span>
+                )}
+                {table.isAccessible && <span className="text-sm" title="Wheelchair Accessible">♿</span>}
+              </h4>
+              <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase ${
+                  TYPE_COLORS[table.type] || 'bg-muted text-muted-foreground'
+                }`}>
+                  {table.type}
                 </span>
-              )}
+                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground bg-muted/50 rounded-md px-2 py-0.5 border border-border/40">
+                  <Users className="h-3 w-3" />
+                  {table.mergedTables && table.mergedTables.length > 0
+                    ? `${table.capacity + table.mergedTables.reduce((sum, st) => sum + (st.capacity || 0), 0)} Seats (Group)`
+                    : `${table.capacity} Seats`}
+                </span>
 
-              {/* Primary Seating Group Badge */}
-              {table.mergedTables && table.mergedTables.length > 0 && (
-                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-purple-600 bg-purple-500/10 border border-purple-500/20 rounded-md px-2 py-0.5">
-                  {table.mergedTables.length + 1} Tables Merged
-                </span>
-              )}
+                {/* Zone Badge */}
+                {table.zone && (
+                  <span className="inline-flex items-center text-[10px] font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 rounded-md px-2 py-0.5 border border-slate-200 dark:border-slate-700">
+                    📍 {table.zone}
+                  </span>
+                )}
+
+                {/* Secondary Merged Table Badge */}
+                {table.mergedInto && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-purple-600 bg-purple-500/10 border border-purple-500/20 rounded-md px-2 py-0.5">
+                    Merged → Table #{table.mergedInto.tableNumber || 'Primary'}
+                  </span>
+                )}
+
+                {/* Primary Seating Group Badge */}
+                {table.mergedTables && table.mergedTables.length > 0 && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-purple-600 bg-purple-500/10 border border-purple-500/20 rounded-md px-2 py-0.5">
+                    {table.mergedTables.length + 1} Tables Merged
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
@@ -142,8 +177,11 @@ export default function TableCard({
               variant="ghost"
               size="icon"
               className="h-8 w-8 min-w-[32px] text-muted-foreground hover:text-primary rounded-lg touch-manipulation"
-              onClick={() => onQrClick(table)}
-              title="View QR Code"
+              onClick={(e) => {
+                e.stopPropagation();
+                onQrClick(table);
+              }}
+              title="View QR Code & Target Link"
             >
               <QrCode className="h-4 w-4" />
             </Button>
@@ -153,7 +191,10 @@ export default function TableCard({
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8 min-w-[32px] text-muted-foreground hover:text-foreground rounded-lg touch-manipulation"
-                  onClick={() => onEdit(table)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEdit(table);
+                  }}
                   title="Edit Table"
                 >
                   <Pencil className="h-4 w-4" />
@@ -162,7 +203,10 @@ export default function TableCard({
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8 min-w-[32px] text-muted-foreground hover:text-destructive rounded-lg touch-manipulation"
-                  onClick={() => onDelete(table)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete(table);
+                  }}
                   title="Delete Table"
                 >
                   <Trash2 className="h-4 w-4" />
@@ -228,7 +272,10 @@ export default function TableCard({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => onUnmerge(table)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onUnmerge(table);
+                }}
                 className="h-10 text-xs font-bold text-purple-600 border-purple-300 bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/40 dark:border-purple-900/50 gap-1 px-3 rounded-xl min-h-[40px] touch-manipulation"
                 title="Unmerge tables back to independent status"
               >
@@ -240,7 +287,10 @@ export default function TableCard({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => onViewOrder(table)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onViewOrder(table);
+                }}
                 className="h-10 text-xs font-semibold text-primary border-primary/30 bg-primary/5 hover:bg-primary/10 gap-1.5 px-3 rounded-xl min-h-[40px] touch-manipulation"
                 title="View Current Table Orders"
               >
@@ -253,7 +303,10 @@ export default function TableCard({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={handleForceLogout}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleForceLogout();
+                }}
                 disabled={isUpdatingStatus}
                 className="h-10 text-xs font-semibold text-rose-600 border-rose-200 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/30 dark:border-rose-900/50 gap-1.5 px-3 rounded-xl min-h-[40px] touch-manipulation"
                 title="Force Logout Diner & Empty Table"

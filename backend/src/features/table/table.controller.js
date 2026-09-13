@@ -74,6 +74,14 @@ const unmergeTables = asyncHandler(async (req, res) => {
   return new ApiResponse(200, { table }, 'Tables unmerged successfully').send(res);
 });
 
+const bulkUpdateLayout = asyncHandler(async (req, res) => {
+  const result = await tableService.bulkUpdateFloorPlanLayout(
+    req.params.restaurantId,
+    req.body.tables
+  );
+  return new ApiResponse(200, result, 'Table layout positions updated successfully').send(res);
+});
+
 module.exports = {
   createTable,
   listTables,
@@ -84,4 +92,5 @@ module.exports = {
   getTableSession,
   mergeTables,
   unmergeTables,
+  bulkUpdateLayout,
 };

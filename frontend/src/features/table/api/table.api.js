@@ -74,3 +74,11 @@ export const unmergeTables = async (restaurantId, primaryTableId, force = false)
   const { data } = await api.post(`${tableUrl(restaurantId, primaryTableId)}/unmerge`, { force });
   return data.data.table;
 };
+
+/**
+ * Bulk updates layout position (x, y), shape, zone, and rotation for restaurant tables.
+ */
+export const bulkUpdateTableLayout = async (restaurantId, tables) => {
+  const { data } = await api.put(`${tablesUrl(restaurantId)}/floor-plan/layout`, { tables });
+  return data.data;
+};

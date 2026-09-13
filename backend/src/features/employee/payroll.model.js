@@ -23,9 +23,23 @@ const payrollSchema = new Schema(
       required: true,
       index: true,
     },
+    employmentType: {
+      type: String,
+      default: 'Full Time',
+    },
+    salaryType: {
+      type: String,
+      default: 'Monthly',
+    },
     basicSalary: {
       type: Number,
       required: true,
+      min: 0,
+      default: 0,
+    },
+    hra: {
+      type: Number,
+      default: 0,
       min: 0,
     },
     allowances: {
@@ -33,12 +47,57 @@ const payrollSchema = new Schema(
       default: 0,
       min: 0,
     },
-    deductions: {
+    proDataDeduction: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    workingDays: {
+      type: Number,
+      default: 0,
+    },
+    actualHoursWorked: {
+      type: Number,
+      default: 0,
+    },
+    overtimeHours: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    overtimeRate: {
       type: Number,
       default: 0,
       min: 0,
     },
     overtimePay: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    tipShare: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    grossSalary: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+    advanceDeduction: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    advanceDeductionDetails: {
+      advanceId: { type: Schema.Types.ObjectId, ref: 'Advance', default: null },
+      installmentNumber: { type: Number, default: 0 },
+      totalInstallments: { type: Number, default: 0 },
+      originalScheduledAmount: { type: Number, default: 0 },
+      cappedAmount: { type: Number, default: 0 },
+    },
+    deductions: {
       type: Number,
       default: 0,
       min: 0,
@@ -57,6 +116,40 @@ const payrollSchema = new Schema(
     paidDate: {
       type: Date,
       default: null,
+    },
+    paymentReference: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    paymentNote: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    paidBy: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    isClosed: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    reopenedAt: {
+      type: Date,
+      default: null,
+    },
+    reopenedBy: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    reopenReason: {
+      type: String,
+      trim: true,
+      default: '',
     },
   },
   { timestamps: true }

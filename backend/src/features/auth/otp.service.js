@@ -150,16 +150,14 @@ const createAndSendOtp = async ({ email = null, phone = null, restaurantId = nul
   let emailSent = false;
 
   if (cleanPhone) {
-    if (env.SMS_GATEWAY_URL) {
-      try {
-        await sendSmsViaAndroidGateway({ phone: cleanPhone, otp: code });
-        smsSent = true;
-      } catch (err) {
-        if (process.env.NODE_ENV === 'production') throw err;
-        console.warn(`[SMS GATEWAY FALLBACK] ${err.message}. Dev OTP code is: ${code}`);
-      }
-    } else {
-      console.log(`[SMS DEV FALLBACK] Sent OTP code ${code} to phone ${cleanPhone} for purpose ${purpose}`);
+    const { getNotificationProvider } = require('../notification/providers/notificationProviderFactory');
+    const provider = getNotificationProvider();
+    try {
+      const res = await provider.sendOtp({ phone: cleanPhone, code, purpose });
+      smsSent = Boolean(res?.success);
+    } catch (err) {
+      if (process.env.NODE_ENV === 'production') throw err;
+      console.warn(`[NOTIFICATION PROVIDER FALLBACK] ${err.message}. Dev OTP code is: ${code}`);
     }
   } else if (cleanEmail) {
     const copy = OTP_EMAIL_COPY[purpose] || OTP_EMAIL_COPY[OTP_PURPOSES.EMAIL_VERIFICATION];

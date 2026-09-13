@@ -3,7 +3,7 @@ const ApiResponse = require('../../utils/ApiResponse');
 const employeeService = require('./employee.service');
 
 const createEmployee = asyncHandler(async (req, res) => {
-  const employee = await employeeService.createEmployee(req.params.restaurantId, req.body);
+  const employee = await employeeService.createEmployee(req.params.restaurantId, req.body, req.user, req.ip);
   return new ApiResponse(201, { employee }, 'Employee registered successfully').send(res);
 });
 
@@ -30,8 +30,24 @@ const getEmployee = asyncHandler(async (req, res) => {
   return new ApiResponse(200, data, 'Employee details fetched successfully').send(res);
 });
 
+const getEmployeeSensitiveInfo = asyncHandler(async (req, res) => {
+  const sensitiveData = await employeeService.getEmployeeSensitiveInfo(
+    req.params.restaurantId,
+    req.params.employeeId,
+    req.user,
+    req.ip
+  );
+  return new ApiResponse(200, { sensitiveData }, 'Employee sensitive information retrieved').send(res);
+});
+
 const updateEmployee = asyncHandler(async (req, res) => {
-  const employee = await employeeService.updateEmployee(req.params.restaurantId, req.params.employeeId, req.body);
+  const employee = await employeeService.updateEmployee(
+    req.params.restaurantId,
+    req.params.employeeId,
+    req.body,
+    req.user,
+    req.ip
+  );
   return new ApiResponse(200, { employee }, 'Employee profile updated successfully').send(res);
 });
 
@@ -54,11 +70,22 @@ const clockOut = asyncHandler(async (req, res) => {
   return new ApiResponse(200, { attendance }, 'Clock Out timestamp registered').send(res);
 });
 
+const correctAttendance = asyncHandler(async (req, res) => {
+  const attendance = await employeeService.correctAttendance(
+    req.params.restaurantId,
+    req.params.attendanceId,
+    req.body,
+    req.user,
+    req.ip
+  );
+  return new ApiResponse(200, { attendance }, 'Attendance record manually corrected').send(res);
+});
+
 const toggleBreak = asyncHandler(async (req, res) => {
   const attendance = await employeeService.toggleBreak(
     req.params.restaurantId,
     req.params.employeeId,
-    req.body.action // 'start' or 'end'
+    req.body.action
   );
   return new ApiResponse(200, { attendance }, `Break session ${req.body.action}ed successfully`).send(res);
 });
@@ -103,6 +130,16 @@ const assignEmployeesToShift = asyncHandler(async (req, res) => {
   return new ApiResponse(200, { shift }, 'Staff roster updated successfully').send(res);
 });
 
+const getScheduledVsActualHours = asyncHandler(async (req, res) => {
+  const variance = await employeeService.getScheduledVsActualHours(
+    req.params.restaurantId,
+    req.params.employeeId,
+    req.query.startDate,
+    req.query.endDate
+  );
+  return new ApiResponse(200, { variance }, 'Scheduled vs actual hours metrics calculated').send(res);
+});
+
 const generateMonthlyPayroll = asyncHandler(async (req, res) => {
   const payrolls = await employeeService.generateMonthlyPayroll(req.params.restaurantId, req.body.month);
   return new ApiResponse(201, { payrolls }, 'Monthly payroll ledger generated').send(res);
@@ -113,9 +150,84 @@ const listPayroll = asyncHandler(async (req, res) => {
   return new ApiResponse(200, { payrolls }, 'Monthly payroll slips fetched').send(res);
 });
 
+const markBatchAttendance = asyncHandler(async (req, res) => {
+  const results = await employeeService.markBatchAttendance(
+    req.params.restaurantId,
+    req.body,
+    req.user,
+    req.ip
+  );
+  return new ApiResponse(200, { attendance: results }, 'Batch attendance entries recorded').send(res);
+});
+
 const paySalary = asyncHandler(async (req, res) => {
-  const payroll = await employeeService.paySalary(req.params.restaurantId, req.params.payrollId);
+  const payroll = await employeeService.paySalary(
+    req.params.restaurantId,
+    req.params.payrollId,
+    req.body,
+    req.user,
+    req.ip
+  );
   return new ApiResponse(200, { payroll }, 'Salary invoice marked as Paid').send(res);
+});
+
+const requestAdvance = asyncHandler(async (req, res) => {
+  const advance = await employeeService.requestAdvance(
+    req.params.restaurantId,
+    req.params.employeeId,
+    req.body,
+    req.user,
+    req.ip
+  );
+  return new ApiResponse(201, { advance }, 'Salary advance request submitted').send(res);
+});
+
+const logManagerAdvance = asyncHandler(async (req, res) => {
+  const advance = await employeeService.logManagerAdvance(
+    req.params.restaurantId,
+    req.params.employeeId,
+    req.body,
+    req.user,
+    req.ip
+  );
+  return new ApiResponse(201, { advance }, 'Manager advance logged successfully').send(res);
+});
+
+const reviewAdvance = asyncHandler(async (req, res) => {
+  const advance = await employeeService.reviewAdvance(
+    req.params.restaurantId,
+    req.params.advanceId,
+    req.body,
+    req.user,
+    req.ip
+  );
+  return new ApiResponse(200, { advance }, `Salary advance request updated to ${req.body.status}`).send(res);
+});
+
+const updateAdvancePlan = asyncHandler(async (req, res) => {
+  const advance = await employeeService.updateAdvancePlan(
+    req.params.restaurantId,
+    req.params.advanceId,
+    req.body,
+    req.user,
+    req.ip
+  );
+  return new ApiResponse(200, { advance }, 'Salary advance repayment plan updated').send(res);
+});
+
+const getEmployeeAdvances = asyncHandler(async (req, res) => {
+  const data = await employeeService.getEmployeeAdvances(req.params.restaurantId, req.params.employeeId);
+  return new ApiResponse(200, data, 'Employee advances fetched successfully').send(res);
+});
+
+const reopenPayrollPeriod = asyncHandler(async (req, res) => {
+  const result = await employeeService.reopenPayrollPeriod(
+    req.params.restaurantId,
+    req.body,
+    req.user,
+    req.ip
+  );
+  return new ApiResponse(200, result, 'Payroll period reopened successfully').send(res);
 });
 
 const getEmployeeStats = asyncHandler(async (req, res) => {
@@ -128,10 +240,13 @@ module.exports = {
   createEmployeeUser,
   listEmployees,
   getEmployee,
+  getEmployeeSensitiveInfo,
   updateEmployee,
   deleteEmployee,
   clockIn,
   clockOut,
+  correctAttendance,
+  markBatchAttendance,
   toggleBreak,
   applyLeave,
   listLeaves,
@@ -139,8 +254,15 @@ module.exports = {
   createShift,
   listShifts,
   assignEmployeesToShift,
+  getScheduledVsActualHours,
   generateMonthlyPayroll,
   listPayroll,
   paySalary,
+  requestAdvance,
+  logManagerAdvance,
+  reviewAdvance,
+  updateAdvancePlan,
+  getEmployeeAdvances,
+  reopenPayrollPeriod,
   getEmployeeStats,
 };

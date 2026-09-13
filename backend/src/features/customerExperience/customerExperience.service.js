@@ -106,15 +106,25 @@ const getPublicMenu = async (restaurantId, { categoryId, dietary, search, isPopu
 // 3. GET ACTIVE TABLE SESSION DETAILS (PUBLIC SUMMARY)
 // ==========================================
 const getActiveTableSession = async (restaurantId, tableId, callerHostToken = null, callerPhone = null) => {
-  if (!tableId) return { session: null, orders: [], orderSummary: [] };
+  if (!tableId) return { session: null, orders: [], orderSummary: [], reservation: null };
 
   const tableObj = await Table.findById(tableId);
   const targetTableId = (tableObj && tableObj.mergedInto) ? tableObj.mergedInto : tableId;
 
+  const Reservation = require('../reservation/reservation.model');
+  const reservationDoc = await Reservation.findOne({
+    restaurant: restaurantId,
+    table: targetTableId,
+    reservationStatus: { $in: ['Pending', 'Confirmed', 'Seated'] },
+    isDeleted: false,
+  })
+    .sort({ reservationDate: 1, reservationTime: 1 })
+    .lean();
+
   const session = await TableSession.findOne({ table: targetTableId, status: 'active' }).lean();
 
   if (!session) {
-    return { session: null, orders: [], orderSummary: [] };
+    return { session: null, orders: [], orderSummary: [], reservation: reservationDoc || null };
   }
 
   const orders = await Order.find({
@@ -157,6 +167,7 @@ const getActiveTableSession = async (restaurantId, tableId, callerHostToken = nu
     // Only expose full order billing objects if caller is verified host or approved co-orderer
     orders: (isHost || isCoOrderer) ? orders : [],
     orderSummary,
+    reservation: reservationDoc || null,
     hostName: session.hostName,
     startedAt: session.startedAt,
     orderCount: orders.length,

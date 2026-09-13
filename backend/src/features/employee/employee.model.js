@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 
 const { Schema } = mongoose;
 
-const EMPLOYMENT_TYPES = Object.freeze(['Full Time', 'Part Time', 'Contract', 'Temporary']);
+const EMPLOYMENT_TYPES = Object.freeze(['Full Time', 'Part Time', 'Contract', 'Temporary', 'Daily Wage']);
 const DEPARTMENTS = Object.freeze([
   'Management',
   'Kitchen',
@@ -12,8 +12,47 @@ const DEPARTMENTS = Object.freeze([
   'Inventory',
   'Delivery',
 ]);
-const SALARY_TYPES = Object.freeze(['Monthly', 'Hourly']);
+const SALARY_TYPES = Object.freeze(['Monthly', 'Daily', 'Hourly']);
 const EMPLOYEE_STATUSES = Object.freeze(['Active', 'On Leave', 'Suspended', 'Resigned']);
+
+const salaryStructureSchema = new Schema(
+  {
+    basicSalary: { type: Number, default: 0, min: 0 },
+    hra: { type: Number, default: 0, min: 0 },
+    specialAllowance: { type: Number, default: 0, min: 0 },
+    conveyanceAllowance: { type: Number, default: 0, min: 0 },
+    dailyRate: { type: Number, default: 0, min: 0 },
+    hourlyRate: { type: Number, default: 0, min: 0 },
+  },
+  { _id: false }
+);
+
+const sensitiveInfoSchema = new Schema(
+  {
+    bankAccount: { type: String, trim: true, default: '' }, // Encrypted
+    bankIfsc: { type: String, trim: true, default: '' }, // Encrypted
+    bankName: { type: String, trim: true, default: '' }, // Encrypted
+    panNumber: { type: String, trim: true, default: '' }, // Encrypted
+  },
+  { _id: false }
+);
+
+const leaveQuotaSchema = new Schema(
+  {
+    allocated: { type: Number, default: 12, min: 0 },
+    taken: { type: Number, default: 0, min: 0 },
+  },
+  { _id: false }
+);
+
+const leaveBalancesSchema = new Schema(
+  {
+    casualLeave: { type: leaveQuotaSchema, default: () => ({ allocated: 12, taken: 0 }) },
+    sickLeave: { type: leaveQuotaSchema, default: () => ({ allocated: 12, taken: 0 }) },
+    paidLeave: { type: leaveQuotaSchema, default: () => ({ allocated: 15, taken: 0 }) },
+  },
+  { _id: false }
+);
 
 const employeeSchema = new Schema(
   {
@@ -106,6 +145,18 @@ const employeeSchema = new Schema(
       required: true,
       min: 0,
       default: 0,
+    },
+    salaryStructure: {
+      type: salaryStructureSchema,
+      default: () => ({}),
+    },
+    sensitiveInfo: {
+      type: sensitiveInfoSchema,
+      default: () => ({}),
+    },
+    leaveBalances: {
+      type: leaveBalancesSchema,
+      default: () => ({}),
     },
     status: {
       type: String,

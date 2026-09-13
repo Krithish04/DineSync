@@ -5,6 +5,7 @@ const User = require('../src/features/auth/auth.model');
 const Restaurant = require('../src/features/tenant/tenant.model');
 const Category = require('../src/features/category/category.model');
 const MenuItem = require('../src/features/menu/menuItem.model');
+const Table = require('../src/features/table/table.model');
 const { ROLES } = require('../src/constants/roles.constant');
 
 const DEMO_PASSWORD = 'Demo@1234';
@@ -481,6 +482,7 @@ async function seed() {
     let createdCategoryMap = {};
     let createdCategoryList = [];
     let createdMenuItemList = [];
+    let createdTableList = [];
 
     await session.withTransaction(async () => {
       // 1. Cleanup existing demo restaurant & associated resources (Idempotency)
@@ -493,6 +495,7 @@ async function seed() {
         await User.deleteMany({ restaurant: existingRestaurant._id }).session(session);
         await Category.deleteMany({ restaurant: existingRestaurant._id }).session(session);
         await MenuItem.deleteMany({ restaurant: existingRestaurant._id }).session(session);
+        await Table.deleteMany({ restaurant: existingRestaurant._id }).session(session);
         await Restaurant.deleteOne({ _id: existingRestaurant._id }).session(session);
       }
 
@@ -608,7 +611,15 @@ async function seed() {
 
     console.log('[Seed] Database seeding completed successfully!\n');
 
-    // 7. Console Log Clean Credential & Resource Summary Table
+    // 8. Seed Employee Directory & Payroll Data
+    try {
+      const { seedEmployeeModuleData } = require('./seedEmployees');
+      await seedEmployeeModuleData({ standalone: false });
+    } catch (empErr) {
+      console.warn('[Seed] Warning seeding employee data:', empErr.message);
+    }
+
+    // 9. Console Log Clean Credential & Resource Summary Table
     console.table(
       createdUserList.map((user) => ({
         Role: user.role,
@@ -619,9 +630,10 @@ async function seed() {
       }))
     );
 
-    console.log('[Seed] Menu Seeding Summary:');
+    console.log('[Seed] Menu & Table Seeding Summary:');
     console.log(`- Total Categories Created: ${createdCategoryList.length}`);
-    console.log(`- Total Menu Items Created: ${createdMenuItemList.length}\n`);
+    console.log(`- Total Menu Items Created: ${createdMenuItemList.length}`);
+    console.log(`- Total Dining Tables Created: ${createdTableList.length}\n`);
 
     console.log('[Seed] Login Quick-Reference:');
     console.log(`- Restaurant Team (/login/restaurant): Restaurant ID = ${demoRestaurant._id}`);

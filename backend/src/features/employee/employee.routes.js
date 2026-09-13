@@ -35,21 +35,33 @@ router.post(
   employeeController.createEmployeeUser
 );
 
+router.get('/:employeeId/sensitive', canManage, employeeController.getEmployeeSensitiveInfo);
+router.get('/:employeeId/hours-variance', employeeController.getScheduledVsActualHours);
+
 router
   .route('/:employeeId')
   .get(employeeController.getEmployee)
   .patch(canManage, validateBody(updateEmployeeSchema), employeeController.updateEmployee)
   .delete(canManage, employeeController.deleteEmployee);
 
-// Attendance Active Timers
+// Attendance Active Timers & Corrections
 router.post('/attendance/clock-in', validateBody(clockInSchema), employeeController.clockIn);
+router.post('/attendance/batch', canManage, employeeController.markBatchAttendance);
 router.post('/:employeeId/clock-out', employeeController.clockOut);
 router.post('/:employeeId/break', employeeController.toggleBreak);
+router.patch('/attendance/:attendanceId/correct', canManage, employeeController.correctAttendance);
 
 // Leaves Scheduler
 router.post('/:employeeId/leaves', validateBody(leaveSchema), employeeController.applyLeave);
 router.get('/leaves/all', employeeController.listLeaves);
 router.patch('/leaves/:leaveId/approve', canManage, validateBody(leaveApprovalSchema), employeeController.approveLeave);
+
+// Salary Advances
+router.post('/:employeeId/advances', canManage, employeeController.requestAdvance);
+router.post('/:employeeId/advances/manager-log', canManage, employeeController.logManagerAdvance);
+router.get('/:employeeId/advances', canManage, employeeController.getEmployeeAdvances);
+router.patch('/advances/:advanceId/review', canManage, employeeController.reviewAdvance);
+router.patch('/advances/:advanceId/plan', canManage, employeeController.updateAdvancePlan);
 
 // Shifts Rostering
 router
@@ -59,9 +71,10 @@ router
 
 router.patch('/shifts/:shiftId/assign', canManage, employeeController.assignEmployeesToShift);
 
-// Payroll Foundation
+// Payroll Foundation & Safeguards
 router.post('/payroll/generate', canManage, employeeController.generateMonthlyPayroll);
 router.get('/payroll/all', canManage, employeeController.listPayroll);
 router.patch('/payroll/:payrollId/pay', canManage, employeeController.paySalary);
+router.post('/payroll/reopen', canManage, employeeController.reopenPayrollPeriod);
 
 module.exports = router;

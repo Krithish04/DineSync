@@ -1,13 +1,29 @@
 import { useState } from 'react';
-import { CreditCard, Smartphone, DollarSign, Wallet, CheckCircle2, Receipt, Table as TableIcon, ArrowRight, AlertCircle, Users, Calculator } from 'lucide-react';
+import { CreditCard, Smartphone, DollarSign, Wallet, CheckCircle2, Receipt, Table as TableIcon, ArrowRight, AlertCircle, Users, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import useCartStore from '../store/cart.store';
 import * as customerApi from '../api/customerPlatform.api';
 import FeedbackModal from './FeedbackModal';
 
 /**
- * Final Table Settlement & Payment Modal.
- * Shows total bill for all orders placed during session, with equal split-bill option.
+ * Dynamically loads Razorpay Hosted Checkout Script
+ */
+const loadRazorpayScript = () => {
+  return new Promise((resolve) => {
+    if (window.Razorpay) {
+      resolve(true);
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+};
+
+/**
+ * Final Table Settlement & Payment Modal (Razorpay Test Mode & Split-Bill).
  */
 export default function TablePaymentModal({ isOpen, onClose }) {
   const {
@@ -29,6 +45,10 @@ export default function TablePaymentModal({ isOpen, onClose }) {
   // Split-Bill State
   const [isSplitBill, setIsSplitBill] = useState(false);
   const [splitCount, setSplitCount] = useState(2);
+  const [paidSharesCount, setPaidSharesCount] = useState(0);
+
+  // Error & Retry State
+  const [errorMessage, setErrorMessage] = useState('');
 
   if (!isOpen && !showFeedbackModal) return null;
 
@@ -39,39 +59,123 @@ export default function TablePaymentModal({ isOpen, onClose }) {
   const perPersonAmount = totalBillAmount / Math.max(1, splitCount);
 
   const handleSettleBill = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     setIsSubmitting(true);
+    setErrorMessage('');
 
     try {
-      if (sessionId) {
-        const settleRes = await customerApi.settleTableSession(restaurantId, sessionId, {
-          paymentMethod,
-          transactionReference: paymentMethod === 'Cash' ? undefined : `ONLINE-${Date.now()}`,
-        }).catch(() => null);
-
-        if (settleRes?.totalAmount !== undefined) {
-          setSettledAmount(settleRes.totalAmount);
-        }
-      }
-
       if (paymentMethod === 'Cash') {
+        if (sessionId) {
+          await customerApi.settleTableSession(restaurantId, sessionId, {
+            paymentMethod: 'Cash',
+          }).catch(() => null);
+        }
         setIsCashRequested(true);
         setIsSubmitting(false);
-      } else {
-        for (const ord of placedOrders) {
-          if (ord._id) {
-            await customerApi.payCustomerOrder(restaurantId, ord._id, {
-              paymentMethod,
-              transactionReference: `ONLINE-${Date.now()}`,
-            }).catch(() => null);
-          }
-        }
-        setIsSubmitting(false);
-        signOutHost();
-        setShowFeedbackModal(true);
+        return;
       }
-    } catch {
+
+      // Online Payment via Razorpay Test Mode
+      const activeShareIndex = paidSharesCount;
+      const targetAmount = isSplitBill ? perPersonAmount : totalBillAmount;
+
+      // 1. Create Razorpay Test Order from Backend
+      const orderData = await customerApi.createRazorpayOrder(restaurantId, {
+        amount: targetAmount,
+        currency: 'INR',
+        sessionId: sessionId || undefined,
+        isSplit: isSplitBill,
+        splitCount: isSplitBill ? splitCount : 1,
+        dinerIndex: activeShareIndex,
+      });
+
+      if (!orderData || !orderData.razorpayOrderId) {
+        throw new Error('Could not generate Razorpay test order from backend server.');
+      }
+
+      // 2. Load Hosted Razorpay Script
+      const scriptLoaded = await loadRazorpayScript();
+
+      const handleSuccessCallback = async (paymentResponse) => {
+        try {
+          const verifyRes = await customerApi.verifyRazorpayPayment(restaurantId, {
+            razorpay_order_id: paymentResponse.razorpay_order_id || orderData.razorpayOrderId,
+            razorpay_payment_id: paymentResponse.razorpay_payment_id || `pay_test_${Date.now()}`,
+            razorpay_signature: paymentResponse.razorpay_signature || 'mock_test_signature',
+            sessionId: sessionId || undefined,
+            isSplit: isSplitBill,
+          });
+
+          if (verifyRes?.verified) {
+            if (isSplitBill) {
+              const nextPaidCount = paidSharesCount + 1;
+              setPaidSharesCount(nextPaidCount);
+              setIsSubmitting(false);
+              if (nextPaidCount >= splitCount) {
+                signOutHost();
+                setShowFeedbackModal(true);
+              }
+            } else {
+              setIsSubmitting(false);
+              signOutHost();
+              setShowFeedbackModal(true);
+            }
+          } else {
+            setErrorMessage('Razorpay payment signature verification failed. Please retry.');
+            setIsSubmitting(false);
+          }
+        } catch (err) {
+          setErrorMessage(err?.response?.data?.message || err?.message || 'Payment verification failed. Please try again.');
+          setIsSubmitting(false);
+        }
+      };
+
+      if (scriptLoaded && window.Razorpay) {
+        const options = {
+          key: orderData.keyId,
+          amount: orderData.amountInPaise,
+          currency: orderData.currency || 'INR',
+          name: 'DineSync AI Restaurant',
+          description: isSplitBill
+            ? `Split Share ${activeShareIndex + 1}/${splitCount} — Table #${tableNumber}`
+            : `Table #${tableNumber} Settlement`,
+          order_id: orderData.razorpayOrderId,
+          prefill: {
+            name: tableHost?.name || 'Guest Diner',
+            contact: '+919876543210',
+            email: 'guest@dinesync.ai',
+          },
+          theme: {
+            color: '#0F172A',
+          },
+          handler: function (response) {
+            handleSuccessCallback(response);
+          },
+          modal: {
+            ondismiss: function () {
+              setIsSubmitting(false);
+              setErrorMessage('Payment cancelled by user. Your table bill and order state remain unchanged.');
+            },
+          },
+        };
+
+        const rzp = new window.Razorpay(options);
+        rzp.on('payment.failed', function (response) {
+          setIsSubmitting(false);
+          setErrorMessage(`Payment failed: ${response.error?.description || 'Transaction declined by bank.'}`);
+        });
+        rzp.open();
+      } else {
+        // Fallback for dev environments without external script access
+        await handleSuccessCallback({
+          razorpay_order_id: orderData.razorpayOrderId,
+          razorpay_payment_id: `pay_test_${Date.now()}`,
+          razorpay_signature: 'dev_mock_signature',
+        });
+      }
+    } catch (err) {
       setIsSubmitting(false);
+      setErrorMessage(err?.response?.data?.message || err?.message || 'An error occurred during payment processing.');
     }
   };
 
@@ -133,6 +237,23 @@ export default function TablePaymentModal({ isOpen, onClose }) {
               </div>
             </div>
 
+            {/* Error & Retry Banner */}
+            {errorMessage && (
+              <div className="bg-destructive/10 border border-destructive/20 text-destructive rounded-xl p-3 text-xs flex items-start justify-between gap-2 animate-in fade-in">
+                <div className="flex items-start gap-2">
+                  <AlertCircle size={16} className="shrink-0 mt-0.5" />
+                  <span>{errorMessage}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setErrorMessage('')}
+                  className="text-[10px] font-bold underline shrink-0 hover:text-destructive/80"
+                >
+                  Dismiss
+                </button>
+              </div>
+            )}
+
             {/* Table Host Info */}
             <div className="bg-muted/40 rounded-xl p-3 flex items-center justify-between text-xs">
               <div>
@@ -160,7 +281,7 @@ export default function TablePaymentModal({ isOpen, onClose }) {
               ))}
             </div>
 
-            {/* Split Bill Toggle & Calculator */}
+            {/* Split Bill Toggle & Progress */}
             <div className="bg-muted/30 border border-border/80 rounded-2xl p-3.5 space-y-2.5">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-foreground flex items-center gap-1.5 font-display">
@@ -168,7 +289,10 @@ export default function TablePaymentModal({ isOpen, onClose }) {
                 </span>
                 <button
                   type="button"
-                  onClick={() => setIsSplitBill(!isSplitBill)}
+                  onClick={() => {
+                    setIsSplitBill(!isSplitBill);
+                    setPaidSharesCount(0);
+                  }}
                   className={`text-xs font-bold px-3 py-1 rounded-full border transition-colors ${
                     isSplitBill
                       ? 'bg-primary text-primary-foreground border-primary'
@@ -188,7 +312,10 @@ export default function TablePaymentModal({ isOpen, onClose }) {
                         <button
                           key={cnt}
                           type="button"
-                          onClick={() => setSplitCount(cnt)}
+                          onClick={() => {
+                            setSplitCount(cnt);
+                            setPaidSharesCount(0);
+                          }}
                           className={`w-11 h-11 min-w-[44px] min-h-[44px] rounded-xl text-xs font-bold flex items-center justify-center border transition-all active:scale-95 touch-manipulation ${
                             splitCount === cnt
                               ? 'bg-primary text-primary-foreground border-primary shadow-xs'
@@ -201,9 +328,17 @@ export default function TablePaymentModal({ isOpen, onClose }) {
                     </div>
                   </div>
 
-                  <div className="bg-primary/10 border border-primary/20 rounded-xl p-2.5 flex items-center justify-between text-xs">
-                    <span className="font-semibold text-primary">Your Equal Share ({splitCount} Diners):</span>
-                    <span className="font-bold font-mono text-primary text-sm">₹{perPersonAmount.toFixed(2)} / diner</span>
+                  <div className="bg-primary/10 border border-primary/20 rounded-xl p-2.5 space-y-1 text-xs">
+                    <div className="flex justify-between items-center">
+                      <span className="font-semibold text-primary">Share {paidSharesCount + 1} of {splitCount}:</span>
+                      <span className="font-bold font-mono text-primary text-sm">₹{perPersonAmount.toFixed(2)} / diner</span>
+                    </div>
+                    {paidSharesCount > 0 && (
+                      <div className="flex justify-between text-[11px] text-emerald-600 font-bold border-t border-primary/20 pt-1">
+                        <span>Paid Shares ({paidSharesCount}/{splitCount})</span>
+                        <span className="font-mono">₹{(perPersonAmount * paidSharesCount).toFixed(2)} Collected</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -266,7 +401,15 @@ export default function TablePaymentModal({ isOpen, onClose }) {
                 disabled={isSubmitting}
                 className="w-2/3 text-xs h-11 gap-1.5 font-bold rounded-xl shadow-md"
               >
-                <span>{isSubmitting ? 'Processing...' : paymentMethod === 'Cash' ? 'Request Cash Pay' : 'Pay & Give Feedback'}</span>
+                <span>
+                  {isSubmitting
+                    ? 'Processing...'
+                    : paymentMethod === 'Cash'
+                    ? 'Request Cash Pay'
+                    : isSplitBill
+                    ? `Pay Share ${paidSharesCount + 1}/${splitCount} (₹${perPersonAmount.toFixed(2)})`
+                    : 'Pay with Razorpay'}
+                </span>
                 <ArrowRight size={14} />
               </Button>
             </div>
@@ -276,3 +419,4 @@ export default function TablePaymentModal({ isOpen, onClose }) {
     </div>
   );
 }
+

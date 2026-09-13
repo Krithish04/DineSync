@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Clock, User, Users, Receipt, Utensils, AlertCircle, ShieldCheck, CreditCard } from 'lucide-react';
+import { X, Clock, User, Users, Receipt, Utensils, AlertCircle, ShieldCheck, CreditCard, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Loader from '@/components/common/Loader';
 import * as tableApi from '../api/table.api';
@@ -30,6 +30,20 @@ function maskPhone(phone) {
   return `•••• ${digits.slice(-4)}`;
 }
 
+function formatBookingDateTime(reservation, table, startedAt) {
+  if (reservation?.reservationDate && reservation?.reservationTime) {
+    return `${reservation.reservationDate} @ ${reservation.reservationTime}`;
+  }
+  if (reservation?.reservationDate) {
+    return `${reservation.reservationDate} @ ${reservation.reservationTime || '19:30'}`;
+  }
+  const rawDate = startedAt || reservation?.createdAt || table?.updatedAt || table?.createdAt || new Date();
+  const d = new Date(rawDate);
+  const dateStr = d.toISOString().slice(0, 10);
+  const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return `${dateStr} @ ${timeStr}`;
+}
+
 export default function TableOrderDetailModal({ isOpen, onClose, table, restaurantId }) {
   const [sessionData, setSessionData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -56,9 +70,10 @@ export default function TableOrderDetailModal({ isOpen, onClose, table, restaura
   if (!isOpen) return null;
 
   const session = sessionData?.session;
+  const reservation = sessionData?.reservation;
   const orders = sessionData?.orders || sessionData?.orderSummary || [];
-  const hostName = sessionData?.hostName || session?.hostName || table?.currentHostName || 'Diner';
-  const hostPhone = session?.hostPhone || table?.currentHostPhone || '';
+  const hostName = sessionData?.hostName || session?.hostName || table?.currentHostName || (reservation ? reservation.customerName : 'Diner');
+  const hostPhone = session?.hostPhone || table?.currentHostPhone || (reservation ? reservation.customerPhone : '');
   const coOrderers = session?.coOrderers || [];
   const totalGuests = 1 + coOrderers.length;
   const totalAmount = sessionData?.totalAmount || orders.reduce((sum, o) => sum + (o.grandTotal || 0), 0);
@@ -69,6 +84,8 @@ export default function TableOrderDetailModal({ isOpen, onClose, table, restaura
   const serviceCharge = Math.round(subtotal * 0.05 * 100) / 100;
   const splitPerGuest = Math.round((totalAmount / totalGuests) * 100) / 100;
 
+  const isReserved = table?.status === 'Reserved' || Boolean(reservation);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
       <div className="bg-card border border-border rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in duration-200">
@@ -77,14 +94,15 @@ export default function TableOrderDetailModal({ isOpen, onClose, table, restaura
           <div className="space-y-0.5">
             <div className="flex items-center gap-2">
               <h3 className="text-base sm:text-lg font-bold font-display text-foreground">
-                Table {table?.tableNumber ? `#${table.tableNumber}` : ''} Session &amp; Orders
+                Table {table?.tableNumber ? `#${table.tableNumber}` : ''} {isReserved ? 'Reservation & Session' : 'Session & Orders'}
               </h3>
               <span className={`border text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
                 table?.status === 'Needs Attention' ? 'bg-rose-500/10 text-rose-600 border-rose-500/20 animate-pulse' :
                 table?.status === 'Bill Requested' ? 'bg-purple-500/10 text-purple-600 border-purple-500/20' :
+                table?.status === 'Reserved' || isReserved ? 'bg-cyan-500/10 text-cyan-600 border-cyan-500/20 font-black' :
                 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20'
               }`}>
-                {table?.status || 'Occupied'}
+                {table?.status || (isReserved ? 'Reserved' : 'Occupied')}
               </span>
             </div>
             {table?.tableName && (
@@ -101,7 +119,7 @@ export default function TableOrderDetailModal({ isOpen, onClose, table, restaura
           <div className="flex items-center gap-2 text-muted-foreground">
             <User size={16} className="text-primary shrink-0" />
             <div className="truncate">
-              <span className="block text-[10px] uppercase font-semibold text-muted-foreground/70">Session Host</span>
+              <span className="block text-[10px] uppercase font-semibold text-muted-foreground/70">{isReserved ? 'Guest / Host' : 'Session Host'}</span>
               <span className="font-bold text-foreground truncate block">{hostName}</span>
               {hostPhone && <span className="text-[10px] text-muted-foreground block font-mono">{maskPhone(hostPhone)}</span>}
             </div>
@@ -110,8 +128,8 @@ export default function TableOrderDetailModal({ isOpen, onClose, table, restaura
           <div className="flex items-center gap-2 text-muted-foreground">
             <Users size={16} className="text-primary shrink-0" />
             <div>
-              <span className="block text-[10px] uppercase font-semibold text-muted-foreground/70">Diners</span>
-              <span className="font-bold text-foreground">{totalGuests} Seated</span>
+              <span className="block text-[10px] uppercase font-semibold text-muted-foreground/70">Diners / Party</span>
+              <span className="font-bold text-foreground">{reservation?.numberOfGuests ? `${reservation.numberOfGuests} Guests` : `${totalGuests} Seated`}</span>
               {coOrderers.length > 0 && (
                 <span className="text-[10px] text-muted-foreground block font-medium">+{coOrderers.length} Co-Orderers</span>
               )}
@@ -121,8 +139,8 @@ export default function TableOrderDetailModal({ isOpen, onClose, table, restaura
           <div className="flex items-center gap-2 text-muted-foreground">
             <Clock size={16} className="text-primary shrink-0" />
             <div>
-              <span className="block text-[10px] uppercase font-semibold text-muted-foreground/70">Duration</span>
-              <span className="font-bold text-foreground font-mono">{formatElapsed(startedAt)}</span>
+              <span className="block text-[10px] uppercase font-semibold text-muted-foreground/70">{isReserved ? 'Time Slot' : 'Duration'}</span>
+              <span className="font-bold text-foreground font-mono">{reservation ? `${reservation.reservationTime} (${reservation.reservationDate || 'Today'})` : formatElapsed(startedAt)}</span>
             </div>
           </div>
 
@@ -148,6 +166,72 @@ export default function TableOrderDetailModal({ isOpen, onClose, table, restaura
 
         {/* Orders Body List */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
+          {/* Reservation Details Inspection Box */}
+          {isReserved && (
+            <div className="bg-cyan-500/10 border border-cyan-500/30 rounded-xl p-4 space-y-3 shadow-sm">
+              <div className="flex items-center justify-between border-b border-cyan-500/20 pb-2">
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-cyan-400" />
+                  <span className="font-extrabold text-xs uppercase tracking-wider text-cyan-300">Reserved Table Booking Details</span>
+                </div>
+                <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-cyan-400 text-slate-950 shadow-xs">
+                  {reservation?.reservationStatus || table?.status || 'Reserved'}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-muted-foreground/70 block">Reserved Guest</span>
+                  <span className="font-bold text-foreground block truncate">
+                    {reservation?.customerName || table?.currentHostName || 'Guest'}
+                  </span>
+                </div>
+
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-muted-foreground/70 block">Contact Phone</span>
+                  <span className="font-bold font-mono text-foreground block">
+                    {reservation?.customerPhone ? maskPhone(reservation.customerPhone) : (table?.currentHostPhone ? maskPhone(table.currentHostPhone) : 'N/A')}
+                  </span>
+                </div>
+
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-muted-foreground/70 block">Guest Count</span>
+                  <span className="font-bold text-foreground block">
+                    {reservation?.numberOfGuests || table?.capacity || 2} Persons
+                  </span>
+                </div>
+
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-muted-foreground/70 block">Booking Date & Time</span>
+                  <span className="font-bold font-mono text-foreground block">
+                    {formatBookingDateTime(reservation, table, startedAt)}
+                  </span>
+                </div>
+
+                {reservation?.occasion && (
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-muted-foreground/70 block">Occasion</span>
+                    <span className="font-bold text-cyan-400 block">{reservation.occasion}</span>
+                  </div>
+                )}
+
+                {reservation?.reservationNumber && (
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-muted-foreground/70 block">Reservation Ref</span>
+                    <span className="font-mono text-xs text-muted-foreground block">
+                      #{reservation.reservationNumber}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {(reservation?.specialRequest || reservation?.notes || table?.notes) && (
+                <div className="pt-2 border-t border-cyan-500/20 text-xs text-cyan-200 italic">
+                  <strong>Special Notes:</strong> "{reservation?.specialRequest || reservation?.notes || table?.notes}"
+                </div>
+              )}
+            </div>
+          )}
           {isLoading ? (
             <Loader label="Loading active table session orders..." />
           ) : error ? (

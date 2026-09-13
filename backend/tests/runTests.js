@@ -11,12 +11,20 @@ let totalTests = 0;
 async function runSuite(suiteName, testFile) {
   console.log(`\n▶ Running Suite: ${suiteName}`);
   const testsToRun = [];
+  const beforeHooks = [];
+  const afterHooks = [];
+  const beforeEachHooks = [];
+  const afterEachHooks = [];
 
   global.describe = (name, fn) => {
     console.log(`  [Describe] ${name}`);
     fn();
   };
 
+  global.before = (fn) => beforeHooks.push(fn);
+  global.after = (fn) => afterHooks.push(fn);
+  global.beforeEach = (fn) => beforeEachHooks.push(fn);
+  global.afterEach = (fn) => afterEachHooks.push(fn);
   global.it = (testName, fn) => {
     testsToRun.push({ testName, fn });
   };
@@ -24,8 +32,12 @@ async function runSuite(suiteName, testFile) {
   try {
     delete require.cache[require.resolve(testFile)];
     require(testFile);
+
+    for (const bh of beforeHooks) await bh();
+
     for (const test of testsToRun) {
       totalTests += 1;
+      for (const beh of beforeEachHooks) await beh();
       try {
         await test.fn();
         passedTests += 1;
@@ -33,7 +45,10 @@ async function runSuite(suiteName, testFile) {
       } catch (err) {
         console.log(`    ✕ FAIL: ${test.testName}\n      Error: ${err.message}`);
       }
+      for (const aeh of afterEachHooks) await aeh();
     }
+
+    for (const ah of afterHooks) await ah();
   } catch (err) {
     console.error(`    ✕ Suite Execution Error: ${err.message}`);
   }
@@ -56,7 +71,15 @@ async function main() {
   await runSuite('Express Trust Proxy & Rate Limiter Tests', './unit/trustProxyAndRateLimit.test.js');
   await runSuite('Reservation Reconciliation Tests', './unit/reservationReconciliation.test.js');
   await runSuite('Guest History Personalization & Privacy Tests', './unit/guestHistoryPersonalization.test.js');
+  await runSuite('Reservation Lock Timeline & Notification Provider Tests', './unit/reservationTimelineAndNotification.test.js');
+  await runSuite('Payroll Foundation (Phase 1 & 2) Tests', './payrollFoundation.test.js');
   await runSuite('API & Integration Tests', './integration/api.test.js');
+
+  const { runPayrollExtensionsTests } = require('./unit/payrollExtensions.test.js');
+  await runPayrollExtensionsTests();
+
+  const { runRazorpayPhase1Tests } = require('./unit/razorpayPhase1.test.js');
+  await runRazorpayPhase1Tests();
 
 
   console.log('\n====================================================');

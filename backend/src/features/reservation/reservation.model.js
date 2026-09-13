@@ -108,6 +108,19 @@ const reservationSchema = new Schema(
       trim: true,
       default: '',
     },
+    nudgedAt: {
+      type: Date,
+      default: null,
+    },
+    holdExtendedUntil: {
+      type: Date,
+      default: null,
+    },
+    holdExtendedBy: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
     isDeleted: {
       type: Boolean,
       default: false,
