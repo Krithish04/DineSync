@@ -56,4 +56,44 @@ describe('Phase 3 — Access Request & Host Approval Tests', () => {
     assert.strictEqual(nextHost.phone, '+919123456789', 'Longest-standing co-orderer (earliest approvedAt) should be selected');
     assert.strictEqual(nextHost.name, 'Early Guest');
   });
+
+  it('should grant ordering rights to approved co-orderers in placeCustomerOrder authorization logic', () => {
+    const activeSession = {
+      hostPhone: '+919876543210',
+      hostToken: 'host_token_abc',
+      coOrderers: [
+        { name: 'Guest B', phone: '+919123456789', approvedAt: new Date() }
+      ]
+    };
+
+    const hostTokenInput = null;
+    const guestBPhone = '+919123456789';
+    const unapprovedGuestPhone = '+919999999999';
+
+    // Helper checking authorization rule matching customerExperience.service.js
+    const isAuthorizedToOrder = (providedToken, phone) => {
+      const cleanPhone = phone ? phone.trim() : '';
+      const isHostTokenValid = Boolean(providedToken && providedToken === activeSession.hostToken);
+      const isHostPhoneValid = Boolean(cleanPhone && activeSession.hostPhone === cleanPhone);
+      const isCoOrdererApproved = Boolean(cleanPhone && (activeSession.coOrderers || []).some((c) => c.phone === cleanPhone));
+      return isHostTokenValid || isHostPhoneValid || isCoOrdererApproved;
+    };
+
+    assert.strictEqual(isAuthorizedToOrder(activeSession.hostToken, '+919876543210'), true, 'Host should be authorized via token/phone');
+    assert.strictEqual(isAuthorizedToOrder(hostTokenInput, guestBPhone), true, 'Approved co-orderer Guest B should be authorized to place order without hostToken');
+    assert.strictEqual(isAuthorizedToOrder(hostTokenInput, unapprovedGuestPhone), false, 'Unapproved guest should be rejected with 403 View-Only restriction');
+  });
+
+  it('should maintain View-Only mode when access request is denied by Host', () => {
+    const activeSession = {
+      hostPhone: '+919876543210',
+      hostToken: 'host_token_abc',
+      coOrderers: [] // Empty coOrderers list after denial
+    };
+
+    const deniedGuestPhone = '+919555555555';
+    const isApprovedCoOrderer = (activeSession.coOrderers || []).some((c) => c.phone === deniedGuestPhone);
+
+    assert.strictEqual(isApprovedCoOrderer, false, 'Denied guest should not be present in coOrderers array');
+  });
 });

@@ -191,6 +191,8 @@ const updateTableStatus = async (restaurantId, tableId, status) => {
   if (status !== 'Occupied') {
     table.currentHostName = '';
     table.currentHostPhone = '';
+    const redisConfig = require('../../config/redis.config');
+    await redisConfig.releaseTableLock(tableId.toString());
     const TableSession = require('./tableSession.model');
     const activeSession = await TableSession.findOne({ table: tableId, status: 'active' });
     if (activeSession) {

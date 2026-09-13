@@ -12,8 +12,15 @@ export const getPublicMenu = async (restaurantId, params = {}) => {
   return data.data;
 };
 
-export const getActiveTableSession = async (restaurantId, tableId) => {
-  const { data } = await api.get(`${publicUrl(restaurantId)}/tables/${tableId}/session`);
+export const getActiveTableSession = async (restaurantId, tableId, callerPhone = null) => {
+  const headers = {};
+  if (callerPhone) {
+    headers['x-caller-phone'] = callerPhone;
+  }
+  const { data } = await api.get(`${publicUrl(restaurantId)}/tables/${tableId}/session`, {
+    headers,
+    params: callerPhone ? { phone: callerPhone } : {},
+  });
   return data.data;
 };
 
@@ -166,5 +173,27 @@ export const getChatbotAnalytics = async (restaurantId) => {
   const { data } = await api.get(`/restaurants/${restaurantId}/chatbot/analytics`, {
     params: { restaurantId },
   });
+  return data.data;
+};
+
+export const getGuestOrderHistory = async (restaurantId, phone) => {
+  const { data } = await api.get(`${publicUrl(restaurantId)}/guest-history`, {
+    params: { phone },
+  });
+  return data.data;
+};
+
+export const forgetGuestHistory = async (restaurantId, phone) => {
+  const { data } = await api.post(`${publicUrl(restaurantId)}/forget-guest-history`, { phone });
+  return data.data;
+};
+
+export const requestHostTransfer = async (restaurantId, tableId, payload) => {
+  const { data } = await api.post(`${publicUrl(restaurantId)}/tables/${tableId}/request-host-transfer`, payload);
+  return data.data;
+};
+
+export const respondHostTransfer = async (restaurantId, tableId, payload) => {
+  const { data } = await api.post(`${publicUrl(restaurantId)}/tables/${tableId}/respond-host-transfer`, payload);
   return data.data;
 };

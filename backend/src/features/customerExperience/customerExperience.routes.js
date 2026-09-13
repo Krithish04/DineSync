@@ -56,6 +56,10 @@ router.post('/tables/:tableId/verify-reservation-phone', customerExperienceContr
 router.post('/request-handoff', optionalProtect, customerExperienceController.requestHostHandoff);
 router.post('/tables/:tableId/request-access', customerExperienceController.requestTableAccess);
 router.post('/tables/:tableId/respond-access', customerExperienceController.respondTableAccess);
+router.post('/tables/:tableId/request-host-transfer', customerExperienceController.requestHostTransfer);
+router.post('/tables/:tableId/respond-host-transfer', customerExperienceController.respondHostTransfer);
 router.get('/session-audit-logs', customerExperienceController.getTableSessionAuditLogs);
+router.get('/guest-history', optionalProtect, customerExperienceController.getGuestOrderHistory);
+router.post('/forget-guest-history', optionalProtect, customerExperienceController.forgetGuestHistory);
 
 module.exports = router;

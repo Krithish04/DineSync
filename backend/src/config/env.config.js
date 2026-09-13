@@ -10,10 +10,24 @@ if (missing.length > 0 && process.env.NODE_ENV !== 'test') {
   process.exit(1);
 }
 
+const parseTrustProxy = (val) => {
+  if (val === undefined || val === null || val === '') {
+    return process.env.NODE_ENV === 'production' ? 1 : 'loopback';
+  }
+  if (val === 'true') return true;
+  if (val === 'false') return false;
+  if (!isNaN(val) && !isNaN(parseInt(val, 10))) {
+    return parseInt(val, 10);
+  }
+  return val;
+};
+
 const env = {
   NODE_ENV: process.env.NODE_ENV || 'development',
   PORT: parseInt(process.env.PORT, 10) || 5000,
   CLIENT_URL: process.env.CLIENT_URL || 'http://localhost:5173',
+
+  TRUST_PROXY: parseTrustProxy(process.env.TRUST_PROXY),
 
   MONGO_URI: process.env.MONGO_URI,
 
@@ -48,9 +62,17 @@ const env = {
   // AI Microservice & Gemini LLM
   AI_SERVICE_URL: process.env.AI_SERVICE_URL || 'http://localhost:8000/api/v1',
   GEMINI_API_KEY: process.env.GEMINI_API_KEY || '',
+  AI_KITCHEN_RESCORE_MIN_INTERVAL_MS: parseInt(process.env.AI_KITCHEN_RESCORE_MIN_INTERVAL_MS, 10) || 60000,
+  AI_KITCHEN_MAX_CALLS_PER_MIN: parseInt(process.env.AI_KITCHEN_MAX_CALLS_PER_MIN, 10) || 5,
 
   // Auto-Serve Orders Threshold
   AUTO_SERVE_MINUTES: parseInt(process.env.AUTO_SERVE_MINUTES, 10) || 10,
+
+  // Redis & Rate Limiting
+  REDIS_URI: process.env.REDIS_URI || process.env.REDIS_URL || 'redis://127.0.0.1:6379',
+  OTP_MAX_SEND_PER_HOUR: parseInt(process.env.OTP_MAX_SEND_PER_HOUR, 10) || 5,
+  OTP_MAX_SEND_PER_TABLE_PER_HOUR: parseInt(process.env.OTP_MAX_SEND_PER_TABLE_PER_HOUR, 10) || 10,
+  OTP_MAX_VERIFY_ATTEMPTS: parseInt(process.env.OTP_MAX_VERIFY_ATTEMPTS, 10) || 5,
 
   isProduction: process.env.NODE_ENV === 'production',
   isDevelopment: (process.env.NODE_ENV || 'development') === 'development',

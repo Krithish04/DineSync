@@ -1,5 +1,7 @@
 const { Server } = require('socket.io');
+const { createAdapter } = require('@socket.io/redis-adapter');
 const { isAllowedOrigin } = require('./cors.config');
+const redisConfig = require('./redis.config');
 
 let io = null;
 
@@ -11,6 +13,26 @@ const initSocket = (server) => {
       credentials: true,
     },
   });
+
+  // Attach Redis adapter for multi-instance PM2/container scaling if Redis is available
+  try {
+    const pubClient = redisConfig.createDuplicateClient();
+    const subClient = redisConfig.createDuplicateClient();
+
+    Promise.all([pubClient.connect(), subClient.connect()])
+      .then(() => {
+        io.adapter(createAdapter(pubClient, subClient));
+        // eslint-disable-next-line no-console
+        console.log('[Socket.io] Redis adapter attached successfully.');
+      })
+      .catch((err) => {
+        // eslint-disable-next-line no-console
+        console.warn('[Socket.io] Redis adapter connect failed, using in-memory adapter:', err.message || err);
+      });
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn('[Socket.io] Failed to initialize Redis adapter:', err.message || err);
+  }
 
   io.on('connection', (socket) => {
     // eslint-disable-next-line no-console

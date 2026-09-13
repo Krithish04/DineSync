@@ -66,7 +66,8 @@ export default function CustomerLayout({ title, children }) {
   useEffect(() => {
     if (!tableId || !restaurantId) return;
 
-    customerApi.getActiveTableSession(restaurantId, tableId)
+    const myPhone = customer?.phoneNumber || tableHost?.phone;
+    customerApi.getActiveTableSession(restaurantId, tableId, myPhone)
       .then((res) => {
         if (res && res.session) {
           const session = res.session;
@@ -74,10 +75,14 @@ export default function CustomerLayout({ title, children }) {
             setSessionOrderSummary(res.orderSummary);
           }
 
-          const myPhone = customer?.phoneNumber || tableHost?.phone;
-          const isHost = Boolean(hostToken || (myPhone && session.hostPhone && session.hostPhone === myPhone));
+          const isHost = Boolean(res.isHost || hostToken || (myPhone && session.hostPhone && session.hostPhone === myPhone));
+          const isCoOrderer = Boolean(res.isCoOrderer);
 
-          if (isHost) {
+          if (isCoOrderer) {
+            useCartStore.getState().setCoOrdererStatus('approved', true);
+          }
+
+          if (isHost || isCoOrderer) {
             setSessionId(session._id || session.sessionId);
             if (res.orders && res.orders.length > 0) {
               setPlacedOrders(res.orders);
@@ -193,12 +198,58 @@ export default function CustomerLayout({ title, children }) {
       }
     };
 
+    const handleHostTransferRequested = (data) => {
+      if (String(data?.tableId) === String(tableId)) {
+        const myPhone = customer?.phoneNumber || tableHost?.phone;
+        if (tableHost && tableHost.phone === myPhone) {
+          setIncomingHostTransferRequest(data);
+        }
+      }
+    };
+
+    const handleHostTransferResponded = (data) => {
+      if (String(data?.tableId) === String(tableId)) {
+        const myPhone = customer?.phoneNumber || tableHost?.phone;
+        if (data.requesterPhone && data.requesterPhone === myPhone) {
+          if (data.approved) {
+            setSessionContext({
+              tableId,
+              restaurantId,
+              hostPhone: data.newHostPhone,
+              hostName: data.newHostName,
+              hostToken: data.hostToken,
+              tableNumber,
+            });
+            setAccessRequestStatus('approved');
+            setAccessRequestMessage('Host Transfer approved! You are now the Table Host.');
+          } else {
+            setAccessRequestStatus('denied');
+            setAccessRequestMessage('Host Transfer request declined.');
+          }
+        }
+      }
+    };
+
+    const handleHostDemoted = (data) => {
+      if (String(data?.tableId) === String(tableId)) {
+        const myPhone = customer?.phoneNumber || tableHost?.phone;
+        if (data.previousHostPhone && data.previousHostPhone === myPhone) {
+          signOutHost();
+          setAccessRequestStatus('denied');
+          setAccessRequestMessage(data.message || 'Host role transferred. You have been signed out as Host.');
+        }
+      }
+    };
+
     socket.on('table:updated', handleTableUpdate);
     socket.on('table:session-started', handleSessionStarted);
     socket.on('table:session-ended', handleSessionEnded);
     socket.on('access:requested', handleAccessRequested);
     socket.on('access:responded', handleAccessResponded);
     socket.on('table:host-promoted', handleHostPromoted);
+    socket.on('host_transfer:requested', handleHostTransferRequested);
+    socket.on('host_transfer:responded', handleHostTransferResponded);
+    socket.on('host:demoted', handleHostDemoted);
 
     return () => {
       socket.off('table:updated', handleTableUpdate);
@@ -207,6 +258,9 @@ export default function CustomerLayout({ title, children }) {
       socket.off('access:requested', handleAccessRequested);
       socket.off('access:responded', handleAccessResponded);
       socket.off('table:host-promoted', handleHostPromoted);
+      socket.off('host_transfer:requested', handleHostTransferRequested);
+      socket.off('host_transfer:responded', handleHostTransferResponded);
+      socket.off('host:demoted', handleHostDemoted);
     };
   }, [socket, tableId, customer?.phoneNumber, tableHost, setSessionContext, signOutHost, clearCustomerSession]);
 
@@ -228,6 +282,22 @@ export default function CustomerLayout({ title, children }) {
     }
   };
 
+  const handleAccessResponse = async (decision) => {
+    if (!incomingAccessRequest || !tableId || !restaurantId) return;
+    try {
+      await customerApi.respondTableAccess(restaurantId, tableId, {
+        requestId: incomingAccessRequest.requestId,
+        requesterPhone: incomingAccessRequest.requesterPhone,
+        requesterName: incomingAccessRequest.requesterName,
+        decision,
+      });
+    } catch {
+      /* non-fatal */
+    } finally {
+      setIncomingAccessRequest(null);
+    }
+  };
+
   const handleSignOutClick = async () => {
     if (placedOrders && placedOrders.length > 0) {
       setIsPaymentModalOpen(true);
@@ -236,18 +306,26 @@ export default function CustomerLayout({ title, children }) {
     }
   };
 
-  const handleRequestAccessSubmit = async () => {
-    const myPhone = customer?.phoneNumber || tableHost?.phone;
+  const [authSuccessCallback, setAuthSuccessCallback] = useState(null);
+
+  const handleRequestAccessSubmit = async (overridePhone = null, overrideName = null) => {
+    const myPhone = overridePhone || customer?.phoneNumber || tableHost?.phone;
+    const myName = overrideName || activeName || customer?.fullName || 'Guest';
+
     if (!myPhone) {
+      setAuthSuccessCallback(() => (verifiedInfo) => {
+        handleRequestAccessSubmit(verifiedInfo.phone, verifiedInfo.name);
+      });
       setIsAuthModalOpen(true);
       return;
     }
+
     setAccessRequestStatus('pending');
     setAccessRequestMessage('Request sent to Table Host. Awaiting approval...');
     try {
       await customerApi.requestTableAccess(restaurantId, tableId, {
         requesterPhone: myPhone,
-        requesterName: activeName || 'Guest',
+        requesterName: myName,
       });
     } catch (err) {
       setAccessRequestStatus('denied');
@@ -371,6 +449,26 @@ export default function CustomerLayout({ title, children }) {
         </div>
       )}
 
+      {/* HOST INCOMING HOST TRANSFER PROMPT */}
+      {incomingHostTransferRequest && (
+        <div className="bg-amber-500/15 border-b border-amber-500/30 px-3.5 py-2.5 flex items-center justify-between text-xs animate-in slide-in-from-top duration-200">
+          <div className="flex items-center gap-2 pr-2">
+            <UserCheck size={16} className="text-amber-600 shrink-0 animate-pulse" />
+            <p className="text-foreground text-[11px] leading-tight">
+              Diner <strong>{incomingHostTransferRequest.requesterName}</strong> ({incomingHostTransferRequest.maskedPhone}) requested <strong>Host Transfer</strong>.
+            </p>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Button size="xs" onClick={handleApproveHostTransfer} className="h-7 text-[11px] px-2.5 font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg">
+              Approve Transfer
+            </Button>
+            <Button size="xs" variant="outline" onClick={handleDenyHostTransfer} className="h-7 text-[11px] px-2 text-rose-600 border-rose-200 hover:bg-rose-50 rounded-lg">
+              Deny
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* ACCESS REQUEST STATUS BANNER */}
       {accessRequestMessage && (
         <div className={`px-4 py-2 text-xs flex items-center justify-between font-medium shadow-xs animate-in slide-in-from-top duration-200 ${
@@ -402,7 +500,8 @@ export default function CustomerLayout({ title, children }) {
             <Button
               size="xs"
               variant="outline"
-              onClick={() => setIsAuthModalOpen(true)}
+              onClick={() => handleRequestHostTransferSubmit()}
+              disabled={accessRequestStatus === 'pending'}
               className="text-[11px] font-bold h-7 border-amber-500/40 text-amber-800 dark:text-amber-200 bg-amber-500/15 hover:bg-amber-500/25 px-2 rounded-lg"
             >
               Host Transfer
@@ -421,6 +520,46 @@ export default function CustomerLayout({ title, children }) {
           <button onClick={() => setCallStaffSuccess('')} className="text-amber-100 hover:text-white text-xs font-bold p-1">
             ✕
           </button>
+        </div>
+      )}
+
+      {/* HOST ACCESS REQUEST NON-MODAL FLOATING BANNER TOAST */}
+      {incomingAccessRequest && (
+        <div className="fixed top-4 right-4 sm:right-6 z-50 max-w-md w-[calc(100%-2rem)] bg-card border-2 border-primary/40 rounded-2xl shadow-2xl p-4 animate-in slide-in-from-top-4 duration-300">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start gap-2.5">
+              <div className="p-2 rounded-xl bg-primary/10 text-primary shrink-0">
+                <ShieldCheck size={20} />
+              </div>
+              <div className="space-y-1">
+                <h4 className="text-sm font-bold font-display text-foreground">
+                  Co-Ordering Access Request
+                </h4>
+                <p className="text-xs text-muted-foreground">
+                  Guest <strong className="text-foreground">{incomingAccessRequest.requesterName || 'Guest'}</strong> (
+                  <span className="font-mono">{incomingAccessRequest.maskedPhone || (incomingAccessRequest.requesterPhone ? `•••• ${incomingAccessRequest.requesterPhone.slice(-4)}` : '•••• 0000')}</span>)
+                  requested ordering access for Table #{tableNumber || ''}.
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 pt-3 mt-3 border-t border-border">
+            <Button
+              size="sm"
+              onClick={() => handleAccessResponse('approve')}
+              className="flex-1 h-11 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white min-h-[44px] rounded-xl gap-1"
+            >
+              <Check size={16} /> Approve Access
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => handleAccessResponse('deny')}
+              className="flex-1 h-11 text-xs font-bold text-rose-600 border-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/30 min-h-[44px] rounded-xl gap-1"
+            >
+              <X size={16} /> Decline
+            </Button>
+          </div>
         </div>
       )}
 
@@ -601,6 +740,13 @@ export default function CustomerLayout({ title, children }) {
         onClose={() => {
           setIsAuthModalOpen(false);
           setPendingItemForAuth(null);
+          setAuthSuccessCallback(null);
+        }}
+        onSuccess={(verifiedInfo) => {
+          if (typeof authSuccessCallback === 'function') {
+            authSuccessCallback(verifiedInfo);
+            setAuthSuccessCallback(null);
+          }
         }}
         pendingItem={pendingItemForAuth}
       />

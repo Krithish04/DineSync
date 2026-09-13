@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   DollarSign, ShoppingBag, Users, CalendarCheck,
-  AlertTriangle, UserCheck, Star, Package, TrendingUp, Calendar,
+  AlertTriangle, UserCheck, Star, Package, TrendingUp, Calendar, Receipt,
 } from 'lucide-react';
 import RestaurantLayout from '@/features/restaurant/components/RestaurantLayout';
 import Loader from '@/components/common/Loader';
@@ -225,23 +225,66 @@ export default function ExecutiveDashboardPage() {
 
               {/* Period Totals Summary */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="bg-muted/40 border border-border rounded-lg p-4">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase">Period Revenue</p>
-                  <p className="text-xl font-bold font-display text-emerald-600 mt-1">
-                    ₹{revenueTotals.totalRevenue ? revenueTotals.totalRevenue.toLocaleString() : '0.00'}
+                <div className="bg-muted/40 border border-border rounded-xl p-4">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Period Revenue</p>
+                  <p className="text-xl font-bold font-display text-[#b23c17] mt-1">
+                    ₹{revenueTotals.totalRevenue ? revenueTotals.totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
                   </p>
                 </div>
-                <div className="bg-muted/40 border border-border rounded-lg p-4">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase">Period Total Orders</p>
-                  <p className="text-xl font-bold font-display text-sky-600 mt-1">
+                <div className="bg-muted/40 border border-border rounded-xl p-4">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Period Total Orders</p>
+                  <p className="text-xl font-bold font-display text-amber-600 mt-1">
                     {revenueTotals.totalOrders || 0} orders
                   </p>
                 </div>
-                <div className="bg-muted/40 border border-border rounded-lg p-4">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase">Avg Ticket / Order Value</p>
-                  <p className="text-xl font-bold font-display text-amber-600 mt-1">
+                <div className="bg-muted/40 border border-border rounded-xl p-4">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Avg Ticket / Order Value</p>
+                  <p className="text-xl font-bold font-display text-emerald-600 mt-1">
                     ₹{revenueTotals.avgTicket ? Number(revenueTotals.avgTicket).toFixed(2) : '0.00'}
                   </p>
+                </div>
+              </div>
+
+              {/* DAILY SALES & GST TAX LEDGER CARD */}
+              <div className="bg-gradient-to-br from-[#b23c17]/5 via-amber-500/5 to-transparent border border-[#b23c17]/20 rounded-xl p-5 space-y-4">
+                <div className="flex items-center justify-between border-b border-border/60 pb-3">
+                  <div>
+                    <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+                      <Receipt className="h-4 w-4 text-[#b23c17]" />
+                      Daily Sales & GST Tax Ledger
+                    </h3>
+                    <p className="text-xs text-muted-foreground">Standardized tax liabilities (5% GST & 5% Service Charge breakdown).</p>
+                  </div>
+                  <span className="text-xs font-bold uppercase px-2.5 py-1 rounded-full bg-[#b23c17]/10 text-[#b23c17] border border-[#b23c17]/30">
+                    Compliant Ledger
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
+                  <div className="p-3 bg-card border border-border rounded-lg shadow-sm">
+                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">Gross Sales (Subtotal)</span>
+                    <span className="text-base font-bold font-mono text-foreground mt-1 block">
+                      ₹{((revenueTotals.totalRevenue || 0) / 1.1).toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="p-3 bg-card border border-border rounded-lg shadow-sm">
+                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">GST Collected (5%)</span>
+                    <span className="text-base font-bold font-mono text-amber-600 dark:text-amber-400 mt-1 block">
+                      ₹{(((revenueTotals.totalRevenue || 0) / 1.1) * 0.05).toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="p-3 bg-card border border-border rounded-lg shadow-sm">
+                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">Service Charge (5%)</span>
+                    <span className="text-base font-bold font-mono text-sky-600 dark:text-sky-400 mt-1 block">
+                      ₹{(((revenueTotals.totalRevenue || 0) / 1.1) * 0.05).toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="p-3 bg-card border border-[#b23c17]/30 bg-[#b23c17]/5 rounded-lg shadow-sm">
+                    <span className="text-[10px] font-bold text-[#b23c17] uppercase tracking-wider block">Net Revenue</span>
+                    <span className="text-base font-bold font-mono text-[#b23c17] mt-1 block">
+                      ₹{(revenueTotals.totalRevenue || 0).toFixed(2)}
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -254,7 +297,7 @@ export default function ExecutiveDashboardPage() {
                   data={timelineChartData}
                   xKey="_id"
                   dataKeys={[
-                    { key: 'revenue', label: 'Revenue (₹)', color: '#82b34e' },
+                    { key: 'revenue', label: 'Revenue (₹)', color: '#b23c17' },
                   ]}
                   yAxisPrefix="₹"
                   height={280}
@@ -275,8 +318,8 @@ export default function ExecutiveDashboardPage() {
                   data={topItemsData}
                   xKey="name"
                   dataKeys={[
-                    { key: 'qty', label: 'Units Sold', color: '#c2440f' },
-                    { key: 'revenue', label: 'Revenue (₹)', color: '#82b34e' },
+                    { key: 'qty', label: 'Units Sold', color: '#f59e0b' },
+                    { key: 'revenue', label: 'Revenue (₹)', color: '#b23c17' },
                   ]}
                   height={240}
                   emptyLabel="No completed orders in the last 30 days."

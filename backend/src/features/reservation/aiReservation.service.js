@@ -139,9 +139,12 @@ const runAiReservationMonitorCycle = async () => {
       const restId = res.restaurant.toString();
       const tableId = res.table._id.toString();
 
-      // 1. Buffer Lock: 15 mins before reservation time -> Mark Table "Reserved"
+      const TableSession = require('../table/tableSession.model');
+      const activeSession = await TableSession.findOne({ table: tableId, status: 'active' });
+
+      // 1. Buffer Lock: 15 mins before reservation time -> Mark Table "Reserved" if not currently occupied by active session
       if (currentMins >= lockStart && currentMins <= resMins + 15) {
-        if (res.table.status === 'Available') {
+        if (res.table.status === 'Available' && !activeSession) {
           await Table.updateOne({ _id: tableId }, { status: 'Reserved' });
           socketConfig.broadcastEvent(restId, 'table:status_updated', {
             tableId,
@@ -151,12 +154,19 @@ const runAiReservationMonitorCycle = async () => {
         }
       }
 
-      // 2. Auto-Cancellation: 15 mins AFTER reservation time -> Mark "No Show" & Release Table
+      // 2. Auto-Cancellation: 15 mins AFTER reservation time -> Mark "No Show" & Release Table (only if no active session)
       if (currentMins > autoCancelTime) {
         res.reservationStatus = 'No Show';
         await res.save();
 
-        await Table.updateOne({ _id: tableId }, { status: 'Available' });
+        if (!activeSession) {
+          await Table.updateOne({ _id: tableId }, { status: 'Available' });
+
+          socketConfig.broadcastEvent(restId, 'table:status_updated', {
+            tableId,
+            status: 'Available',
+          });
+        }
 
         // Broadcast real-time Socket.IO cancellation event
         socketConfig.broadcastEvent(restId, 'reservation:auto_cancelled', {
@@ -168,17 +178,12 @@ const runAiReservationMonitorCycle = async () => {
           reason: 'No-Show: Guest did not arrive or verify registered phone number within 15-minute window.',
         });
 
-        socketConfig.broadcastEvent(restId, 'table:status_updated', {
-          tableId,
-          status: 'Available',
-        });
-
         // Dispatch Notification to restaurant staff
         try {
           const notificationService = require('../notification/notification.service');
           await notificationService.dispatchNotification(restId, {
             title: `Reservation Auto-Cancelled ⚠️`,
-            message: `Booking for ${res.customerName} (Table ${res.table.tableNumber}) was automatically cancelled due to 15-minute no-show. Table released.`,
+            message: `Booking for ${res.customerName} (Table ${res.table.tableNumber}) was automatically cancelled due to 15-minute no-show.${activeSession ? ' Table remains occupied by live session.' : ' Table released.'}`,
             category: 'Reservation',
             priority: 'Warning',
             channels: ['In-App'],

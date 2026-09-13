@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import HostTransferApprovalModal from './HostTransferApprovalModal';
 import NotificationBell from '@/features/notification/components/NotificationBell';
 import useAuthStore from '@/features/auth/store/auth.store';
 import useSocketStore from '@/store/socket.store';
@@ -305,6 +306,8 @@ export default function RestaurantLayout({ title, description, children }) {
           {children}
         </main>
       </div>
+
+      <HostTransferApprovalModal />
     </div>
   );
 }

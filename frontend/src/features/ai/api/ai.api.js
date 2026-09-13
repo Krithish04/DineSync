@@ -46,3 +46,8 @@ export const getSentimentAnalysis = async (restaurantId) => {
   const { data } = await api.get(`${aiUrl(restaurantId)}/sentiment`);
   return data.data;
 };
+
+export const getAiAgentStatus = async (restaurantId) => {
+  const { data } = await api.get(`${aiUrl(restaurantId)}/agent-status`);
+  return data.data;
+};

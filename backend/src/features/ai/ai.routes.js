@@ -18,5 +18,6 @@ router.get('/smart-menu', aiController.getSmartMenuRecommendations);
 router.get('/wait-time', aiController.getWaitTimePrediction);
 router.get('/food-waste', aiController.getFoodWastePrediction);
 router.get('/sentiment', aiController.getSentimentAnalysis);
+router.get('/agent-status', aiController.getAiAgentStatus);
 
 module.exports = router;

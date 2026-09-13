@@ -121,6 +121,12 @@ const orderSchema = new Schema(
       ref: 'Customer',
       default: null,
     },
+    customerPhone: {
+      type: String,
+      trim: true,
+      default: '',
+      index: true,
+    },
     orderType: {
       type: String,
       enum: ORDER_TYPES,
@@ -212,6 +218,7 @@ const orderSchema = new Schema(
 // Compound Indexes for fast query execution
 orderSchema.index({ restaurant: 1, createdAt: -1 });
 orderSchema.index({ restaurant: 1, orderStatus: 1 });
+orderSchema.index({ restaurant: 1, customerPhone: 1, createdAt: -1 });
 
 // Auto-generate order number on document validation if not preset
 orderSchema.pre('validate', async function generateOrderNumber(next) {

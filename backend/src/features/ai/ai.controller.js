@@ -47,6 +47,11 @@ const getSentimentAnalysis = asyncHandler(async (req, res) => {
   return new ApiResponse(200, data, 'Customer sentiment analysis fetched successfully').send(res);
 });
 
+const getAiAgentStatus = asyncHandler(async (req, res) => {
+  const data = await aiService.getAiAgentStatus(req.params.restaurantId);
+  return new ApiResponse(200, data, 'AI agent status and accuracy metrics fetched successfully').send(res);
+});
+
 module.exports = {
   getAiDashboardOverview,
   getSalesForecast,
@@ -57,4 +62,5 @@ module.exports = {
   getWaitTimePrediction,
   getFoodWastePrediction,
   getSentimentAnalysis,
+  getAiAgentStatus,
 };

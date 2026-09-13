@@ -35,7 +35,8 @@ const getActiveTableSession = asyncHandler(async (req, res) => {
   validateObjectId(req.params.tableId, 'tableId');
 
   const hostToken = req.cookies?.hostToken || req.headers['x-host-token'];
-  const data = await customerExperienceService.getActiveTableSession(req.params.restaurantId, req.params.tableId, hostToken);
+  const callerPhone = req.headers['x-caller-phone'] || req.query?.phone || req.user?.phoneNumber || null;
+  const data = await customerExperienceService.getActiveTableSession(req.params.restaurantId, req.params.tableId, hostToken, callerPhone);
   return new ApiResponse(200, data, 'Active table session fetched successfully').send(res);
 });
 
@@ -186,6 +187,41 @@ const respondTableAccess = asyncHandler(async (req, res) => {
   return new ApiResponse(200, data, 'Table access decision processed successfully').send(res);
 });
 
+const getGuestOrderHistory = asyncHandler(async (req, res) => {
+  const phone = req.query.phone || req.headers['x-caller-phone'] || req.user?.phoneNumber || null;
+  const data = await customerExperienceService.getGuestOrderHistory(req.params.restaurantId, phone);
+  return new ApiResponse(200, data, 'Guest order history fetched successfully').send(res);
+});
+
+const forgetGuestHistory = asyncHandler(async (req, res) => {
+  const phone = req.body?.phone || req.headers['x-caller-phone'] || req.user?.phoneNumber || null;
+  const data = await customerExperienceService.forgetGuestHistory(req.params.restaurantId, phone);
+  return new ApiResponse(200, data, 'Guest order history cleared successfully').send(res);
+});
+
+const requestHostTransfer = asyncHandler(async (req, res) => {
+  const data = await customerExperienceService.requestHostTransfer(
+    req.params.restaurantId,
+    req.params.tableId,
+    req.body
+  );
+  return new ApiResponse(200, data, 'Host transfer request sent successfully').send(res);
+});
+
+const respondHostTransfer = asyncHandler(async (req, res) => {
+  const data = await customerExperienceService.respondHostTransfer(
+    req.params.restaurantId,
+    req.params.tableId,
+    {
+      ...req.body,
+      responderRole: req.user?.role || 'Host',
+      responderName: req.user?.name || 'Staff/Host',
+      responderPhone: req.user?.phoneNumber || null,
+    }
+  );
+  return new ApiResponse(200, data, 'Host transfer decision processed successfully').send(res);
+});
+
 module.exports = {
   resolveQrCode,
   getPublicMenu,
@@ -209,4 +245,8 @@ module.exports = {
   getTableSessionAuditLogs,
   requestTableAccess,
   respondTableAccess,
+  requestHostTransfer,
+  respondHostTransfer,
+  getGuestOrderHistory,
+  forgetGuestHistory,
 };

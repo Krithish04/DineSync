@@ -24,19 +24,31 @@ const MOOD_MAP = {
   'late night': { prepMax: 15, tags: ['starter', 'snack'], text: 'quick & satisfying late night bites' },
 };
 
+const ALLERGEN_KEYWORDS = {
+  peanuts: ['peanut', 'peanuts', 'groundnut', 'singdana'],
+  tree_nuts: ['tree nut', 'tree_nuts', 'nut', 'nuts', 'cashew', 'almond', 'pista', 'pistachio', 'walnut', 'hazelnut', 'macadamia', 'kaju', 'badam', 'praline', 'marzipan'],
+  dairy: ['dairy', 'milk', 'lactose', 'cheese', 'butter', 'paneer', 'curd', 'ghee', 'cream', 'yogurt', 'kheer', 'malai', 'khoya', 'mawa', 'whey', 'buttermilk'],
+  eggs: ['egg', 'eggs', 'anda', 'mayonnaise', 'mayo', 'custard', 'meringue', 'omelette'],
+  soy: ['soy', 'soya', 'tofu', 'edamame', 'tamari'],
+  wheat: ['wheat', 'gluten', 'flour', 'maida', 'naan', 'roti', 'paratha', 'bread', 'pasta', 'noodle', 'puri', 'bhatura', 'seviyan', 'cake', 'semolina', 'atta'],
+  fish: ['fish', 'salmon', 'tuna', 'cod', 'machhli', 'anchovy'],
+  shellfish: ['shellfish', 'prawn', 'prawns', 'shrimp', 'crab', 'lobster', 'squid', 'clam', 'mussel', 'jhinga'],
+  sesame: ['sesame', 'til', 'tahini'],
+};
+
 /**
  * Normalizes input allergen names to standard key tokens
  */
 const normalizeAllergen = (aStr) => {
   const clean = (aStr || '').toLowerCase().trim();
   if (clean.includes('peanut')) return 'peanuts';
-  if (clean.includes('tree nut') || clean.includes('nut')) return 'tree_nuts';
-  if (clean.includes('dairy') || clean.includes('milk') || clean.includes('cheese') || clean.includes('butter') || clean.includes('paneer')) return 'dairy';
+  if (clean.includes('tree nut') || clean.includes('nut') || clean.includes('cashew') || clean.includes('almond')) return 'tree_nuts';
+  if (clean.includes('dairy') || clean.includes('milk') || clean.includes('cheese') || clean.includes('butter') || clean.includes('paneer') || clean.includes('lactose')) return 'dairy';
   if (clean.includes('egg')) return 'eggs';
   if (clean.includes('soy')) return 'soy';
   if (clean.includes('wheat') || clean.includes('gluten')) return 'wheat';
-  if (clean.includes('fish')) return 'fish';
-  if (clean.includes('shellfish')) return 'shellfish';
+  if (clean.includes('fish') && !clean.includes('shellfish')) return 'fish';
+  if (clean.includes('shellfish') || clean.includes('prawn') || clean.includes('shrimp') || clean.includes('crab')) return 'shellfish';
   if (clean.includes('sesame')) return 'sesame';
   return clean;
 };
@@ -53,15 +65,24 @@ const isItemSafeFromAllergens = (item, recipeMap, ingredientMap, targetAllergens
   const itemAllergens = (item.allergens || []).map(normalizeAllergen);
   const itemDesc = (item.description || '').toLowerCase();
   const itemName = (item.name || '').toLowerCase();
+  const itemTags = (item.dietaryTags || []).map((t) => t.toLowerCase());
+  const ingredientsText = (item.ingredientsList || []).join(' ').toLowerCase();
 
-  for (const allergen of normTarget) {
-    if (itemAllergens.includes(allergen)) {
-      return { safe: false, reason: `Contains ${allergen}` };
+  const combinedSearchText = `${itemName} ${itemDesc} ${itemTags.join(' ')} ${ingredientsText}`;
+
+  for (const allergenKey of normTarget) {
+    if (itemAllergens.includes(allergenKey)) {
+      return { safe: false, reason: `Contains ${allergenKey}` };
     }
-    // Keyword check in item name or description
-    if (allergen === 'peanuts' && (itemName.includes('peanut') || itemDesc.includes('peanut'))) return { safe: false };
-    if (allergen === 'dairy' && (itemName.includes('butter') || itemName.includes('paneer') || itemDesc.includes('cheese') || itemDesc.includes('cream'))) return { safe: false };
-    if (allergen === 'eggs' && (itemName.includes('egg') || itemDesc.includes('egg'))) return { safe: false };
+
+    // Comprehensive keyword dictionary check in item metadata
+    const keywords = ALLERGEN_KEYWORDS[allergenKey] || ALLERGEN_KEYWORDS[normalizeAllergen(allergenKey)] || [allergenKey];
+    for (const kw of keywords) {
+      // Use regex boundary or substring match to avoid false triggers
+      if (combinedSearchText.includes(kw)) {
+        return { safe: false, reason: `Matches allergen keyword: ${kw}` };
+      }
+    }
   }
 
   // 2. Check mapped recipe ingredients
@@ -73,9 +94,12 @@ const isItemSafeFromAllergens = (item, recipeMap, ingredientMap, targetAllergens
       const ingDoc = ingredientMap.get(rIng.ingredient.toString());
       if (ingDoc) {
         const ingName = (ingDoc.ingredientName || '').toLowerCase();
-        for (const allergen of normTarget) {
-          if (ingName.includes(allergen)) {
-            return { safe: false, reason: `Contains ingredient: ${ingDoc.ingredientName}` };
+        for (const allergenKey of normTarget) {
+          const keywords = ALLERGEN_KEYWORDS[allergenKey] || [allergenKey];
+          for (const kw of keywords) {
+            if (ingName.includes(kw)) {
+              return { safe: false, reason: `Contains ingredient: ${ingDoc.ingredientName}` };
+            }
           }
         }
       }
@@ -94,6 +118,7 @@ const isItemSafeFromAllergens = (item, recipeMap, ingredientMap, targetAllergens
 const generateRecommendations = async ({
   restaurantId,
   customerId = null,
+  customerPhone = null,
   mood = null,
   allergens = [],
   dietaryPreferences = [],
@@ -121,24 +146,36 @@ const generateRecommendations = async ({
   const ingredients = await Ingredient.find({ _id: { $in: allIngredientIds } }).lean();
   const ingredientMap = new Map(ingredients.map((i) => [i._id.toString(), i]));
 
-  // 3. Load customer order history if customerId is provided
+  // 3. Load customer order history if customerPhone or customerId is provided
   let orderedItemNames = new Set();
-  let favoriteCategoryIds = new Set();
-  if (customerId) {
-    const previousOrders = await Order.find({
-      restaurant: restaurantId,
-      customer: customerId,
-      orderStatus: { $ne: 'Cancelled' },
-    })
-      .sort({ createdAt: -1 })
-      .limit(10)
-      .lean();
+  let topFavoriteItemNames = new Set();
 
-    previousOrders.forEach((ord) => {
-      (ord.items || []).forEach((it) => {
-        orderedItemNames.add(it.itemName);
-      });
-    });
+  if (customerPhone || customerId) {
+    const customerExperienceService = require('../customerExperience/customerExperience.service');
+    const Customer = require('../customer/customer.model');
+    let phoneToQuery = customerPhone;
+
+    if (!phoneToQuery && customerId) {
+      const cust = await Customer.findById(customerId).lean();
+      if (cust) phoneToQuery = cust.phoneNumber;
+    }
+
+    if (phoneToQuery) {
+      const history = await customerExperienceService.getGuestOrderHistory(restaurantId, phoneToQuery);
+      if (history.hasHistory) {
+        (history.topFavoriteItems || []).forEach((t) => {
+          topFavoriteItemNames.add(t.itemName);
+          orderedItemNames.add(t.itemName);
+        });
+        (history.recentOrders || []).forEach((r) => {
+          const parts = (r.itemsSummary || '').split(', ');
+          parts.forEach((p) => {
+            const cleanName = p.replace(/^\d+x\s*/, '').trim();
+            if (cleanName) orderedItemNames.add(cleanName);
+          });
+        });
+      }
+    }
   }
 
   // Extract meaningful search tokens from searchQuery (stripping stop words)
@@ -223,14 +260,16 @@ const generateRecommendations = async ({
       }
     }
 
-    // Novelty boost
-    if (orderedItemNames.size > 0) {
-      if (!orderedItemNames.has(item.name)) {
-        score += 1.2;
-        reasons.push('Something new to discover');
-      } else {
-        reasons.push('Based on your order history');
-      }
+    // Order history & personal affinity boost
+    if (topFavoriteItemNames.size > 0 && topFavoriteItemNames.has(item.name)) {
+      score += 2.5;
+      reasons.push('Reorder your top favorite');
+    } else if (orderedItemNames.size > 0 && orderedItemNames.has(item.name)) {
+      score += 1.5;
+      reasons.push('Based on your past orders');
+    } else if (orderedItemNames.size > 0 && !orderedItemNames.has(item.name)) {
+      score += 1.0;
+      reasons.push('New dish discovery');
     }
 
     // Price efficiency boost if budget specified

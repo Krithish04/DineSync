@@ -12,7 +12,12 @@ const errorMiddleware = require('./middlewares/error.middleware');
 
 const { corsOptions } = require('./config/cors.config');
 
+const nosqlSanitizeMiddleware = require('./middlewares/nosqlSanitize.middleware');
+
 const app = express();
+
+// Trust proxy setup for reverse proxies (Nginx / Cloud Load Balancers / Tunnels)
+app.set('trust proxy', env.TRUST_PROXY);
 
 // Security headers
 app.use(helmet());
@@ -24,6 +29,9 @@ app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
+
+// NoSQL Operator Injection Sanitization
+app.use(nosqlSanitizeMiddleware);
 
 // Logging
 if (env.isDevelopment) {

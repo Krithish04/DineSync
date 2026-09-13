@@ -4,19 +4,32 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
 const STATUS_OPTIONS = [
-  { value: 'Available', label: 'Available', color: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400' },
-  { value: 'Occupied', label: 'Occupied', color: 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/30 dark:text-orange-400' },
-  { value: 'Reserved', label: 'Reserved', color: 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/30 dark:text-sky-400' },
-  { value: 'Cleaning', label: 'Cleaning', color: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400' },
-  { value: 'Maintenance', label: 'Maintenance', color: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-400' },
+  { value: 'Available', label: 'Available (Empty)', color: 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/30 dark:text-emerald-400' },
+  { value: 'Occupied', label: 'Occupied', color: 'bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/30 dark:text-amber-400' },
+  { value: 'Needs Attention', label: 'Needs Attention 🛎️', color: 'bg-rose-50 text-rose-800 border-rose-300 dark:bg-rose-950/30 dark:text-rose-400' },
+  { value: 'Bill Requested', label: 'Bill Requested 💳', color: 'bg-purple-50 text-purple-800 border-purple-300 dark:bg-purple-950/30 dark:text-purple-400' },
+  { value: 'Reserved', label: 'Reserved', color: 'bg-sky-50 text-sky-700 border-sky-300 dark:bg-sky-950/30 dark:text-sky-400' },
+  { value: 'Cleaning', label: 'Cleaning', color: 'bg-yellow-50 text-yellow-700 border-yellow-300 dark:bg-yellow-950/30 dark:text-yellow-400' },
+  { value: 'Maintenance', label: 'Maintenance', color: 'bg-rose-50 text-rose-700 border-rose-300 dark:bg-rose-950/30 dark:text-rose-400' },
   { value: 'Inactive', label: 'Inactive', color: 'bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-400' },
 ];
 
+const BORDER_STATUS_COLORS = {
+  Available: 'border-l-emerald-500',
+  Occupied: 'border-l-amber-500 bg-amber-500/5',
+  'Needs Attention': 'border-l-rose-500 bg-rose-500/10 ring-2 ring-rose-500/30 animate-pulse',
+  'Bill Requested': 'border-l-purple-500 bg-purple-500/10 ring-2 ring-purple-500/30',
+  Reserved: 'border-l-sky-500',
+  Cleaning: 'border-l-yellow-500',
+  Maintenance: 'border-l-rose-500',
+  Inactive: 'border-l-slate-400 opacity-80 bg-muted/20',
+};
+
 const TYPE_COLORS = {
-  Indoor: 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200',
-  Outdoor: 'bg-lime-100 text-lime-800 dark:bg-lime-900/30 dark:text-lime-400',
-  VIP: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
-  Private: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400',
+  Indoor: 'bg-slate-100 text-slate-700 border border-slate-200/80 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700',
+  Outdoor: 'bg-emerald-50 text-emerald-700 border border-emerald-200/60 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/40',
+  VIP: 'bg-amber-50 text-amber-800 border border-amber-200/60 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/40',
+  Private: 'bg-purple-50 text-purple-700 border border-purple-200/60 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800/40',
 };
 
 export default function TableCard({
@@ -33,6 +46,15 @@ export default function TableCard({
   const isInactive = !table.isActive || table.status === 'Inactive';
   const effectiveStatus = isInactive ? 'Inactive' : table.status;
   const currentStatusObj = STATUS_OPTIONS.find((opt) => opt.value === effectiveStatus) || STATUS_OPTIONS[0];
+
+  const handleCardClick = (e) => {
+    if (e.target.closest('button') || e.target.closest('select') || e.target.closest('a')) {
+      return;
+    }
+    if (onViewOrder) {
+      onViewOrder(table);
+    }
+  };
 
   const handleStatusUpdate = async (e) => {
     const newStatus = e.target.value;
@@ -64,34 +86,34 @@ export default function TableCard({
   };
 
   const hasMiddleContent = Boolean(table.notes || (table.status === 'Occupied' && table.currentHostName));
+  const cleanTableName = table.tableName ? table.tableName.replace(/^\s*\(\s*|\s*\)\s*$/g, '').trim() : '';
 
   return (
-    <Card className={`relative overflow-hidden transition-all duration-200 border-l-4 hover:shadow-md ${
-      isInactive ? 'border-l-slate-400 opacity-90 bg-muted/20' :
-      table.status === 'Available' ? 'border-l-emerald-500' :
-      table.status === 'Occupied' ? 'border-l-orange-500' :
-      table.status === 'Reserved' ? 'border-l-sky-500' :
-      table.status === 'Cleaning' ? 'border-l-amber-500' : 'border-l-rose-500'
-    }`}>
+    <Card
+      onClick={handleCardClick}
+      className={`relative overflow-hidden transition-all duration-200 border-l-4 hover:shadow-md cursor-pointer touch-manipulation min-h-[160px] ${
+        BORDER_STATUS_COLORS[effectiveStatus] || 'border-l-emerald-500'
+      }`}
+    >
       <CardContent className="p-4 space-y-3.5">
         {/* Header - Title, Type Badges & Top Action Icons */}
         <div className="flex items-start justify-between gap-2">
           <div>
-            <h4 className="font-display text-lg font-bold text-foreground flex items-baseline gap-1.5">
-              Table {table.tableNumber}
-              {table.tableName && (
-                <span className="text-xs font-normal text-muted-foreground italic truncate max-w-[120px]">
-                  ({table.tableName})
+            <h4 className="font-display text-lg font-bold text-foreground flex items-center gap-1.5 flex-wrap">
+              <span>Table {table.tableNumber}</span>
+              {cleanTableName && (
+                <span className="text-xs font-normal text-muted-foreground/80 italic truncate max-w-[140px]" title={cleanTableName}>
+                  ({cleanTableName})
                 </span>
               )}
             </h4>
-            <div className="flex flex-wrap items-center gap-1.5 mt-1">
-              <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wide uppercase ${
-                TYPE_COLORS[table.type] || 'bg-muted'
+            <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+              <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase ${
+                TYPE_COLORS[table.type] || 'bg-muted text-muted-foreground'
               }`}>
                 {table.type}
               </span>
-              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground bg-muted/40 rounded-full px-2 py-0.5">
+              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground bg-muted/50 rounded-md px-2 py-0.5 border border-border/40">
                 <Users className="h-3 w-3" />
                 {table.mergedTables && table.mergedTables.length > 0
                   ? `${table.capacity + table.mergedTables.reduce((sum, st) => sum + (st.capacity || 0), 0)} Seats (Group)`
@@ -100,14 +122,14 @@ export default function TableCard({
 
               {/* Secondary Merged Table Badge */}
               {table.mergedInto && (
-                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-purple-600 bg-purple-500/10 border border-purple-500/20 rounded-full px-2 py-0.5">
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-purple-600 bg-purple-500/10 border border-purple-500/20 rounded-md px-2 py-0.5">
                   Merged → Table #{table.mergedInto.tableNumber || 'Primary'}
                 </span>
               )}
 
               {/* Primary Seating Group Badge */}
               {table.mergedTables && table.mergedTables.length > 0 && (
-                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-purple-600 bg-purple-500/10 border border-purple-500/20 rounded-full px-2 py-0.5">
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-purple-600 bg-purple-500/10 border border-purple-500/20 rounded-md px-2 py-0.5">
                   {table.mergedTables.length + 1} Tables Merged
                 </span>
               )}
@@ -115,11 +137,11 @@ export default function TableCard({
           </div>
 
           {/* Top-Right Action Toolbar */}
-          <div className="flex items-center gap-1 shrink-0 bg-muted/30 p-1 rounded-xl border border-border/40">
+          <div className="flex items-center gap-0.5 shrink-0 bg-muted/40 p-1 rounded-xl border border-border/40">
             <Button
               variant="ghost"
               size="icon"
-              className="h-9 w-9 min-w-[36px] text-muted-foreground hover:text-primary rounded-lg touch-manipulation"
+              className="h-8 w-8 min-w-[32px] text-muted-foreground hover:text-primary rounded-lg touch-manipulation"
               onClick={() => onQrClick(table)}
               title="View QR Code"
             >
@@ -130,7 +152,7 @@ export default function TableCard({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-9 w-9 min-w-[36px] text-muted-foreground hover:text-foreground rounded-lg touch-manipulation"
+                  className="h-8 w-8 min-w-[32px] text-muted-foreground hover:text-foreground rounded-lg touch-manipulation"
                   onClick={() => onEdit(table)}
                   title="Edit Table"
                 >
@@ -139,7 +161,7 @@ export default function TableCard({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-9 w-9 min-w-[36px] text-muted-foreground hover:text-destructive rounded-lg touch-manipulation"
+                  className="h-8 w-8 min-w-[32px] text-muted-foreground hover:text-destructive rounded-lg touch-manipulation"
                   onClick={() => onDelete(table)}
                   title="Delete Table"
                 >

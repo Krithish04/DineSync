@@ -67,7 +67,7 @@ const callGeminiApi = async (prompt, systemInstruction = '') => {
 /**
  * Enhances Chatbot Waiter Response using Gemini LLM reasoning
  */
-const enhanceChatbotResponse = async ({ userMessage, candidateCards = [], allergyNotice, tone = 'friendly' }) => {
+const enhanceChatbotResponse = async ({ userMessage, candidateCards = [], allergyNotice, guestHistorySummary = null, tone = 'friendly' }) => {
   if (!env.GEMINI_API_KEY) return null;
 
   const cardSummaries = candidateCards.length > 0
@@ -76,12 +76,12 @@ const enhanceChatbotResponse = async ({ userMessage, candidateCards = [], allerg
 
   const systemInstruction = `You are DineSync AI Assistant, a friendly, charming, and knowledgeable restaurant food consultant & waiter. Tone: ${tone}.
 Directly answer the customer's query in 2-3 warm, helpful sentences.
-If they ask a greeting like "how are you?", respond naturally.
-If they ask about ingredients or differences between dishes (e.g., Caesar salad vs Garden salad), explain clearly.
+If the customer is a returning guest with past order history, naturally acknowledge them (e.g. "Welcome back!") and reference their past favorites when relevant, without repeating it mechanically every message.
+If they ask about ingredients or differences between dishes, explain clearly.
 Reference menu items from the database context when relevant. Do not include robotic headers or preambles.`;
 
   const prompt = `Customer Query: "${userMessage}"
-Available Restaurant Menu Context:
+${guestHistorySummary ? `Guest History Context: ${guestHistorySummary}\n` : ''}Available Restaurant Menu Context:
 ${cardSummaries}
 Allergy Notice: ${allergyNotice || 'None'}
 

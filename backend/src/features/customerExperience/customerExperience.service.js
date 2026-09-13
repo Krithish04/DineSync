@@ -6,9 +6,11 @@ const Table = require('../table/table.model');
 const TableSession = require('../table/tableSession.model');
 const TableSessionAudit = require('../table/tableSessionAudit.model');
 const Customer = require('../customer/customer.model');
+const Reservation = require('../reservation/reservation.model');
 const Feedback = require('../customer/feedback.model');
 const ApiError = require('../../utils/ApiError');
 const socketConfig = require('../../config/socket.config');
+const redisConfig = require('../../config/redis.config');
 const aiService = require('../ai/ai.service');
 
 // ==========================================
@@ -103,7 +105,7 @@ const getPublicMenu = async (restaurantId, { categoryId, dietary, search, isPopu
 // ==========================================
 // 3. GET ACTIVE TABLE SESSION DETAILS (PUBLIC SUMMARY)
 // ==========================================
-const getActiveTableSession = async (restaurantId, tableId, callerHostToken = null) => {
+const getActiveTableSession = async (restaurantId, tableId, callerHostToken = null, callerPhone = null) => {
   if (!tableId) return { session: null, orders: [], orderSummary: [] };
 
   const tableObj = await Table.findById(tableId);
@@ -139,7 +141,9 @@ const getActiveTableSession = async (restaurantId, tableId, callerHostToken = nu
     })),
   }));
 
-  const isHost = Boolean(callerHostToken && session.hostToken === callerHostToken);
+  const cleanPhone = callerPhone ? callerPhone.trim() : null;
+  const isHost = Boolean((callerHostToken && session.hostToken === callerHostToken) || (cleanPhone && session.hostPhone === cleanPhone));
+  const isCoOrderer = Boolean(cleanPhone && (session.coOrderers || []).some((c) => c.phone === cleanPhone));
 
   return {
     session: {
@@ -148,20 +152,22 @@ const getActiveTableSession = async (restaurantId, tableId, callerHostToken = nu
       hostName: session.hostName, // Name ONLY - no phone number or hostToken!
       startedAt: session.startedAt,
       status: session.status,
+      coOrderers: (session.coOrderers || []).map((c) => ({ name: c.name, approvedAt: c.approvedAt })),
     },
-    // Only expose full order billing objects if caller is the verified table host
-    orders: isHost ? orders : [],
+    // Only expose full order billing objects if caller is verified host or approved co-orderer
+    orders: (isHost || isCoOrderer) ? orders : [],
     orderSummary,
     hostName: session.hostName,
     startedAt: session.startedAt,
     orderCount: orders.length,
     totalAmount,
     isHost,
+    isCoOrderer,
   };
 };
 
 // ==========================================
-// 4. PUBLIC ORDER PLACEMENT (STRICT HOST AUTHORIZATION)
+// 4. PUBLIC ORDER PLACEMENT (STRICT HOST OR CO-ORDERER AUTHORIZATION)
 // ==========================================
 const placeCustomerOrder = async (restaurantId, payload, authenticatedUserId = null) => {
   const { tableId, sessionId: providedSessionId, hostToken: providedHostToken, items, customerName, customerPhone, notes, orderType } = payload;
@@ -188,10 +194,15 @@ const placeCustomerOrder = async (restaurantId, payload, authenticatedUserId = n
       throw ApiError.forbidden('No active table session found. Please scan QR code and start a table session.');
     }
 
-    // STRICT HOST TOKEN AUTHORIZATION CHECK
-    if (!providedHostToken || providedHostToken !== activeSession.hostToken) {
+    // HOST OR APPROVED CO-ORDERER AUTHORIZATION CHECK
+    const cleanPhone = customerPhone ? customerPhone.trim() : '';
+    const isHostTokenValid = Boolean(providedHostToken && providedHostToken === activeSession.hostToken);
+    const isHostPhoneValid = Boolean(cleanPhone && activeSession.hostPhone === cleanPhone);
+    const isCoOrdererApproved = Boolean(cleanPhone && (activeSession.coOrderers || []).some((c) => c.phone === cleanPhone));
+
+    if (!isHostTokenValid && !isHostPhoneValid && !isCoOrdererApproved) {
       throw ApiError.forbidden(
-        `This table is currently ordering under ${activeSession.hostName || 'another diner'}. You can view the menu, but only the table host can place orders.`
+        `This table is currently ordering under ${activeSession.hostName || 'another diner'}. You can view the menu, but only the table host or approved co-orderers can place orders.`
       );
     }
   }
@@ -256,6 +267,7 @@ const placeCustomerOrder = async (restaurantId, payload, authenticatedUserId = n
     table: tableId || null,
     session: activeSession ? activeSession._id : null,
     customer: customerDoc ? customerDoc._id : null,
+    customerPhone: customerPhone || customerDoc?.phoneNumber || activeSession?.hostPhone || '',
     orderType: orderType || (tableId ? 'Dine-In' : 'Takeaway'),
     orderStatus: 'Accepted',
     paymentStatus: 'Pending',
@@ -367,42 +379,86 @@ const claimTableHost = async (restaurantId, payload, authenticatedUser = null) =
     throw ApiError.badRequest('Host customer identity could not be verified.');
   }
 
-  const generatedHostToken = crypto.randomBytes(24).toString('hex');
+  // ATOMIC REDIS LOCK: Prevent near-simultaneous QR scans from both becoming Host
+  const lockKey = effectiveTableId.toString();
+  const lockOwner = hostPhone || (authenticatedUser ? String(authenticatedUser.id || authenticatedUser._id) : 'guest_claim');
+  const lockAcquired = await redisConfig.acquireTableLock(lockKey, lockOwner, 900);
 
-  activeSession = await TableSession.create({
-    restaurant: restaurantId,
-    table: table._id,
-    customer: customerDoc._id,
-    hostName: hostName || customerDoc.fullName || 'Diner',
-    hostPhone: hostPhone || customerDoc.phoneNumber || '',
-    hostToken: generatedHostToken,
-    status: 'active',
-    startedAt: new Date(),
-  });
+  if (!lockAcquired) {
+    throw ApiError.conflict(
+      `Table #${table.tableNumber} is currently occupied or processing another scan. You can view the menu in View-Only mode.`
+    );
+  }
 
-  table.status = 'Occupied';
-  table.currentHostName = activeSession.hostName;
-  table.currentHostPhone = activeSession.hostPhone;
-  await table.save();
+  try {
+    const generatedHostToken = crypto.randomBytes(24).toString('hex');
 
-  socketConfig.broadcastEvent(restaurantId, 'table:session-started', {
-    sessionId: activeSession._id,
-    tableId: table._id,
-    tableNumber: table.tableNumber,
-    hostName: activeSession.hostName,
-    hostPhone: activeSession.hostPhone,
-    startedAt: activeSession.startedAt,
-  });
+    activeSession = await TableSession.create({
+      restaurant: restaurantId,
+      table: table._id,
+      customer: customerDoc._id,
+      hostName: hostName || customerDoc.fullName || 'Diner',
+      hostPhone: hostPhone || customerDoc.phoneNumber || '',
+      hostToken: generatedHostToken,
+      status: 'active',
+      startedAt: new Date(),
+    });
 
-  socketConfig.broadcastEvent(restaurantId, 'table:updated', {
-    tableId: table._id,
-    tableNumber: table.tableNumber,
-    status: 'Occupied',
-    hostName: activeSession.hostName,
-    hostPhone: activeSession.hostPhone,
-  });
+    table.status = 'Occupied';
+    table.currentHostName = activeSession.hostName;
+    table.currentHostPhone = activeSession.hostPhone;
+    await table.save();
 
-  return { session: activeSession, table, hostToken: generatedHostToken };
+    // Auto-link advance date/time reservation if host's phone matches an active booking for today
+    const rawPhone = hostPhone || customerDoc?.phoneNumber;
+    if (rawPhone) {
+      const cleanPhone = String(rawPhone).replace(/\D/g, '').slice(-10);
+      if (cleanPhone) {
+        const todayStr = new Date().toISOString().slice(0, 10);
+        const activeReservations = await Reservation.find({
+          restaurant: restaurantId,
+          table: table._id,
+          reservationDate: todayStr,
+          reservationStatus: { $in: ['Pending', 'Confirmed'] },
+          isDeleted: false,
+        });
+
+        const matchingReservation = activeReservations.find((r) => {
+          const rPhone = String(r.customerPhone || '').replace(/\D/g, '').slice(-10);
+          return rPhone === cleanPhone;
+        });
+
+        if (matchingReservation) {
+          matchingReservation.reservationStatus = 'Seated';
+          await matchingReservation.save();
+          socketConfig.broadcastEvent(restaurantId.toString(), 'reservation:updated', matchingReservation);
+        }
+      }
+    }
+
+    socketConfig.broadcastEvent(restaurantId, 'table:session-started', {
+      sessionId: activeSession._id,
+      tableId: table._id,
+      tableNumber: table.tableNumber,
+      hostName: activeSession.hostName,
+      hostPhone: activeSession.hostPhone,
+      startedAt: activeSession.startedAt,
+    });
+
+    socketConfig.broadcastEvent(restaurantId, 'table:updated', {
+      tableId: table._id,
+      tableNumber: table.tableNumber,
+      status: 'Occupied',
+      hostName: activeSession.hostName,
+      hostPhone: activeSession.hostPhone,
+    });
+
+    return { session: activeSession, table, hostToken: generatedHostToken };
+  } catch (err) {
+    // Release atomic lock if session creation fails
+    await redisConfig.releaseTableLock(lockKey);
+    throw err;
+  }
 };
 
 const settleTableSession = async (restaurantId, sessionId, payload = {}) => {
@@ -471,6 +527,7 @@ const settleTableSession = async (restaurantId, sessionId, payload = {}) => {
   await session.save();
 
   if (session.table) {
+    await redisConfig.releaseTableLock(session.table.toString());
     const table = await Table.findById(session.table);
     if (table) {
       table.status = 'Available';
@@ -593,6 +650,7 @@ const releaseTableSession = async (restaurantId, payload = {}) => {
   }
 
   if (table) {
+    await redisConfig.releaseTableLock(table._id.toString());
     table.status = 'Available';
     table.currentHostName = '';
     table.currentHostPhone = '';
@@ -720,6 +778,178 @@ const respondTableAccess = async (restaurantId, tableId, payload) => {
   });
 
   return { requestId, tableId, approved: isApproved, status: isApproved ? 'approved' : 'denied' };
+};
+
+const requestHostTransfer = async (restaurantId, tableId, payload) => {
+  const { requesterPhone, requesterName, latitude, longitude } = payload;
+  if (!requesterPhone) {
+    throw ApiError.badRequest('Requester phone number is required.');
+  }
+
+  const cleanPhone = requesterPhone.trim();
+  const session = await TableSession.findOne({ table: tableId, status: 'active' });
+  if (!session) {
+    throw ApiError.notFound('Active table session not found.');
+  }
+
+  const table = await Table.findById(tableId).select('tableNumber').lean();
+  const Restaurant = require('../restaurant/restaurant.model');
+  const restaurant = await Restaurant.findById(restaurantId).select('location name').lean();
+
+  // Geolocation Security Guard check
+  const locationUtil = require('../../utils/location.util');
+  if (latitude && longitude && restaurant?.location?.coordinates) {
+    const [restLon, restLat] = restaurant.location.coordinates;
+    const isInside = locationUtil.isWithinGeofence(latitude, longitude, restLat, restLon, 100);
+    if (!isInside) {
+      throw ApiError.forbidden('Host transfer unavailable: You must be physically inside the restaurant boundaries.');
+    }
+  }
+
+  const maskedPhone = cleanPhone.length > 4 ? `+91 ***** ${cleanPhone.slice(-4)}` : cleanPhone;
+  const requestId = `transfer-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+
+  try {
+    const TableSessionAudit = require('../table/tableSessionAudit.model');
+    await TableSessionAudit.create({
+      restaurant: restaurantId,
+      table: tableId,
+      session: session._id,
+      action: TableSessionAudit.AUDIT_ACTIONS.ACCESS_REQUESTED,
+      actorPhone: cleanPhone,
+      actorName: requesterName || 'Diner',
+      targetHostPhone: session.hostPhone,
+      reason: `Guest ${maskedPhone} requested Host Transfer on Table #${table?.tableNumber || ''}.`,
+    });
+  } catch (auditErr) {
+    // eslint-disable-next-line no-console
+    console.error('[TableAudit] Failed to log host transfer request audit event:', auditErr);
+  }
+
+  // Broadcast real-time host transfer request to BOTH Host room AND Manager room
+  socketConfig.broadcastEvent(restaurantId, 'host_transfer:requested', {
+    requestId,
+    tableId,
+    tableNumber: table?.tableNumber || '',
+    currentHostName: session.hostName,
+    currentHostPhone: session.hostPhone,
+    requesterName: requesterName || 'Diner',
+    requesterPhone: cleanPhone,
+    maskedPhone,
+    timestamp: new Date().toISOString(),
+  });
+
+  return { requestId, tableId, maskedPhone, status: 'pending' };
+};
+
+const respondHostTransfer = async (restaurantId, tableId, payload) => {
+  const { requestId, requesterPhone, requesterName, decision, responderRole, responderName, responderPhone } = payload;
+  if (!requesterPhone || !decision) {
+    throw ApiError.badRequest('Requester phone number and decision are required.');
+  }
+
+  const session = await TableSession.findOne({ table: tableId, status: 'active' });
+  if (!session) {
+    throw ApiError.notFound('Active table session not found.');
+  }
+
+  const cleanPhone = requesterPhone.trim();
+  const isApproved = decision === 'approve';
+
+  if (!isApproved) {
+    socketConfig.broadcastEvent(restaurantId, 'host_transfer:responded', {
+      requestId,
+      tableId,
+      requesterPhone: cleanPhone,
+      approved: false,
+      status: 'denied',
+      responderRole: responderRole || 'Host',
+    });
+    return { requestId, tableId, approved: false, status: 'denied' };
+  }
+
+  // Store previous host info
+  const previousHostPhone = session.hostPhone;
+  const previousHostName = session.hostName;
+
+  // Find or create customer record for new host
+  let customer = await Customer.findOne({ restaurant: restaurantId, phoneNumber: cleanPhone, isDeleted: false });
+  if (!customer) {
+    customer = await Customer.create({
+      restaurant: restaurantId,
+      name: requesterName || 'Host Diner',
+      phoneNumber: cleanPhone,
+      isPhoneVerified: true,
+      authProvider: 'phone',
+    });
+  }
+
+  // Preserve previous host as co-orderer so they retain order/view access if they remain at the table
+  const existingCoIndex = session.coOrderers.findIndex((c) => c.phone === previousHostPhone);
+  if (existingCoIndex === -1) {
+    session.coOrderers.push({
+      name: previousHostName,
+      phone: previousHostPhone,
+      approvedAt: new Date(),
+    });
+  }
+
+  // Promote 3rd person to Host
+  session.customer = customer._id;
+  session.hostName = requesterName || customer.name || 'Host Diner';
+  session.hostPhone = cleanPhone;
+  session.hostToken = require('crypto').randomBytes(16).toString('hex');
+  session.lastActivityAt = new Date();
+  await session.save();
+
+  try {
+    const TableSessionAudit = require('../table/tableSessionAudit.model');
+    await TableSessionAudit.create({
+      restaurant: restaurantId,
+      table: tableId,
+      session: session._id,
+      action: TableSessionAudit.AUDIT_ACTIONS.HOST_HANDOFF_APPROVED,
+      actorPhone: responderPhone || session.hostPhone,
+      actorName: responderName || responderRole || 'Host/Manager',
+      targetHostPhone: cleanPhone,
+      reason: `Host Transfer approved by ${responderRole || 'Host'}. New Host: ${cleanPhone.slice(-4)}. Previous host ${previousHostPhone.slice(-4)} signed out.`,
+    });
+  } catch (auditErr) {
+    // eslint-disable-next-line no-console
+    console.error('[TableAudit] Failed to log host transfer audit event:', auditErr);
+  }
+
+  // Emit Socket.IO demotion event to previous host forcing sign-out
+  socketConfig.broadcastEvent(restaurantId, 'host:demoted', {
+    tableId,
+    previousHostPhone,
+    newHostName: session.hostName,
+    newHostPhone: cleanPhone,
+    message: `Host role transferred to ${session.hostName}. You have been signed out as Host.`,
+  });
+
+  // Broadcast new host session to table & manager rooms
+  socketConfig.broadcastEvent(restaurantId, 'host_transfer:responded', {
+    requestId,
+    tableId,
+    requesterPhone: cleanPhone,
+    approved: true,
+    status: 'approved',
+    newHostName: session.hostName,
+    newHostPhone: cleanPhone,
+    hostToken: session.hostToken,
+    responderRole: responderRole || 'Host',
+  });
+
+  return {
+    requestId,
+    tableId,
+    approved: true,
+    status: 'approved',
+    hostName: session.hostName,
+    hostPhone: session.hostPhone,
+    hostToken: session.hostToken,
+  };
 };
 
 const releaseTableHost = async (restaurantId, payload) => {
@@ -1182,6 +1412,141 @@ const calculateTableTurnoverEstimate = async (restaurantId, tableId) => {
   return { estimatedMinutesRemaining: estimatedMins, activeOrdersCount: activeOrders.length, status: 'Occupied' };
 };
 
+// ==========================================
+// GUEST ORDER HISTORY & PRIVACY OPT-OUT
+// ==========================================
+const getGuestOrderHistory = async (restaurantId, phone) => {
+  const defaultHistory = {
+    hasHistory: false,
+    visitCount: 0,
+    topFavoriteItems: [],
+    recentOrders: [],
+    averageSpend: 0,
+    budgetTier: 'mid_range',
+    pastDietaryPreferences: [],
+  };
+
+  if (!phone || typeof phone !== 'string') {
+    return defaultHistory;
+  }
+
+  const cleanPhone = phone.replace(/\D/g, '').slice(-10);
+  if (!cleanPhone || cleanPhone.length < 10) {
+    return defaultHistory;
+  }
+
+  // Query Customer document if exists
+  const customerDoc = await Customer.findOne({
+    restaurant: restaurantId,
+    phoneNumber: { $regex: cleanPhone },
+    isDeleted: false,
+  }).lean();
+
+  // Find non-cancelled orders by customerPhone OR customer._id
+  const orderQuery = {
+    restaurant: restaurantId,
+    orderStatus: { $ne: 'Cancelled' },
+    isDeleted: false,
+    $or: [
+      { customerPhone: { $regex: cleanPhone } },
+      ...(customerDoc ? [{ customer: customerDoc._id }] : []),
+    ],
+  };
+
+  const orders = await Order.find(orderQuery)
+    .sort({ createdAt: -1 })
+    .lean();
+
+  if (!orders || orders.length === 0) {
+    return defaultHistory;
+  }
+
+  const visitCount = orders.length;
+  let totalSpent = 0;
+  const itemMap = new Map();
+  const pastDietary = new Set(customerDoc?.dietaryPreference ? [customerDoc.dietaryPreference] : []);
+
+  for (const ord of orders) {
+    totalSpent += ord.grandTotal || 0;
+    for (const item of ord.items || []) {
+      const key = item.itemName;
+      const existing = itemMap.get(key) || {
+        menuItemId: item.menuItem,
+        itemName: item.itemName,
+        quantity: 0,
+        unitPrice: item.unitPrice,
+      };
+      existing.quantity += item.quantity;
+      itemMap.set(key, existing);
+
+      // Check item notes/instructions for dietary preferences or allergies mentioned
+      const instructions = (item.specialInstructions || '').toLowerCase();
+      if (instructions.includes('vegan')) pastDietary.add('vegan');
+      if (instructions.includes('no dairy') || instructions.includes('dairy free')) pastDietary.add('dairy_free');
+      if (instructions.includes('jain')) pastDietary.add('jain');
+      if (instructions.includes('veg') && !instructions.includes('non-veg')) pastDietary.add('veg');
+    }
+  }
+
+  const averageSpend = Math.round((totalSpent / visitCount) * 100) / 100;
+  let budgetTier = 'mid_range';
+  if (averageSpend < 300) budgetTier = 'budget_friendly';
+  else if (averageSpend > 600) budgetTier = 'premium';
+
+  // Sort top items by order quantity descending
+  const topFavoriteItems = Array.from(itemMap.values())
+    .sort((a, b) => b.quantity - a.quantity)
+    .slice(0, 3);
+
+  // Format recent 3 orders
+  const recentOrders = orders.slice(0, 3).map((o) => ({
+    orderNumber: o.orderNumber,
+    createdAt: o.createdAt,
+    grandTotal: o.grandTotal,
+    itemCount: (o.items || []).length,
+    itemsSummary: (o.items || []).map((i) => `${i.quantity}x ${i.itemName}`).join(', '),
+  }));
+
+  return {
+    hasHistory: true,
+    visitCount,
+    topFavoriteItems,
+    recentOrders,
+    averageSpend,
+    budgetTier,
+    pastDietaryPreferences: Array.from(pastDietary),
+  };
+};
+
+const forgetGuestHistory = async (restaurantId, phone) => {
+  if (!phone || typeof phone !== 'string') {
+    return { success: false, message: 'Phone number is required.' };
+  }
+
+  const cleanPhone = phone.replace(/\D/g, '').slice(-10);
+  if (!cleanPhone || cleanPhone.length < 10) {
+    return { success: false, message: 'Valid phone number is required.' };
+  }
+
+  // Clear customer notes/preferences and clear customerPhone from order records for AI privacy
+  const customerDoc = await Customer.findOne({ restaurant: restaurantId, phoneNumber: { $regex: cleanPhone } });
+  if (customerDoc) {
+    customerDoc.favoriteItems = [];
+    customerDoc.notes = 'Personalization history cleared by diner request';
+    await customerDoc.save();
+  }
+
+  await Order.updateMany(
+    { restaurant: restaurantId, customerPhone: { $regex: cleanPhone } },
+    { $set: { customerPhone: '' } }
+  );
+
+  return {
+    success: true,
+    message: 'Your order history and AI personalization data have been cleared from this restaurant.',
+  };
+};
+
 module.exports = {
   resolveQrCode,
   getPublicMenu,
@@ -1204,4 +1569,8 @@ module.exports = {
   calculateTableTurnoverEstimate,
   requestTableAccess,
   respondTableAccess,
+  requestHostTransfer,
+  respondHostTransfer,
+  getGuestOrderHistory,
+  forgetGuestHistory,
 };

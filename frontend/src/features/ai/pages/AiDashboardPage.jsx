@@ -7,6 +7,7 @@ import ForecastCard from '../components/ForecastCard';
 import AiInsightCard from '../components/AiInsightCard';
 import ConfidenceIndicator from '../components/ConfidenceIndicator';
 import ModelSourceBadge from '../components/ModelSourceBadge';
+import AiAgentStatusGrid from '../components/AiAgentStatusGrid';
 import * as aiApi from '../api/ai.api';
 
 export default function AiDashboardPage() {
@@ -116,6 +117,9 @@ export default function AiDashboardPage() {
               </div>
               <ConfidenceIndicator confidence={overview.salesForecastTomorrow?.confidence_score || 0.88} label="Prediction Accuracy" />
             </div>
+
+            {/* Real-Time AI Agent Operations & Accuracy Grid */}
+            <AiAgentStatusGrid restaurantId={restaurantId} />
           </>
         )}
       </div>

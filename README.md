@@ -175,6 +175,29 @@ npm run seed
 
 ---
 
+## ⚡ Redis Infrastructure Setup & Graceful Degradation
+
+Redis is used for short-lived, high-frequency state management (atomic table-locking, OTP storage & rate-limiting, and Socket.IO multi-node broadcasting). **Redis does NOT store durable business data** (MongoDB remains the system of record).
+
+### Required Environment Variables
+
+| Variable | Local | Staging | Production | Default |
+| :--- | :--- | :--- | :--- | :--- |
+| `REDIS_URI` / `REDIS_URL` | `redis://127.0.0.1:6379` | `rediss://:pass@staging-redis-host:6379` | `rediss://:pass@prod-redis-host:6379` | `redis://127.0.0.1:6379` |
+| `OTP_MAX_SEND_PER_HOUR` | `5` | `5` | `5` | `5` |
+| `OTP_MAX_SEND_PER_TABLE_PER_HOUR` | `10` | `10` | `10` | `10` |
+| `OTP_MAX_VERIFY_ATTEMPTS` | `5` | `5` | `5` | `5` |
+
+### Graceful Degradation & Resilience (Tested Offline)
+
+If Redis becomes unreachable or stopped in any environment:
+- **Application Uptime**: Node.js backend emits a warning log (`[Redis Degraded Mode]`) and remains **100% operational** without crashing.
+- **Table Locking**: **Fails Safe**. Falls back to atomic in-memory lock maps on the Node instance, preventing double-Host QR scan race conditions.
+- **OTP & Rate Limiting**: **Fails Open**. Uses local memory counters and MongoDB OTP validation so legitimate guests are never locked out of logging in.
+- **Socket.IO Scaling**: **Fails Local**. Automatically falls back to in-memory Socket.IO event broadcasting.
+
+---
+
 ## 🛡️ Environment & Security Notes
 
 > [!IMPORTANT]

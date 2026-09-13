@@ -367,12 +367,34 @@ export default function IngredientListPage() {
     document.body.removeChild(link);
   };
 
-  // Search filter
+  // Low stock and out of stock counts
+  const { lowStockCount, outOfStockCount } = useMemo(() => {
+    let low = 0;
+    let out = 0;
+    ingredients.forEach((ing) => {
+      if (ing.currentStock <= 0) {
+        out++;
+      } else if (ing.currentStock <= ing.reorderLevel) {
+        low++;
+      }
+    });
+    return { lowStockCount: low, outOfStockCount: out };
+  }, [ingredients]);
+
+  const [showLowStockOnly, setShowLowStockOnly] = useState(false);
+
+  // Search and low-stock filter
   const filteredIngredients = useMemo(() => {
-    return ingredients.filter((ing) =>
-      ing.ingredientName.toLowerCase().includes(search.toLowerCase())
-    );
-  }, [ingredients, search]);
+    return ingredients.filter((ing) => {
+      const matchesSearch = ing.ingredientName.toLowerCase().includes(search.toLowerCase()) ||
+                            ing.category?.toLowerCase().includes(search.toLowerCase());
+      if (!matchesSearch) return false;
+      if (showLowStockOnly) {
+        return ing.currentStock <= ing.reorderLevel || ing.currentStock <= 0;
+      }
+      return true;
+    });
+  }, [ingredients, search, showLowStockOnly]);
 
   return (
     <RestaurantLayout
@@ -382,22 +404,52 @@ export default function IngredientListPage() {
       <Card className="w-full">
         <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 space-y-0 pb-4">
           <div>
-            <CardTitle>Ingredients Inventory</CardTitle>
-            <CardDescription>Directory of all ingredients, prices, and unit stocks.</CardDescription>
+            <CardTitle className="text-xl font-bold text-foreground">Ingredients Inventory</CardTitle>
+            <CardDescription className="text-xs text-muted-foreground">
+              Directory of all ingredients, prices, and unit stocks.
+            </CardDescription>
           </div>
-          <div className="flex gap-2">
-            <Button size="xs" variant="outline" onClick={handleCsvExport} className="h-8">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button size="xs" variant="outline" onClick={handleCsvExport} className="min-h-[44px] px-3.5 touch-manipulation font-medium text-xs">
               <FileSpreadsheet className="h-4 w-4 mr-1.5" /> CSV Export
             </Button>
             <Button size="xs" onClick={() => {
               setActiveEditData(null);
               setIsModalOpen(true);
-            }} className="h-8">
+            }} className="min-h-[44px] px-4 touch-manipulation font-bold text-xs bg-[#b23c17] hover:bg-[#963213] text-white">
               <Plus className="h-4 w-4 mr-1" /> Add Ingredient
             </Button>
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
+          {/* Low-Stock Alert Header Banner */}
+          {(outOfStockCount > 0 || lowStockCount > 0) && (
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 text-amber-900 dark:text-amber-200">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-amber-200 dark:bg-amber-900/60 text-amber-800 dark:text-amber-300 shrink-0">
+                  <ShieldAlert className="h-5 w-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold">Stock Attention Required</h4>
+                  <p className="text-xs text-amber-800/90 dark:text-amber-300/90 mt-0.5">
+                    {outOfStockCount > 0 && <span className="font-semibold text-rose-700 dark:text-rose-400 mr-2">{outOfStockCount} Out of Stock</span>}
+                    {lowStockCount > 0 && <span>{lowStockCount} Below Reorder Threshold</span>}
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant={showLowStockOnly ? "default" : "outline"}
+                size="sm"
+                onClick={() => setShowLowStockOnly((prev) => !prev)}
+                className={`min-h-[44px] px-4 text-xs font-semibold touch-manipulation shrink-0 border-amber-400 ${
+                  showLowStockOnly ? 'bg-amber-600 hover:bg-amber-700 text-white' : 'bg-white/80 hover:bg-white text-amber-900'
+                }`}
+              >
+                {showLowStockOnly ? 'Show All Items' : 'Filter Low Stock'}
+              </Button>
+            </div>
+          )}
+
           {/* Notifications */}
           {error && (
             <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -411,15 +463,27 @@ export default function IngredientListPage() {
           )}
 
           {/* Filtering bar */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-border/40 pb-4">
-            <div className="relative w-full sm:max-w-xs">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 border-b border-border/40 pb-4">
+            <div className="relative flex-1 max-w-sm">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Search ingredients..."
+                placeholder="Search ingredients by name or category..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="pl-9 h-9 text-xs"
+                className="pl-9 h-11 text-xs"
               />
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant={showLowStockOnly ? "secondary" : "outline"}
+                onClick={() => setShowLowStockOnly((prev) => !prev)}
+                className={`min-h-[44px] px-4 text-xs font-semibold touch-manipulation ${
+                  showLowStockOnly ? 'bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950 dark:text-amber-200' : ''
+                }`}
+              >
+                <ShieldAlert className="h-4 w-4 mr-1.5 text-amber-600" />
+                Low Stock Only {lowStockCount + outOfStockCount > 0 && `(${lowStockCount + outOfStockCount})`}
+              </Button>
             </div>
           </div>
 
@@ -427,85 +491,90 @@ export default function IngredientListPage() {
           {isLoading ? (
             <Loader label="Mapping stock ledger..." />
           ) : filteredIngredients.length === 0 ? (
-            <div className="text-center py-12 text-sm text-muted-foreground italic border border-dashed rounded bg-muted/5">
-              No ingredients created yet.
+            <div className="text-center py-12 text-sm text-muted-foreground italic border border-dashed rounded-xl bg-muted/5">
+              {showLowStockOnly ? 'No low stock ingredients matching filter.' : 'No ingredients created yet.'}
             </div>
           ) : (
-            <div className="overflow-x-auto border rounded-lg bg-card">
+            <div className="overflow-x-auto border rounded-xl bg-card shadow-sm">
               <table className="w-full text-xs text-left min-w-[700px]">
                 <thead>
-                  <tr className="border-b border-border bg-muted/20 text-muted-foreground uppercase">
-                    <th className="p-3 font-medium">Ingredient Name</th>
-                    <th className="p-3 font-medium">Category</th>
-                    <th className="p-3 font-medium text-center">Unit</th>
-                    <th className="p-3 font-medium text-center">Current Stock</th>
-                    <th className="p-3 font-medium text-center">Reorder limit</th>
-                    <th className="p-3 font-medium text-right">Cost Price (₹)</th>
-                    <th className="p-3 font-medium">Default Supplier</th>
-                    <th className="p-3 font-medium text-center">Actions</th>
+                  <tr className="border-b border-border bg-muted/30 text-muted-foreground uppercase text-[10px] tracking-wider">
+                    <th className="p-3.5 font-bold">Ingredient Name</th>
+                    <th className="p-3.5 font-bold">Category</th>
+                    <th className="p-3.5 font-bold text-center">Unit</th>
+                    <th className="p-3.5 font-bold text-center">Current Stock</th>
+                    <th className="p-3.5 font-bold text-center">Reorder limit</th>
+                    <th className="p-3.5 font-bold text-right">Cost Price (₹)</th>
+                    <th className="p-3.5 font-bold">Default Supplier</th>
+                    <th className="p-3.5 font-bold text-center">Actions</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-border">
                   {filteredIngredients.map((ing) => {
                     const isOutOfStock = ing.currentStock <= 0;
                     const isLowStock = ing.currentStock <= ing.reorderLevel && !isOutOfStock;
                     return (
-                      <tr key={ing._id} className="border-b border-border hover:bg-muted/5 transition-colors">
-                        <td className="p-3 font-semibold text-foreground">{ing.ingredientName}</td>
-                        <td className="p-3 text-muted-foreground">{ing.category}</td>
-                        <td className="p-3 text-center font-mono text-muted-foreground">{ing.unit}</td>
-                        <td className="p-3 text-center">
-                          <span className={`font-mono font-bold mr-2 ${
-                            isOutOfStock ? 'text-rose-600' : isLowStock ? 'text-amber-600' : 'text-foreground'
+                      <tr key={ing._id} className="hover:bg-muted/10 transition-colors">
+                        <td className="p-3.5 font-bold text-foreground">{ing.ingredientName}</td>
+                        <td className="p-3.5 text-muted-foreground">{ing.category}</td>
+                        <td className="p-3.5 text-center font-mono text-muted-foreground">{ing.unit}</td>
+                        <td className="p-3.5 text-center">
+                          <span className={`font-mono font-bold mr-2 text-sm ${
+                            isOutOfStock ? 'text-rose-600 dark:text-rose-400' : isLowStock ? 'text-amber-600 dark:text-amber-400' : 'text-foreground'
                           }`}>
                             {ing.currentStock}
                           </span>
                           {isOutOfStock && (
-                            <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.2 text-[8px] font-bold uppercase bg-rose-100 text-rose-800">
-                              <BadgeAlert className="h-2.5 w-2.5" /> Out
+                            <span className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[9px] font-extrabold uppercase bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300 dark:border-rose-800">
+                              <BadgeAlert className="h-3 w-3" /> Out of Stock
                             </span>
                           )}
                           {isLowStock && (
-                            <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.2 text-[8px] font-bold uppercase bg-amber-100 text-amber-800">
-                              <ShieldAlert className="h-2.5 w-2.5" /> Low
+                            <span className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[9px] font-extrabold uppercase bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
+                              <ShieldAlert className="h-3 w-3" /> Low Stock
+                            </span>
+                          )}
+                          {!isOutOfStock && !isLowStock && (
+                            <span className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[9px] font-bold uppercase bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                              Normal
                             </span>
                           )}
                         </td>
-                        <td className="p-3 text-center font-mono text-muted-foreground">{ing.reorderLevel}</td>
-                        <td className="p-3 text-right font-mono font-medium text-foreground">
-                          ₹{ing.purchasePrice?.toFixed(2) || 0}
+                        <td className="p-3.5 text-center font-mono text-muted-foreground">{ing.reorderLevel}</td>
+                        <td className="p-3.5 text-right font-mono font-semibold text-foreground">
+                          ₹{ing.purchasePrice?.toFixed(2) || '0.00'}
                         </td>
-                        <td className="p-3 text-muted-foreground truncate max-w-[130px]">
+                        <td className="p-3.5 text-muted-foreground truncate max-w-[130px]">
                           {ing.supplier?.supplierName || 'N/A'}
                         </td>
-                        <td className="p-3 text-center flex items-center justify-center gap-1">
-                          <Button
-                            size="xs"
-                            variant="outline"
-                            className="h-7 text-[10px] px-2.5"
-                            onClick={() => setActiveAdjustItem(ing)}
-                          >
-                            Adjust
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-muted-foreground"
-                            onClick={() => {
-                              setActiveEditData(ing);
-                              setIsModalOpen(true);
-                            }}
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-destructive"
-                            onClick={() => handleDeleteIngredient(ing._id)}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
+                        <td className="p-3.5 text-center">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="min-h-[44px] min-w-[70px] text-xs font-semibold px-3 touch-manipulation"
+                              onClick={() => setActiveAdjustItem(ing)}
+                            >
+                              Adjust
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              className="min-h-[44px] min-w-[44px] h-11 w-11 p-0 text-muted-foreground hover:text-foreground touch-manipulation"
+                              onClick={() => {
+                                setActiveEditData(ing);
+                                setIsModalOpen(true);
+                              }}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              className="min-h-[44px] min-w-[44px] h-11 w-11 p-0 text-destructive hover:bg-destructive/10 touch-manipulation"
+                              onClick={() => handleDeleteIngredient(ing._id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -543,3 +612,4 @@ export default function IngredientListPage() {
     </RestaurantLayout>
   );
 }
+

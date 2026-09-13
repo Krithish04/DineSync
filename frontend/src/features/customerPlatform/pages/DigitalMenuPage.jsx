@@ -12,6 +12,8 @@ import Loader from '@/components/common/Loader';
 import useCartStore from '../store/cart.store';
 import * as customerApi from '../api/customerPlatform.api';
 
+import OrderItAgainSection from '../components/OrderItAgainSection';
+import useCustomerAuthStore from '../store/customerAuth.store';
 import TableReservationLockModal from '../components/TableReservationLockModal';
 import QrCodeRequiredCard from '../components/QrCodeRequiredCard';
 import { Sparkles } from 'lucide-react';
@@ -29,6 +31,17 @@ export default function DigitalMenuPage() {
   const isViewOnly = useCartStore((s) => s.isViewOnly);
   const isInactiveTable = useCartStore((s) => s.isInactiveTable || s.tableStatus === 'Inactive');
   const tableNumber = useCartStore((s) => s.tableNumber);
+  const addItem = useCartStore((s) => s.addItem);
+  const { phone } = useCustomerAuthStore();
+
+  const handleAddFavoriteToCart = (favItem) => {
+    const matchedMenuItem = items.find(
+      (i) => i._id === favItem.menuItemId || i.name.toLowerCase() === favItem.itemName.toLowerCase()
+    );
+    if (matchedMenuItem) {
+      addItem(matchedMenuItem, 1);
+    }
+  };
 
   const [categories, setCategories] = useState([]);
   const [items, setItems] = useState([]);
@@ -170,6 +183,13 @@ export default function DigitalMenuPage() {
             ))}
           </div>
         </div>
+
+        {/* Order It Again Personalization Section for Verified Returning Guests */}
+        <OrderItAgainSection
+          restaurantId={restaurantId}
+          phone={phone}
+          onAddToCart={handleAddFavoriteToCart}
+        />
 
         {/* Categories Tab Strip */}
         <CategoryTabs

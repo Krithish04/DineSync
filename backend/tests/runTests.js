@@ -51,6 +51,11 @@ async function main() {
   await runSuite('Phase 3 Access Request Tests', './unit/phase3_access_requests.test.js');
   await runSuite('Reservation Unit Tests', './unit/reservation.test.js');
   await runSuite('Kitchen Orchestrator Unit Tests', './unit/kitchenOrchestrator.test.js');
+  await runSuite('Kitchen AI Throttling & Ceiling Tests', './unit/kitchenThrottling.test.js');
+  await runSuite('Redis Table Lock & Rate Limiter Tests', './unit/redisTableLockAndOtp.test.js');
+  await runSuite('Express Trust Proxy & Rate Limiter Tests', './unit/trustProxyAndRateLimit.test.js');
+  await runSuite('Reservation Reconciliation Tests', './unit/reservationReconciliation.test.js');
+  await runSuite('Guest History Personalization & Privacy Tests', './unit/guestHistoryPersonalization.test.js');
   await runSuite('API & Integration Tests', './integration/api.test.js');
 
 

@@ -33,17 +33,27 @@ const connectDB = async () => {
   try {
     const conn = await mongoose.connect(env.MONGO_URI, {
       autoIndex: !env.isProduction,
+      maxPoolSize: 10,
+      minPoolSize: 2,
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
+      family: 4,
     });
 
     // eslint-disable-next-line no-console
     console.log(`[MongoDB] Connected: ${conn.connection.host}/${conn.connection.name}`);
 
-    // Drop obsolete legacy indexes (e.g. branch_1_tableNumber_1_isDeleted_1) that cause duplicate key conflicts
-    await cleanupLegacyIndexes();
-
-    // Auto-sync paid orders, invoice records, and customer CRM metrics
-    const { syncPaidInvoicesAndCustomerStats } = require('../utils/syncData.util');
-    await syncPaidInvoicesAndCustomerStats();
+    // Run heavy maintenance tasks in the background so server startup is instant
+    setImmediate(async () => {
+      try {
+        await cleanupLegacyIndexes();
+        const { syncPaidInvoicesAndCustomerStats } = require('../utils/syncData.util');
+        await syncPaidInvoicesAndCustomerStats();
+      } catch (backgroundErr) {
+        // eslint-disable-next-line no-console
+        console.warn(`[MongoDB Background Sync] Warning: ${backgroundErr.message}`);
+      }
+    });
 
     mongoose.connection.on('error', (err) => {
       // eslint-disable-next-line no-console

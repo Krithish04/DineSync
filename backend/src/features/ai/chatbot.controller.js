@@ -90,6 +90,11 @@ const processChatMessage = async (req, res, next) => {
 
     const cleanMsg = message.trim();
     const customerId = req.user ? req.user._id : null;
+    const callerPhone = req.body.phone || req.headers['x-caller-phone'] || req.query?.phone || req.user?.phoneNumber || null;
+
+    // Fetch guest order history for verified guests
+    const customerExperienceService = require('../customerExperience/customerExperience.service');
+    const guestHistory = await customerExperienceService.getGuestOrderHistory(restaurantId, callerPhone);
 
     // 1. Fetch Chatbot Settings for Restaurant
     let config = await ChatbotConfig.findOne({ restaurant: restaurantId }).lean();
@@ -123,13 +128,17 @@ const processChatMessage = async (req, res, next) => {
     // 3. Entity & Criteria Extraction
     const detectedMood = detectMoodFromText(combinedContextText);
     const detectedAllergies = detectAllergiesFromText(combinedContextText);
-    const detectedDietary = detectDietaryFromText(combinedContextText);
+    const detectedDietary = [
+      ...detectDietaryFromText(combinedContextText),
+      ...(guestHistory.pastDietaryPreferences || []),
+    ];
     const detectedBudget = parseBudgetFromText(cleanMsg) || parseBudgetFromText(combinedContextText);
 
     let reply = '';
     let cards = [];
     let cartAction = null;
     let quickReplies = [
+      ...(guestHistory.hasHistory ? ['🔄 Reorder my usual'] : []),
       '🍕 What should I eat?',
       '🥗 Find healthy food',
       '🚫 I have allergies',
@@ -271,6 +280,7 @@ const processChatMessage = async (req, res, next) => {
     const recResult = await recommendationEngine.generateRecommendations({
       restaurantId,
       customerId,
+      customerPhone: callerPhone,
       mood: detectedMood,
       allergens: detectedAllergies,
       dietaryPreferences: detectedDietary,
@@ -282,10 +292,20 @@ const processChatMessage = async (req, res, next) => {
 
     cards = recResult.items;
 
+    // Build guest history summary string for Gemini prompt
+    let guestHistorySummary = null;
+    if (guestHistory.hasHistory) {
+      const topNames = (guestHistory.topFavoriteItems || []).map((t) => t.itemName).join(', ');
+      guestHistorySummary = `Returning guest (${guestHistory.visitCount} past orders). Favorite dishes: ${topNames || 'None'}. Avg spend: ₹${guestHistory.averageSpend} (${guestHistory.budgetTier}).`;
+    }
+
     // Formulate Conversational Waiter Response
     if (cards.length > 0) {
       let greetingIntro = "Got you 😌";
-      if (extractedSearchQuery) {
+      if (guestHistory.hasHistory && (lowerMsg.includes('usual') || lowerMsg.includes('reorder') || lowerMsg.includes('favorite') || lowerMsg.includes('again'))) {
+        const favList = (guestHistory.topFavoriteItems || []).map((t) => t.itemName).join(', ');
+        greetingIntro = `Welcome back! 👨‍🍳 Reordering your favorites (${favList || 'usual'}) is easy! Here are your top choices:`;
+      } else if (extractedSearchQuery) {
         greetingIntro = `Here are our delicious **${extractedSearchQuery}** choices 🥗`;
       } else if (detectedAllergies.length > 0) {
         greetingIntro = `I'll make sure to avoid any items containing **${detectedAllergies.join(', ')}** 🛡️`;
@@ -295,6 +315,8 @@ const processChatMessage = async (req, res, next) => {
         greetingIntro = `Here are top recommendations within **₹${detectedBudget}** 💰`;
       } else if (isTryNew) {
         greetingIntro = "Here are fresh dishes you haven't ordered yet! ✨";
+      } else if (guestHistory.hasHistory) {
+        greetingIntro = "Welcome back! 👨‍🍳 Here are top choices personalized from your past orders & our live menu:";
       }
 
       let noticeText = recResult.allergyNotice ? `\n\n⚠️ *${recResult.allergyNotice}*` : '';
@@ -304,6 +326,7 @@ const processChatMessage = async (req, res, next) => {
         userMessage: cleanMsg,
         candidateCards: cards,
         allergyNotice: recResult.allergyNotice,
+        guestHistorySummary,
         tone: config.tone || 'friendly',
       });
 
@@ -315,7 +338,11 @@ const processChatMessage = async (req, res, next) => {
         const isComparison = /different|difference|versus|\bvs\b|compare/i.test(lowerMsg);
 
         if (isGreeting) {
-          reply = "I'm doing great, thank you for asking! 😊 I'm DineSync AI, your personal food consultant. I can answer questions about our dishes, check ingredients, or suggest the perfect meal for your craving!";
+          if (guestHistory.hasHistory) {
+            reply = `Welcome back! 👨‍🍳 I'm DineSync AI, your personal food consultant. It's great to see you again! Tap **'Reorder my usual'** below or ask me for personalized recommendations!`;
+          } else {
+            reply = "I'm doing great, thank you for asking! 😊 I'm DineSync AI, your personal food consultant. I can answer questions about our dishes, check ingredients, or suggest the perfect meal for your craving!";
+          }
         } else if (isComparison) {
           const topCard = cards[0];
           reply = `Great question! Our **${topCard?.name || 'Fresh Garden Salad'}** features crisp garden greens, bell peppers, tomatoes, and house vinaigrette. In comparison, a traditional Caesar salad relies on romaine lettuce, parmesan cheese, croutons, and creamy Caesar dressing!`;

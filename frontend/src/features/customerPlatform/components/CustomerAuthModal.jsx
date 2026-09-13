@@ -125,15 +125,9 @@ export default function CustomerAuthModal({ isOpen, onClose, onSuccess, pendingI
               if (handoffRes?.autoApproved && handoffRes?.session) {
                 claimedSession = handoffRes.session;
                 hostToken = handoffRes.hostToken;
-              } else {
-                setError(handoffRes?.message || 'Table is currently occupied. Request logged for staff review.');
-                setIsVerifying(false);
-                return;
               }
-            } catch (handoffErr) {
-              setError(handoffErr.response?.data?.message || 'Table is currently occupied by another diner. You are in View-Only mode.');
-              setIsVerifying(false);
-              return;
+            } catch {
+              // Table occupied by active host; guest continues in View-Only mode with verified customer profile
             }
           }
         }
@@ -146,11 +140,13 @@ export default function CustomerAuthModal({ isOpen, onClose, onSuccess, pendingI
         hostToken,
       };
 
-      loginTableHost(hostPayload);
+      if (claimedSession || hostToken) {
+        loginTableHost(hostPayload);
+      }
       setIsVerifying(false);
       onClose();
 
-      if (pendingItem) {
+      if (pendingItem && !useCartStore.getState().isViewOnly) {
         const addItem = useCartStore.getState().addItem;
         addItem(pendingItem, 1, [], '');
       }
@@ -258,6 +254,11 @@ export default function CustomerAuthModal({ isOpen, onClose, onSuccess, pendingI
                 onChange={(e) => setOtp(e.target.value)}
                 className="w-full pl-10 pr-3.5 py-2.5 text-center tracking-widest text-base font-mono border border-border rounded-xl bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
               />
+            </div>
+
+            <div className="text-[11px] text-muted-foreground text-center bg-muted/30 p-2.5 rounded-xl border border-border/50 leading-tight space-y-1">
+              <p className="font-semibold text-foreground">🔒 Privacy Notice</p>
+              <p>Your verified phone number is used to link your table session and remember your favorite dishes across visits for AI personalization.</p>
             </div>
 
             <div className="flex flex-col gap-2">

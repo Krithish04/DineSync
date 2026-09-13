@@ -5,6 +5,7 @@ const { generateOtpCode, hashOtpCode, compareOtpCode } = require('../../utils/ot
 const { sendEmail } = require('../../utils/email.util');
 const { sendSmsViaAndroidGateway } = require('../../utils/sms.util');
 const env = require('../../config/env.config');
+const redisConfig = require('../../config/redis.config');
 
 const OTP_EMAIL_COPY = {
   [OTP_PURPOSES.EMAIL_VERIFICATION]: {
@@ -75,12 +76,36 @@ const assertResendCooldown = async ({ email = null, phone = null, restaurantId =
  * Generates a new OTP, persists its hash, invalidates any previous
  * unconsumed OTPs for the same identity + purpose, and sends/logs the code.
  */
-const createAndSendOtp = async ({ email = null, phone = null, restaurantId = null, purpose, skipCooldown = false }) => {
+const createAndSendOtp = async ({ email = null, phone = null, restaurantId = null, tableId = null, purpose, skipCooldown = false }) => {
   const cleanEmail = email ? email.trim().toLowerCase() : null;
   const cleanPhone = normalizePhone(phone);
+  const identityKey = cleanPhone || cleanEmail;
 
   if (!cleanEmail && !cleanPhone) {
     throw ApiError.badRequest('Either email or phone is required to generate an OTP.');
+  }
+
+  // 1. Redis Rate Limiting (per phone/email & per table)
+  if (identityKey) {
+    const rateLimit = await redisConfig.checkRateLimit(
+      `otp:send:${identityKey}`,
+      env.OTP_MAX_SEND_PER_HOUR,
+      3600
+    );
+    if (!rateLimit.allowed) {
+      throw ApiError.tooManyRequests('Maximum OTP request limit reached for this contact. Please try again in an hour.');
+    }
+  }
+
+  if (tableId) {
+    const tableRateLimit = await redisConfig.checkRateLimit(
+      `otp:send:table:${tableId}`,
+      env.OTP_MAX_SEND_PER_TABLE_PER_HOUR,
+      3600
+    );
+    if (!tableRateLimit.allowed) {
+      throw ApiError.tooManyRequests('Maximum OTP request limit reached for this dining table. Please try again later.');
+    }
   }
 
   if (!skipCooldown) {
@@ -97,7 +122,20 @@ const createAndSendOtp = async ({ email = null, phone = null, restaurantId = nul
   const code = generateOtpCode();
   const codeHash = hashOtpCode(code);
   const expiresAt = new Date(Date.now() + env.OTP_EXPIRY_MINUTES * 60 * 1000);
+  const ttlSeconds = env.OTP_EXPIRY_MINUTES * 60;
 
+  // Store in Redis with TTL
+  if (identityKey) {
+    const redisOtpKey = `${purpose}:${identityKey}`;
+    await redisConfig.setOtp(redisOtpKey, {
+      codeHash,
+      expiresAt: expiresAt.toISOString(),
+      attempts: 0,
+      maxAttempts: env.OTP_MAX_ATTEMPTS,
+    }, ttlSeconds);
+  }
+
+  // Store in MongoDB for durable record & audit
   await Otp.create({
     email: cleanEmail,
     phone: cleanPhone,
@@ -156,17 +194,70 @@ const verifyOtp = async ({ email = null, phone = null, restaurantId = null, purp
   const cleanEmail = email ? email.trim().toLowerCase() : null;
   const cleanPhone = normalizePhone(phone);
   const cleanCode = code !== null && code !== undefined ? code.toString().trim() : '';
+  const identityKey = cleanPhone || cleanEmail;
 
   if (!cleanCode) {
     throw ApiError.badRequest('Verification OTP code is required.');
   }
 
+  if (!identityKey) {
+    throw ApiError.badRequest('Either email or phone is required to verify OTP.');
+  }
+
+  // 1. Rate limiting on verification attempts
+  const verifyLimit = await redisConfig.checkRateLimit(
+    `otp:verify:${identityKey}`,
+    env.OTP_MAX_VERIFY_ATTEMPTS * 3,
+    3600
+  );
+  if (!verifyLimit.allowed) {
+    throw ApiError.tooManyRequests('Too many verification attempts. Please wait an hour before trying again.');
+  }
+
+  // 2. Try Redis verification first
+  const redisOtpKey = `${purpose}:${identityKey}`;
+  const cachedOtp = await redisConfig.getOtp(redisOtpKey);
+
+  if (cachedOtp) {
+    const expiresTime = new Date(cachedOtp.expiresAt).getTime();
+    if (expiresTime < Date.now()) {
+      await redisConfig.deleteOtp(redisOtpKey);
+      throw ApiError.badRequest('This code has expired. Please request a new one.');
+    }
+
+    if (cachedOtp.attempts >= cachedOtp.maxAttempts) {
+      await redisConfig.deleteOtp(redisOtpKey);
+      throw ApiError.badRequest('Too many incorrect attempts. Please request a new code.');
+    }
+
+    const isMatch = compareOtpCode(cleanCode, cachedOtp.codeHash);
+    if (!isMatch) {
+      cachedOtp.attempts += 1;
+      const remainingTtl = Math.max(1, Math.ceil((expiresTime - Date.now()) / 1000));
+      await redisConfig.setOtp(redisOtpKey, cachedOtp, remainingTtl);
+
+      // Sync attempt count to MongoDB
+      const query = { purpose, consumed: false };
+      if (cleanPhone) query.phone = cleanPhone;
+      else query.email = cleanEmail;
+      await Otp.updateOne(query, { $inc: { attempts: 1 } });
+
+      throw ApiError.badRequest('Incorrect verification code.');
+    }
+
+    // Success: Delete from Redis & mark consumed in MongoDB
+    await redisConfig.deleteOtp(redisOtpKey);
+    const query = { purpose, consumed: false };
+    if (cleanPhone) query.phone = cleanPhone;
+    else query.email = cleanEmail;
+    await Otp.updateMany(query, { $set: { consumed: true } });
+    return true;
+  }
+
+  // 3. Fallback to MongoDB if Redis cache miss or offline
   const query = { purpose, consumed: false };
   if (cleanPhone) query.phone = cleanPhone;
   else if (cleanEmail) query.email = cleanEmail;
-  else {
-    throw ApiError.badRequest('Either email or phone is required to verify OTP.');
-  }
 
   let otpRecord = null;
   if (restaurantId) {

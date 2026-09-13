@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const axios = require('axios');
 const KitchenTicket = require('./kitchenTicket.model');
 const Order = require('../order/order.model');
@@ -10,7 +11,7 @@ const PRIORITY_WEIGHTS = {
   low: 0,
 };
 
-const STARTER_KEYWORDS = ['soup', 'salad', 'appetizer', 'starter', 'wing', 'fries', 'nacho', "dimsum", 'tikka', 'kebab', 'bread', 'naan', 'garlic'];
+const STARTER_KEYWORDS = ['soup', 'salad', 'appetizer', 'starter', 'wing', 'fries', 'nacho', 'dimsum', 'tikka', 'kebab', 'bread', 'naan', 'garlic'];
 
 function isStarterItem(itemName, explicitStarter) {
   if (explicitStarter) return true;
@@ -19,12 +20,111 @@ function isStarterItem(itemName, explicitStarter) {
   return STARTER_KEYWORDS.some((kw) => nameLower.includes(kw));
 }
 
+// In-memory throttling & rate-ceiling tracking state per restaurant
+const restaurantAiStateMap = new Map();
+
+/**
+ * Computes a deterministic hash fingerprint of active ticket queue state.
+ */
+function computeQueueFingerprint(tickets) {
+  const parts = (tickets || []).map((t) => {
+    const itemDigest = (t.items || [])
+      .map((i) => `${i._id || i.orderItemId}:${i.kitchenStatus || 'Pending'}:${i.quantity}`)
+      .sort()
+      .join(',');
+    const updated = t.updatedAt ? new Date(t.updatedAt).getTime() : (t.createdAt ? new Date(t.createdAt).getTime() : 0);
+    return `${t._id}:${t.status}:${updated}:${itemDigest}`;
+  });
+  return crypto.createHash('md5').update(parts.sort().join('|')).digest('hex');
+}
+
+/**
+ * Evaluates whether an AI microservice call should proceed or be throttled / ceiling-blocked.
+ */
+function evaluateAiInvocation(restaurantId, currentFingerprint, now = Date.now()) {
+  const minIntervalMs = env.AI_KITCHEN_RESCORE_MIN_INTERVAL_MS || 60000;
+  const maxCallsPerMin = env.AI_KITCHEN_MAX_CALLS_PER_MIN || 5;
+
+  const key = String(restaurantId);
+  let state = restaurantAiStateMap.get(key);
+  if (!state) {
+    state = {
+      lastAiCallTime: 0,
+      lastFingerprint: null,
+      callTimestamps: [],
+    };
+    restaurantAiStateMap.set(key, state);
+  }
+
+  // Filter timestamps to last 60 seconds (sliding window)
+  state.callTimestamps = state.callTimestamps.filter((ts) => now - ts < 60000);
+
+  // 1. HARD CEILING CHECK (Max N calls/min) -> Fallback to Local Heuristic
+  if (state.callTimestamps.length >= maxCallsPerMin) {
+    return {
+      allowed: false,
+      reason: 'ceiling-exceeded',
+      callsInWindow: state.callTimestamps.length,
+      maxCallsPerMin,
+    };
+  }
+
+  // 2. MINIMUM INTERVAL COOLDOWN CHECK
+  const elapsedMs = now - state.lastAiCallTime;
+  if (state.lastAiCallTime > 0 && elapsedMs < minIntervalMs) {
+    return {
+      allowed: false,
+      reason: 'cooldown-active',
+      elapsedMs,
+      minIntervalMs,
+    };
+  }
+
+  // 3. UNCHANGED QUEUE CHECK (Material Change Filter)
+  if (state.lastFingerprint && state.lastFingerprint === currentFingerprint) {
+    return {
+      allowed: false,
+      reason: 'unchanged-queue',
+    };
+  }
+
+  return { allowed: true, state };
+}
+
+function recordAiCallSuccess(restaurantId, fingerprint, now = Date.now()) {
+  const key = String(restaurantId);
+  let state = restaurantAiStateMap.get(key);
+  if (!state) {
+    state = { lastAiCallTime: 0, lastFingerprint: null, callTimestamps: [] };
+    restaurantAiStateMap.set(key, state);
+  }
+  state.lastAiCallTime = now;
+  state.lastFingerprint = fingerprint;
+  state.callTimestamps.push(now);
+}
+
+function resetThrottlingState() {
+  restaurantAiStateMap.clear();
+}
+
+function getThrottlingStats(restaurantId, now = Date.now()) {
+  const key = String(restaurantId);
+  const state = restaurantAiStateMap.get(key);
+  if (!state) return { lastAiCallTime: 0, callsInWindow: 0, lastFingerprint: null };
+  const callsInWindow = state.callTimestamps.filter((ts) => now - ts < 60000).length;
+  return {
+    lastAiCallTime: state.lastAiCallTime,
+    callsInWindow,
+    lastFingerprint: state.lastFingerprint,
+  };
+}
+
 /**
  * Deterministic local heuristic scoring algorithm (Fallback Path)
  */
 function computeLocalHeuristicSchedule(tickets, now = new Date()) {
   const activeTickets = tickets.filter((t) => t.status !== 'Served');
-  
+
   // Group order items by order ID for course coordination
   const orderItemsMap = {};
   activeTickets.forEach((t) => {
@@ -119,7 +219,7 @@ function computeLocalHeuristicSchedule(tickets, now = new Date()) {
 }
 
 /**
- * Main Kitchen Orchestration Agent Service
+ * Main Kitchen Orchestration Agent Service with Throttling & Hard Rate Ceiling Safety Net
  */
 const rescoreKitchenQueue = async (restaurantId, options = {}) => {
   if (!restaurantId) return null;
@@ -143,53 +243,70 @@ const rescoreKitchenQueue = async (restaurantId, options = {}) => {
       };
     }
 
+    const currentFingerprint = computeQueueFingerprint(activeTickets);
+    const now = Date.now();
+    const decision = evaluateAiInvocation(restaurantId, currentFingerprint, now);
+
     let scheduleResult = null;
     const aiBaseURL = env.AI_SERVICE_URL || 'http://localhost:8000';
 
-    // Primary Model-Based Path via AI Microservice
-    try {
-      const payload = {
-        restaurantId: String(restaurantId),
-        currentTime: new Date().toISOString(),
-        tickets: activeTickets.map((t) => ({
-          ticketId: String(t._id),
-          ticketNumber: t.ticketNumber,
-          orderId: String(t.order?._id || t.order),
-          tableId: t.table?._id ? String(t.table._id) : null,
-          tableNumber: t.table?.tableNumber || null,
-          station: t.station,
-          status: t.status,
-          createdAt: t.createdAt.toISOString(),
-          items: t.items.map((i) => ({
-            orderItemId: String(i.orderItemId || i._id),
-            menuItem: String(i.menuItem),
-            itemName: i.itemName,
-            quantity: i.quantity,
-            kitchenStation: t.station,
-            priority: i.priority || 'medium',
-            preparationTime: i.preparationTime || 15,
-            kitchenStatus: i.kitchenStatus || 'Pending',
-            specialInstructions: i.specialInstructions || '',
+    if (decision.allowed && !options.forceHeuristic) {
+      // Primary Model-Based Path via AI Microservice
+      try {
+        const payload = {
+          restaurantId: String(restaurantId),
+          currentTime: new Date().toISOString(),
+          tickets: activeTickets.map((t) => ({
+            ticketId: String(t._id),
+            ticketNumber: t.ticketNumber,
+            orderId: String(t.order?._id || t.order),
+            tableId: t.table?._id ? String(t.table._id) : null,
+            tableNumber: t.table?.tableNumber || null,
+            station: t.station,
+            status: t.status,
+            createdAt: t.createdAt.toISOString(),
+            items: (t.items || []).map((i) => ({
+              orderItemId: String(i.orderItemId || i._id),
+              menuItem: String(i.menuItem),
+              itemName: i.itemName,
+              quantity: i.quantity,
+              kitchenStation: t.station,
+              priority: i.priority || 'medium',
+              preparationTime: i.preparationTime || 15,
+              kitchenStatus: i.kitchenStatus || 'Pending',
+              specialInstructions: i.specialInstructions || '',
+            })),
+            notes: t.notes || '',
           })),
-          notes: t.notes || '',
-        })),
-      };
-
-      const response = await axios.post(`${aiBaseURL}/api/v1/kitchen/schedule`, payload, {
-        timeout: 2500,
-      });
-
-      if (response.data && response.data.tickets) {
-        scheduleResult = {
-          ...response.data,
-          source: 'ai-microservice',
         };
+
+        const response = await axios.post(`${aiBaseURL}/api/v1/kitchen/schedule`, payload, {
+          timeout: 2500,
+        });
+
+        if (response.data && response.data.tickets) {
+          scheduleResult = {
+            ...response.data,
+            source: 'ai-microservice',
+          };
+          recordAiCallSuccess(restaurantId, currentFingerprint, now);
+        }
+      } catch (aiErr) {
+        // Gracefully fall back to deterministic local heuristic algorithm
+        // eslint-disable-next-line no-console
+        console.warn('[KitchenOrchestrator] AI scheduling service offline/timed out. Falling back to local heuristic:', aiErr.message);
+        scheduleResult = computeLocalHeuristicSchedule(activeTickets);
       }
-    } catch (aiErr) {
-      // Gracefully fall back to deterministic local heuristic algorithm
-      // eslint-disable-next-line no-console
-      console.warn('[KitchenOrchestrator] AI scheduling service offline/timed out. Falling back to local heuristic:', aiErr.message);
+    } else {
+      // Throttled or Rate Ceiling Triggered -> Fallback to Local Heuristic
+      if (decision.reason === 'ceiling-exceeded') {
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[KitchenOrchestrator] AI call ceiling reached for restaurant ${restaurantId} (${decision.callsInWindow}/${decision.maxCallsPerMin} calls in 60s). Falling back to local heuristic.`
+        );
+      }
       scheduleResult = computeLocalHeuristicSchedule(activeTickets);
+      scheduleResult.source = `deterministic-heuristic-${decision.reason || 'throttled'}`;
     }
 
     if (!scheduleResult) {
@@ -251,4 +368,9 @@ const rescoreKitchenQueue = async (restaurantId, options = {}) => {
 module.exports = {
   rescoreKitchenQueue,
   computeLocalHeuristicSchedule,
+  computeQueueFingerprint,
+  evaluateAiInvocation,
+  recordAiCallSuccess,
+  resetThrottlingState,
+  getThrottlingStats,
 };
