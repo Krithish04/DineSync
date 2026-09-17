@@ -65,4 +65,8 @@ router.put(
   tenantController.updateOpeningHours
 );
 
+// --- Subscription Plan (Owner & Super Admin) ---
+router.get('/:restaurantId/subscription', protect, canManageFinancials, tenantController.getSubscription);
+router.patch('/:restaurantId/subscription', protect, canManageFinancials, tenantController.updateSubscription);
+
 module.exports = router;

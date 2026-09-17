@@ -27,6 +27,11 @@ export const listSubscriptionPlans = async () => {
   return data.data.plans;
 };
 
+export const updateSubscriptionPlanConfig = async (code, payload) => {
+  const { data } = await api.patch(`${superUrl}/plans/${code}`, payload);
+  return data.data.plan;
+};
+
 export const getTenantSubscription = async (tenantId) => {
   const { data } = await api.get(`${superUrl}/tenants/${tenantId}/subscription`);
   return data.data.subscription;

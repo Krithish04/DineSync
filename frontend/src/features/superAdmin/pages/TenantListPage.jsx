@@ -54,8 +54,17 @@ export default function TenantListPage() {
     }
   };
 
+  const handlePlanChange = async (tenantId, newPlanCode) => {
+    try {
+      await superAdminApi.updateTenantSubscription(tenantId, { planCode: newPlanCode });
+      loadTenants();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to update tenant subscription plan.');
+    }
+  };
+
   return (
-    <SuperAdminLayout title="Tenant Management" description="Approve, monitor, suspend, or reactivate multi-tenant restaurant workspaces.">
+    <SuperAdminLayout title="Tenant Management" description="Approve, monitor, suspend, reactivate, or change subscription tier plans for restaurant workspaces.">
       <div className="space-y-4 max-w-full">
         {/* Search & Filter Bar */}
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -91,7 +100,7 @@ export default function TenantListPage() {
                 <tr>
                   <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Restaurant Tenant</th>
                   <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Owner</th>
-                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Cuisine</th>
+                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Subscription Plan</th>
                   <th className="text-center px-4 py-3 font-semibold text-muted-foreground">Status</th>
                   <th className="text-right px-4 py-3 font-semibold text-muted-foreground">Actions</th>
                 </tr>
@@ -114,8 +123,17 @@ export default function TenantListPage() {
                         <p className="font-semibold">{t.owner?.name || t.owner?.fullName || 'N/A'}</p>
                         <p className="text-[10px] text-muted-foreground">{t.owner?.email || t.email}</p>
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground">
-                        {(t.cuisine || []).join(', ') || 'General Dining'}
+                      <td className="px-4 py-3">
+                        <select
+                          value={t.subscriptionPlan || 'starter'}
+                          onChange={(e) => handlePlanChange(t._id, e.target.value)}
+                          className="border border-border rounded-lg px-2 py-1 text-[11px] bg-card font-semibold text-primary capitalize cursor-pointer hover:border-primary"
+                          title="Super Admin override subscription plan"
+                        >
+                          <option value="starter">Starter Plan (₹1,999)</option>
+                          <option value="pro">Pro Plan (₹4,999)</option>
+                          <option value="enterprise">Enterprise Plan (₹9,999)</option>
+                        </select>
                       </td>
                       <td className="px-4 py-3 text-center">
                         <span
@@ -125,7 +143,7 @@ export default function TenantListPage() {
                               : 'bg-amber-50 text-amber-700 border-amber-200'
                           }`}
                         >
-                          {t.isActive ? 'Active' : 'Pending Review / Suspended'}
+                          {t.isActive ? 'Active' : 'Pending / Suspended'}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right space-x-1">

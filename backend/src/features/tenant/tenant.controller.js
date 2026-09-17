@@ -76,6 +76,17 @@ const updateOpeningHours = asyncHandler(async (req, res) => {
   return new ApiResponse(200, { openingHours }, 'Opening hours updated successfully').send(res);
 });
 
+// --- Subscription ---
+const getSubscription = asyncHandler(async (req, res) => {
+  const result = await tenantService.getSubscription(req.params.restaurantId, req.user);
+  return new ApiResponse(200, result, 'Tenant subscription and plans fetched successfully').send(res);
+});
+
+const updateSubscription = asyncHandler(async (req, res) => {
+  const subscription = await tenantService.updateSubscription(req.params.restaurantId, req.body, req.user);
+  return new ApiResponse(200, { subscription }, 'Tenant subscription updated successfully').send(res);
+});
+
 module.exports = {
   getPublicBySlug,
   listAll,
@@ -89,4 +100,6 @@ module.exports = {
   updateGst,
   getOpeningHours,
   updateOpeningHours,
+  getSubscription,
+  updateSubscription,
 };

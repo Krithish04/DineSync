@@ -58,6 +58,7 @@ const NAV_GROUPS = [
     roles: ['owner', 'manager', 'super_admin'],
     items: [
       { to: '/restaurant/profile', label: 'Profile', icon: Settings, roles: ['owner'] },
+      { to: '/restaurant/subscription', label: 'Subscription Plan', icon: CreditCard, roles: ['owner', 'super_admin'] },
       { to: '/restaurant/gst', label: 'GST Config', icon: FileCheck, roles: ['owner'] },
       { to: '/restaurant/opening-hours', label: 'Opening Hours', icon: Clock, roles: ['manager'] },
       { to: '/restaurant/settings', label: 'Settings', icon: Settings, roles: ['manager'] },

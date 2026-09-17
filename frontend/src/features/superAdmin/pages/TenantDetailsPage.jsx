@@ -71,7 +71,30 @@ export default function TenantDetailsPage() {
               <ForecastCard title="Restaurant Profile" value="Configured" icon={Building2} variant="primary" />
               <ForecastCard title="Registered Staff Users" value={details.usersCount} icon={Users} variant="emerald" />
               <ForecastCard title="Est. Storage Used" value={details.storageUsageMb} suffix=" MB" icon={HardDrive} variant="amber" />
-              <ForecastCard title="Subscription Plan" value={subscription?.planCode?.toUpperCase()} icon={CreditCard} variant="purple" />
+              <div className="bg-card border border-border rounded-xl p-4 flex flex-col justify-between space-y-2 shadow-xs">
+                <div className="flex items-center justify-between text-xs font-medium text-muted-foreground">
+                  <span>Subscription Plan</span>
+                  <CreditCard size={16} className="text-purple-600" />
+                </div>
+                <select
+                  value={subscription?.planCode || restaurant.subscriptionPlan || 'starter'}
+                  onChange={async (e) => {
+                    const newPlan = e.target.value;
+                    try {
+                      await superAdminApi.updateTenantSubscription(restaurant._id, { planCode: newPlan });
+                      loadData();
+                    } catch (err) {
+                      alert(err.response?.data?.message || 'Failed to update subscription plan.');
+                    }
+                  }}
+                  className="w-full border border-border rounded-lg px-2 py-1 text-xs font-bold text-primary capitalize bg-card hover:border-primary cursor-pointer"
+                >
+                  <option value="starter">Starter Plan (₹1,999)</option>
+                  <option value="pro">Pro Plan (₹4,999)</option>
+                  <option value="enterprise">Enterprise Plan (₹9,999)</option>
+                </select>
+                <p className="text-[10px] text-muted-foreground">Status: <span className="font-semibold text-emerald-600 capitalize">{subscription?.status || 'active'}</span></p>
+              </div>
             </div>
 
             {/* Billing Ledger History */}

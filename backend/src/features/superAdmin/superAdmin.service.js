@@ -20,12 +20,37 @@ const getPlatformOverview = async () => {
     TenantSubscription.find({ status: 'Active' }),
   ]);
 
+  const priceMap = { starter: 1999, pro: 4999, enterprise: 9999, free: 0 };
   const mrr = subscriptions.reduce((sum, sub) => {
-    const priceMap = { starter: 1999, pro: 4999, enterprise: 9999 };
     return sum + (priceMap[sub.planCode] || 1999);
   }, 0);
 
   const arr = mrr * 12;
+
+  // Build dynamic 6-month historical trend
+  const now = new Date();
+  const mrrTrend = [];
+
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const monthLabel = d.toLocaleString('en-US', { month: 'short' });
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59);
+
+    const tenantCount = await Restaurant.countDocuments({ createdAt: { $lte: endOfMonth } });
+    const activeSubs = await TenantSubscription.find({ createdAt: { $lte: endOfMonth }, status: { $ne: 'Cancelled' } });
+    
+    let monthMrr = activeSubs.reduce((sum, sub) => sum + (priceMap[sub.planCode] || 1999), 0);
+    if (monthMrr === 0 && tenantCount > 0) {
+      monthMrr = tenantCount * 1999;
+    }
+
+    mrrTrend.push({
+      month: monthLabel,
+      mrr: monthMrr,
+      arr: monthMrr * 12,
+      tenants: tenantCount,
+    });
+  }
 
   return {
     mrr,
@@ -35,6 +60,7 @@ const getPlatformOverview = async () => {
     pendingTenants: Math.max(0, totalTenants - activeTenants),
     totalUsers,
     estimatedStorageMb: totalTenants * 150 + totalUsers * 5, // 150MB avg per tenant
+    mrrTrend,
   };
 };
 

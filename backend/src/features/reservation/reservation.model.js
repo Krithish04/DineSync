@@ -29,6 +29,12 @@ const reservationSchema = new Schema(
       required: true,
       index: true,
     },
+    branch: {
+      type: Schema.Types.ObjectId,
+      ref: 'Branch',
+      default: null,
+      index: true,
+    },
     table: {
       type: Schema.Types.ObjectId,
       ref: 'Table',

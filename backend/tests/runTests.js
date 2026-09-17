@@ -21,11 +21,16 @@ async function runSuite(suiteName, testFile) {
     fn();
   };
 
+  global.beforeAll = (fn) => beforeHooks.push(fn);
+  global.afterAll = (fn) => afterHooks.push(fn);
   global.before = (fn) => beforeHooks.push(fn);
   global.after = (fn) => afterHooks.push(fn);
   global.beforeEach = (fn) => beforeEachHooks.push(fn);
   global.afterEach = (fn) => afterEachHooks.push(fn);
   global.it = (testName, fn) => {
+    testsToRun.push({ testName, fn });
+  };
+  global.test = (testName, fn) => {
     testsToRun.push({ testName, fn });
   };
 
@@ -74,6 +79,8 @@ async function main() {
   await runSuite('Reservation Lock Timeline & Notification Provider Tests', './unit/reservationTimelineAndNotification.test.js');
   await runSuite('KDS Stock & Auto-86 Unit Tests', './unit/kdsStockAutoDeduct.test.js');
   await runSuite('Super Admin Multi-Tenant & Impersonation Tests', './unit/superAdminMultiTenant.test.js');
+  await runSuite('Restaurant Owner Registration & Subscription Mandate Tests', './unit/restaurantOwnerRegistrationSubscription.test.js');
+  await runSuite('Branch Entity & 3-Tier Account Hierarchy Tests', './unit/branchHierarchyAndDataIsolation.test.js');
   await runSuite('Payroll Foundation (Phase 1 & 2) Tests', './payrollFoundation.test.js');
   await runSuite('API & Integration Tests', './integration/api.test.js');
 

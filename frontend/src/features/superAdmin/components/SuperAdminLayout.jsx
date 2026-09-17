@@ -1,7 +1,9 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { ShieldCheck, Building2, CreditCard, ToggleLeft, FileText, Activity, LineChart, LayoutDashboard, ArrowLeft } from 'lucide-react';
+import { ShieldCheck, Building2, CreditCard, ToggleLeft, FileText, Activity, LineChart, LayoutDashboard, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import * as authApi from '@/features/auth/api/auth.api';
+import useAuthStore from '@/features/auth/store/auth.store';
 
 const ADMIN_TABS = [
   { to: '/super-admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -15,6 +17,18 @@ const ADMIN_TABS = [
 
 export default function SuperAdminLayout({ title, description, children }) {
   const navigate = useNavigate();
+  const { clearSession } = useAuthStore();
+
+  const handleLogout = async () => {
+    try {
+      await authApi.logout();
+    } catch {
+      /* non-fatal */
+    } finally {
+      clearSession();
+      navigate('/login', { replace: true });
+    }
+  };
 
   return (
     <div className="min-h-screen bg-muted/30 flex flex-col">
@@ -33,9 +47,16 @@ export default function SuperAdminLayout({ title, description, children }) {
             </div>
           </div>
 
-          <Button variant="outline" size="sm" onClick={() => navigate('/dashboard')} className="gap-1.5 text-xs">
-            <ArrowLeft size={14} /> Back to Restaurant App
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleLogout}
+              className="gap-1.5 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200 font-semibold"
+            >
+              <LogOut size={14} /> Log out
+            </Button>
+          </div>
         </div>
       </header>
 

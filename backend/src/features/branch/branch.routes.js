@@ -9,6 +9,8 @@ const {
   updateBranchHoursSchema,
   assignManagerSchema,
   updateBranchStatusSchema,
+  createBranchManagerSchema,
+  createBranchStaffSchema,
 } = require('./branch.validation');
 const { protect, authorize, enforceTenantIsolation } = require('../../middlewares/auth.middleware');
 const { ROLES } = require('../../constants/roles.constant');
@@ -32,12 +34,26 @@ router
 // --- Eligible managers lookup (for the manager-assignment picker) ---
 router.get('/managers/eligible', canManage, branchController.listEligibleManagers);
 
+// --- Create Staff / Chef for Manager's Branch ---
+router.post('/staff', canManage, validateBody(createBranchStaffSchema), branchController.createBranchStaff);
+
 // --- Get / Update / Delete a single branch ---
 router
   .route('/:branchId')
   .get(canManage, branchController.getBranch)
   .patch(canManage, validateBody(updateBranchSchema), branchController.updateBranch)
   .delete(canManageCritical, branchController.deleteBranch);
+
+// --- Create / Provision Branch Manager Account ---
+router.post(
+  '/:branchId/manager',
+  canManageCritical,
+  validateBody(createBranchManagerSchema),
+  branchController.createBranchManager
+);
+
+// --- List Branch Users ---
+router.get('/:branchId/users', canManage, branchController.listBranchUsers);
 
 // --- Branch Address ---
 router.patch(

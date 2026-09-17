@@ -29,9 +29,27 @@ const tenantSubscriptionSchema = new Schema(
     },
     status: {
       type: String,
-      enum: ['Trial', 'Active', 'Suspended', 'Expired', 'Cancelled'],
-      default: 'Active',
+      enum: ['Trial', 'Active', 'Grace Period', 'Suspended', 'Expired', 'Cancelled'],
+      default: 'Trial',
       index: true,
+    },
+    mandateStatus: {
+      type: String,
+      enum: ['Pending', 'Authorized', 'Failed', 'Revoked'],
+      default: 'Pending',
+      index: true,
+    },
+    razorpayPlanId: {
+      type: String,
+      default: null,
+    },
+    razorpaySubscriptionId: {
+      type: String,
+      default: null,
+    },
+    mandateUrl: {
+      type: String,
+      default: null,
     },
     startDate: {
       type: Date,
@@ -39,7 +57,19 @@ const tenantSubscriptionSchema = new Schema(
     },
     endDate: {
       type: Date,
-      default: () => new Date(Date.now() + 30 * 86400000), // 30 days trial/cycle
+      default: () => new Date(Date.now() + 14 * 86400000),
+    },
+    trialEndsAt: {
+      type: Date,
+      default: null,
+    },
+    gracePeriodEndsAt: {
+      type: Date,
+      default: null,
+    },
+    dunningAttempts: {
+      type: Number,
+      default: 0,
     },
     autoRenew: {
       type: Boolean,

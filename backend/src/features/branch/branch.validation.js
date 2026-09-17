@@ -69,6 +69,23 @@ const updateBranchStatusSchema = z.object({
   status: z.enum(['active', 'inactive']),
 });
 
+// --- Create Branch Manager Account ---
+const createBranchManagerSchema = z.object({
+  name: z.string().trim().min(2, 'Name must be at least 2 characters').max(100),
+  email: z.string().trim().toLowerCase().email('Please provide a valid email address'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+  phone: z.string().trim().max(20).optional().or(z.literal('')),
+});
+
+// --- Create Branch Staff / Chef Account ---
+const createBranchStaffSchema = z.object({
+  name: z.string().trim().min(2, 'Name must be at least 2 characters').max(100),
+  email: z.string().trim().toLowerCase().email('Please provide a valid email address'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+  phone: z.string().trim().max(20).optional().or(z.literal('')),
+  role: z.enum(['staff', 'chef']).optional().default('staff'),
+});
+
 module.exports = {
   createBranchSchema,
   updateBranchSchema,
@@ -77,4 +94,6 @@ module.exports = {
   updateBranchHoursSchema,
   assignManagerSchema,
   updateBranchStatusSchema,
+  createBranchManagerSchema,
+  createBranchStaffSchema,
 };

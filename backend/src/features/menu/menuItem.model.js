@@ -60,6 +60,12 @@ const menuItemSchema = new Schema(
       required: true,
       index: true,
     },
+    branch: {
+      type: Schema.Types.ObjectId,
+      ref: 'Branch',
+      default: null,
+      index: true,
+    },
     category: {
       type: Schema.Types.ObjectId,
       ref: 'Category',

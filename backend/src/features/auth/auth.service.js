@@ -329,17 +329,49 @@ const getCurrentUser = async (userId) => {
 
 /**
   * Registers a brand-new restaurant tenant via self-serve onboarding.
-  * Starts as isActive: false pending Super Admin review.
+  * Evaluates concrete flag conditions: Auto-approves if clean, routes to manual review if flagged.
   */
-const registerTenant = async ({ restaurantName, ownerName, email, password, phone, address, cuisine }) => {
-  const session = await mongoose.startSession();
-  try {
-    let createdUser;
-    let createdRestaurant;
+const registerTenant = async ({ restaurantName, ownerName, email, password, phone, address, cuisine, gstin, planCode = 'starter' }) => {
+  const subscriptionService = require('../superAdmin/subscription.service');
+  const auditService = require('../superAdmin/audit.service');
 
+  // 1. Evaluate auto-flag conditions
+  const flaggedReasons = await subscriptionService.evaluateRegistrationFlags({
+    email,
+    phone,
+    restaurantName,
+    address,
+    gstin,
+  });
+
+  const isAutoApproved = flaggedReasons.length === 0;
+  const approvalStatus = isAutoApproved ? 'Auto Approved' : 'Pending Review';
+  const isActive = isAutoApproved;
+
+  const session = await mongoose.startSession();
+  let createdUser;
+  let createdRestaurant;
+
+  try {
     await session.withTransaction(async () => {
       const [restaurant] = await Restaurant.create(
-        [{ name: restaurantName, address: address || '', phone: phone || '', cuisine: cuisine || [], isActive: false }],
+        [
+          {
+            name: restaurantName,
+            address: address || '',
+            phone: phone || '',
+            email: email || '',
+            cuisine: cuisine || [],
+            isActive,
+            approvalStatus,
+            flaggedReasons,
+            subscriptionPlan: (planCode || 'starter').toLowerCase(),
+            gst: {
+              gstRegistered: Boolean(gstin),
+              gstin: gstin ? String(gstin).trim().toUpperCase() : null,
+            },
+          },
+        ],
         { session }
       );
 
@@ -370,15 +402,47 @@ const registerTenant = async ({ restaurantName, ownerName, email, password, phon
       createdUser = owner;
       createdRestaurant = restaurant;
     });
-
-    return {
-      user: createdUser.toSafeObject(),
-      restaurant: createdRestaurant,
-      message: 'Registration submitted successfully! Your restaurant account is pending Super Admin review & approval.',
-    };
   } finally {
     session.endSession();
   }
+
+  let subscription = null;
+
+  if (isAutoApproved) {
+    // 2. Initialize trial & Razorpay mandate
+    subscription = await subscriptionService.initializeTenantTrialAndMandate(createdRestaurant._id, planCode);
+
+    await auditService.logAction({
+      restaurantId: createdRestaurant._id,
+      userId: createdUser._id,
+      userEmail: createdUser.email,
+      userRole: 'OWNER',
+      action: 'TENANT_REGISTRATION_AUTO_APPROVED',
+      resource: 'Restaurant',
+      details: { planCode, trialDays: 14, mandateUrl: subscription.mandateUrl },
+    });
+  } else {
+    await auditService.logAction({
+      restaurantId: createdRestaurant._id,
+      userId: createdUser._id,
+      userEmail: createdUser.email,
+      userRole: 'OWNER',
+      action: 'TENANT_REGISTRATION_FLAGGED_FOR_REVIEW',
+      resource: 'Restaurant',
+      details: { flaggedReasons, planCode },
+    });
+  }
+
+  return {
+    user: createdUser.toSafeObject(),
+    restaurant: createdRestaurant,
+    subscription,
+    isAutoApproved,
+    flaggedReasons,
+    message: isAutoApproved
+      ? `Registration approved! Your 14-day free trial under the ${planCode.toUpperCase()} plan is now active.`
+      : `Registration submitted! Placed in Super Admin review queue due to flags: ${flaggedReasons.join('; ')}`,
+  };
 };
 
 module.exports = {

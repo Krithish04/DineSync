@@ -207,6 +207,23 @@ const backfillKitchenStations = async () => {
   }
 };
 
+const getSubscription = async (id, requestingUser) => {
+  await getById(id, requestingUser);
+  const subscriptionService = require('../superAdmin/subscription.service');
+  const [subscription, plans] = await Promise.all([
+    subscriptionService.getTenantSubscription(id),
+    subscriptionService.listPlans(),
+  ]);
+  return { subscription, plans };
+};
+
+const updateSubscription = async (id, payload, requestingUser) => {
+  await getById(id, requestingUser);
+  const subscriptionService = require('../superAdmin/subscription.service');
+  const subscription = await subscriptionService.updateTenantSubscription(id, payload);
+  return subscription;
+};
+
 module.exports = {
   getById,
   getPublicBySlug,
@@ -221,4 +238,6 @@ module.exports = {
   getOpeningHours,
   updateOpeningHours,
   backfillKitchenStations,
+  getSubscription,
+  updateSubscription,
 };

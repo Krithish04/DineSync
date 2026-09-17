@@ -194,6 +194,130 @@ const listEligibleManagers = async (restaurantId) => {
   return users;
 };
 
+/**
+ * Phase 2 — Admin Creates Manager Account (1 per branch).
+ * Enforces strict 1-to-1 relationship. Reassignments leave old branch managerless (Option A transfer).
+ */
+const createBranchManager = async (restaurantId, branchId, { name, email, password, phone }, adminUser) => {
+  const auditService = require('../superAdmin/audit.service');
+
+  const branch = await getBranchOrFail(restaurantId, branchId);
+
+  // Check if an account with this email already exists
+  let existingUser = await User.findOne({ email, restaurant: restaurantId });
+  let managerUser;
+
+  if (existingUser) {
+    if (existingUser.role !== ROLES.MANAGER) {
+      throw ApiError.badRequest('An account with this email exists but is not a Manager.');
+    }
+    // Reassign existing Manager to this branch (Option A Transfer)
+    if (existingUser.branch && existingUser.branch.toString() !== branchId) {
+      // Clear old branch's manager pointer
+      await Branch.updateOne({ _id: existingUser.branch }, { manager: null });
+    }
+    existingUser.name = name || existingUser.name;
+    existingUser.phone = phone || existingUser.phone;
+    existingUser.branch = branch._id;
+    if (password) {
+      existingUser.password = password;
+      existingUser.isPasswordResetRequired = true;
+    }
+    await existingUser.save();
+    managerUser = existingUser;
+  } else {
+    // Create brand new Manager account
+    managerUser = await User.create({
+      name,
+      email,
+      password,
+      phone: phone || '',
+      role: ROLES.MANAGER,
+      restaurant: restaurantId,
+      branch: branch._id,
+      isEmailVerified: true,
+      isActive: true,
+      isPasswordResetRequired: true,
+    });
+  }
+
+  // Clear previous branch manager's branch ref if branch had a different manager
+  if (branch.manager && branch.manager.toString() !== managerUser._id.toString()) {
+    await User.updateOne({ _id: branch.manager }, { branch: null });
+  }
+
+  branch.manager = managerUser._id;
+  await branch.save();
+
+  // Audit log
+  await auditService.logAction({
+    restaurantId,
+    userId: adminUser?._id || null,
+    userEmail: adminUser?.email || 'admin',
+    userRole: adminUser?.role || 'owner',
+    action: 'MANAGER_CREATED',
+    resource: 'Branch',
+    details: { branchId, branchName: branch.name, managerEmail: managerUser.email },
+  });
+
+  return { manager: managerUser.toSafeObject(), branch };
+};
+
+/**
+ * Phase 3 — Manager Creates Staff or Kitchen (Chef) Accounts strictly scoped to their branch.
+ */
+const createBranchStaff = async (restaurantId, managerUser, { name, email, password, phone, role }) => {
+  const auditService = require('../superAdmin/audit.service');
+
+  if (!managerUser.branch) {
+    throw ApiError.forbidden('Manager account is not assigned to any branch.');
+  }
+
+  const targetRole = role === ROLES.CHEF ? ROLES.CHEF : ROLES.STAFF;
+  const branchId = managerUser.branch.toString();
+
+  const existingUser = await User.findOne({ email, restaurant: restaurantId });
+  if (existingUser) {
+    throw ApiError.conflict('An account with this email address already exists for this restaurant.');
+  }
+
+  const staffUser = await User.create({
+    name,
+    email,
+    password,
+    phone: phone || '',
+    role: targetRole,
+    restaurant: restaurantId,
+    branch: branchId,
+    isEmailVerified: true,
+    isActive: true,
+    isPasswordResetRequired: true,
+  });
+
+  // Audit log
+  await auditService.logAction({
+    restaurantId,
+    userId: managerUser._id,
+    userEmail: managerUser.email,
+    userRole: managerUser.role,
+    action: 'STAFF_CREATED',
+    resource: 'User',
+    details: { staffId: staffUser._id, role: targetRole, branchId },
+  });
+
+  return staffUser.toSafeObject();
+};
+
+/**
+ * List all users belonging to a specific branch.
+ */
+const listBranchUsers = async (restaurantId, branchId) => {
+  const users = await User.find({ restaurant: restaurantId, branch: branchId })
+    .select('-password')
+    .sort({ role: 1, name: 1 });
+  return users;
+};
+
 module.exports = {
   createBranch,
   listBranches,
@@ -206,4 +330,7 @@ module.exports = {
   assignManager,
   updateStatus,
   listEligibleManagers,
+  createBranchManager,
+  createBranchStaff,
+  listBranchUsers,
 };

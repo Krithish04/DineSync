@@ -97,6 +97,8 @@ const authorize = (...roles) => (req, res, next) => {
 
 /**
  * Ensures a tenant-scoped user can only access resources within their own
+/**
+ * Ensures a tenant-scoped user can only access resources within their own
  * restaurant. Super admins bypass this check.
  */
 const enforceTenantIsolation = (req, res, next) => {
@@ -108,6 +110,31 @@ const enforceTenantIsolation = (req, res, next) => {
   if (targetTenantId && targetTenantId !== req.tenantId) {
     throw ApiError.forbidden('You cannot access resources outside your restaurant.');
   }
+  next();
+};
+
+/**
+ * Ensures a branch-scoped user (Manager, Staff, Chef) can only access resources
+ * within their own assigned branch. Super Admin and Restaurant Owner (Admin) bypass this.
+ */
+const enforceBranchIsolation = (req, res, next) => {
+  if (req.user.role === ROLES.SUPER_ADMIN || req.user.role === ROLES.OWNER) {
+    req.branchId = req.params.branchId || req.body.branch || req.body.branchId || req.query.branch || req.query.branchId || null;
+    return next();
+  }
+
+  const userBranchId = req.user.branch ? req.user.branch.toString() : null;
+  if (!userBranchId) {
+    throw ApiError.forbidden('Your account is not assigned to any branch.');
+  }
+
+  const targetBranchId = req.params.branchId || req.body.branch || req.body.branchId || req.query.branch || req.query.branchId;
+
+  if (targetBranchId && targetBranchId !== userBranchId) {
+    throw ApiError.forbidden('You cannot access or modify resources belonging to another branch.');
+  }
+
+  req.branchId = userBranchId;
   next();
 };
 
@@ -141,4 +168,4 @@ const authorizeMenuEdit = asyncHandler(async (req, res, next) => {
   throw ApiError.forbidden('You do not have permission to modify menu catalog.');
 });
 
-module.exports = { protect, authorize, enforceTenantIsolation, authorizeMenuEdit };
+module.exports = { protect, authorize, enforceTenantIsolation, enforceBranchIsolation, authorizeMenuEdit };

@@ -88,6 +88,30 @@ const listEligibleManagers = asyncHandler(async (req, res) => {
   return new ApiResponse(200, { managers }, 'Eligible managers fetched successfully').send(res);
 });
 
+const createBranchManager = asyncHandler(async (req, res) => {
+  const result = await branchService.createBranchManager(
+    req.params.restaurantId,
+    req.params.branchId,
+    req.body,
+    req.user
+  );
+  return new ApiResponse(201, result, 'Branch manager account created/assigned successfully').send(res);
+});
+
+const createBranchStaff = asyncHandler(async (req, res) => {
+  const staff = await branchService.createBranchStaff(
+    req.params.restaurantId,
+    req.user,
+    req.body
+  );
+  return new ApiResponse(201, { staff }, 'Branch staff account created successfully').send(res);
+});
+
+const listBranchUsers = asyncHandler(async (req, res) => {
+  const users = await branchService.listBranchUsers(req.params.restaurantId, req.params.branchId);
+  return new ApiResponse(200, { users }, 'Branch user accounts fetched successfully').send(res);
+});
+
 module.exports = {
   createBranch,
   listBranches,
@@ -100,4 +124,7 @@ module.exports = {
   assignManager,
   updateStatus,
   listEligibleManagers,
+  createBranchManager,
+  createBranchStaff,
+  listBranchUsers,
 };

@@ -89,6 +89,46 @@ const processWebhookEvent = async (restaurantId, rawBody, signature) => {
   const isSplit = notes.isSplit === 'true';
   const splitCount = parseInt(notes.splitCount || '1', 10);
 
+  // Subscription Mandate & Recurring Billing Webhook Handlers
+  const subscriptionEntity = payload.payload?.subscription?.entity || {};
+  const invoiceEntity = payload.payload?.invoice?.entity || {};
+
+  if (event === 'subscription.authenticated' || event === 'subscription.activated') {
+    const subscriptionService = require('../superAdmin/subscription.service');
+    const subId = subscriptionEntity.id || notes.razorpaySubscriptionId;
+    if (subId) {
+      await subscriptionService.handleMandateAuthorized({ razorpaySubscriptionId: subId });
+      return { success: true, event, verified: true, message: 'Subscription mandate authorized.' };
+    }
+  }
+
+  if (event === 'subscription.charged' || (event === 'invoice.paid' && invoiceEntity.subscription_id)) {
+    const subscriptionService = require('../superAdmin/subscription.service');
+    const subId = subscriptionEntity.id || invoiceEntity.subscription_id;
+    if (subId) {
+      const amount = invoiceEntity.amount ? invoiceEntity.amount / 100 : (paymentEntity.amount ? paymentEntity.amount / 100 : 1999);
+      const invoiceNumber = invoiceEntity.invoice_number || `INV-${Date.now().toString().slice(-6)}`;
+      await subscriptionService.handleRecurringChargeSuccess({
+        razorpaySubscriptionId: subId,
+        amount,
+        invoiceNumber,
+      });
+      return { success: true, event, verified: true, message: 'Recurring subscription charge processed successfully.' };
+    }
+  }
+
+  if (event === 'subscription.halted' || (event === 'invoice.payment_failed' && invoiceEntity.subscription_id)) {
+    const subscriptionService = require('../superAdmin/subscription.service');
+    const subId = subscriptionEntity.id || invoiceEntity.subscription_id;
+    if (subId) {
+      await subscriptionService.handleRecurringChargeFailed({
+        razorpaySubscriptionId: subId,
+        reason: invoiceEntity.error_description || paymentEntity.error_description || 'Mandate charge auto-debit failed',
+      });
+      return { success: false, event, verified: true, message: 'Recurring charge failure processed, entering dunning grace period.' };
+    }
+  }
+
   if (event === 'payment.captured' || event === 'order.paid') {
     const paymentRef = paymentEntity.id || `RZP-${Date.now()}`;
 

@@ -222,7 +222,30 @@ const restaurantSchema = new Schema(
     subscriptionPlan: {
       type: String,
       enum: ['free', 'starter', 'pro', 'enterprise'],
-      default: 'free',
+      default: 'starter',
+    },
+    approvalStatus: {
+      type: String,
+      enum: ['Auto Approved', 'Approved', 'Pending Review', 'Rejected'],
+      default: 'Pending Review',
+      index: true,
+    },
+    flaggedReasons: {
+      type: [String],
+      default: [],
+    },
+    rejectionReason: {
+      type: String,
+      default: null,
+    },
+    reviewDecidedAt: {
+      type: Date,
+      default: null,
+    },
+    reviewedBy: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
     },
   },
   { timestamps: true }

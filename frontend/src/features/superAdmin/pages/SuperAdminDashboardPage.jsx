@@ -6,13 +6,6 @@ import ForecastCard from '@/features/ai/components/ForecastCard';
 import ChartWidget from '@/features/reports/components/ChartWidget';
 import * as superAdminApi from '../api/superAdmin.api';
 
-const MRR_TREND_DATA = [
-  { month: 'Jan', mrr: 12000, arr: 144000 },
-  { month: 'Feb', mrr: 16500, arr: 198000 },
-  { month: 'Mar', mrr: 24000, arr: 288000 },
-  { month: 'Apr', mrr: 38000, arr: 456000 },
-];
-
 export default function SuperAdminDashboardPage() {
   const [overview, setOverview] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -80,7 +73,7 @@ export default function SuperAdminDashboardPage() {
               <h3 className="text-sm font-semibold text-foreground">SaaS Platform MRR Growth Trend</h3>
               <ChartWidget
                 type="area"
-                data={MRR_TREND_DATA}
+                data={overview.mrrTrend || []}
                 xKey="month"
                 dataKeys={[{ key: 'mrr', label: 'Monthly Recurring Revenue (₹)', color: '#c2440f' }]}
                 height={260}

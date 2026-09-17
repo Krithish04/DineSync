@@ -10,6 +10,12 @@ const auditLogSchema = new Schema(
       default: null,
       index: true,
     },
+    branch: {
+      type: Schema.Types.ObjectId,
+      ref: 'Branch',
+      default: null,
+      index: true,
+    },
     user: {
       type: Schema.Types.ObjectId,
       ref: 'User',

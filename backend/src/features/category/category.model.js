@@ -10,6 +10,12 @@ const categorySchema = new Schema(
       required: true,
       index: true,
     },
+    branch: {
+      type: Schema.Types.ObjectId,
+      ref: 'Branch',
+      default: null,
+      index: true,
+    },
     name: {
       type: String,
       required: [true, 'Category name is required'],

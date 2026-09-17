@@ -49,6 +49,11 @@ const subscriptionPlanSchema = new Schema(
       type: Boolean,
       default: false,
     },
+    trialDays: {
+      type: Number,
+      default: 14,
+      min: 0,
+    },
     isActive: {
       type: Boolean,
       default: true,

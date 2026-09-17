@@ -18,6 +18,12 @@ const payrollSchema = new Schema(
       required: true,
       index: true,
     },
+    branch: {
+      type: Schema.Types.ObjectId,
+      ref: 'Branch',
+      default: null,
+      index: true,
+    },
     month: {
       type: String, // format YYYY-MM
       required: true,

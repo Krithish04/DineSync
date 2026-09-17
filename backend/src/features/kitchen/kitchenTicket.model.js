@@ -93,6 +93,12 @@ const kitchenTicketSchema = new Schema(
       required: true,
       index: true,
     },
+    branch: {
+      type: Schema.Types.ObjectId,
+      ref: 'Branch',
+      default: null,
+      index: true,
+    },
     order: {
       type: Schema.Types.ObjectId,
       ref: 'Order',

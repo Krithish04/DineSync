@@ -10,6 +10,12 @@ const ingredientSchema = new Schema(
       required: true,
       index: true,
     },
+    branch: {
+      type: Schema.Types.ObjectId,
+      ref: 'Branch',
+      default: null,
+      index: true,
+    },
     ingredientName: {
       type: String,
       required: [true, 'Ingredient name is required'],

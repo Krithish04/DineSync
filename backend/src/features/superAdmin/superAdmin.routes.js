@@ -16,11 +16,16 @@ router.post('/tenants/:tenantId/impersonate', superAdminController.impersonateTe
 router.post('/exit-impersonation', superAdminController.exitImpersonation);
 
 router.get('/plans', superAdminController.listSubscriptionPlans);
+router.patch('/plans/:code', superAdminController.updatePlanConfig);
 router.get('/tenants/:tenantId/subscription', superAdminController.getTenantSubscription);
 router.patch('/tenants/:tenantId/subscription', superAdminController.updateTenantSubscription);
 
 router.get('/tenants/:tenantId/feature-flags', superAdminController.getFeatureFlags);
 router.put('/tenants/:tenantId/feature-flags', superAdminController.updateFeatureFlags);
+
+router.get('/review-queue', superAdminController.listManualReviewQueue);
+router.post('/review-queue/:tenantId/approve', superAdminController.approveTenantRegistration);
+router.post('/review-queue/:tenantId/reject', superAdminController.rejectTenantRegistration);
 
 router.get('/audit-logs', superAdminController.listAuditLogs);
 router.get('/health', superAdminController.getSystemHealth);

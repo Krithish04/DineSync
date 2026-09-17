@@ -31,6 +31,11 @@ const listSubscriptionPlans = asyncHandler(async (req, res) => {
   return new ApiResponse(200, { plans }, 'Subscription plans fetched').send(res);
 });
 
+const updatePlanConfig = asyncHandler(async (req, res) => {
+  const plan = await subscriptionService.updatePlanConfig(req.params.code, req.body);
+  return new ApiResponse(200, { plan }, `Subscription plan configuration for ${req.params.code} updated`).send(res);
+});
+
 const getTenantSubscription = asyncHandler(async (req, res) => {
   const subscription = await subscriptionService.getTenantSubscription(req.params.tenantId);
   return new ApiResponse(200, { subscription }, 'Tenant subscription details fetched').send(res);
@@ -75,12 +80,28 @@ const exitImpersonation = asyncHandler(async (req, res) => {
   return new ApiResponse(200, { token }, 'Exited impersonation mode').send(res);
 });
 
+const listManualReviewQueue = asyncHandler(async (req, res) => {
+  const queue = await subscriptionService.listManualReviewQueue();
+  return new ApiResponse(200, { queue, total: queue.length }, 'Manual review queue fetched successfully').send(res);
+});
+
+const approveTenantRegistration = asyncHandler(async (req, res) => {
+  const result = await subscriptionService.approveTenantRegistration(req.params.tenantId, req.user);
+  return new ApiResponse(200, result, 'Tenant registration approved successfully').send(res);
+});
+
+const rejectTenantRegistration = asyncHandler(async (req, res) => {
+  const restaurant = await subscriptionService.rejectTenantRegistration(req.params.tenantId, req.body, req.user);
+  return new ApiResponse(200, { restaurant }, 'Tenant registration rejected').send(res);
+});
+
 module.exports = {
   getPlatformOverview,
   listTenants,
   getTenantDetails,
   updateTenantStatus,
   listSubscriptionPlans,
+  updatePlanConfig,
   getTenantSubscription,
   updateTenantSubscription,
   getFeatureFlags,
@@ -89,4 +110,7 @@ module.exports = {
   getSystemHealth,
   impersonateTenant,
   exitImpersonation,
+  listManualReviewQueue,
+  approveTenantRegistration,
+  rejectTenantRegistration,
 };

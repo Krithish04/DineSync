@@ -53,6 +53,16 @@ const userSchema = new Schema(
         message: 'This role must be associated with a restaurant (tenant).',
       },
     },
+    branch: {
+      type: Schema.Types.ObjectId,
+      ref: 'Branch',
+      default: null,
+      index: true,
+    },
+    isPasswordResetRequired: {
+      type: Boolean,
+      default: false,
+    },
     isActive: {
       type: Boolean,
       default: true,

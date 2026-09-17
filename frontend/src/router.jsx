@@ -24,6 +24,7 @@ const ForgotPasswordPage = lazyLoad(() => import('@/features/auth/pages/ForgotPa
 const ResetPasswordPage = lazyLoad(() => import('@/features/auth/pages/ResetPasswordPage'));
 const DashboardPage = lazyLoad(() => import('@/features/dashboard/pages/DashboardPage'));
 const RestaurantProfilePage = lazyLoad(() => import('@/features/restaurant/pages/RestaurantProfilePage'));
+const TenantSubscriptionPage = lazyLoad(() => import('@/features/restaurant/pages/TenantSubscriptionPage'));
 const RestaurantSettingsPage = lazyLoad(() => import('@/features/restaurant/pages/RestaurantSettingsPage'));
 const GstSettingsPage = lazyLoad(() => import('@/features/restaurant/pages/GstSettingsPage'));
 const OpeningHoursPage = lazyLoad(() => import('@/features/restaurant/pages/OpeningHoursPage'));
@@ -382,6 +383,10 @@ const router = createBrowserRouter([
       {
         path: '/restaurant/profile',
         element: <RestaurantProfilePage />,
+      },
+      {
+        path: '/restaurant/subscription',
+        element: <TenantSubscriptionPage />,
       },
       {
         path: '/restaurant/gst',

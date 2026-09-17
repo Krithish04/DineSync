@@ -41,6 +41,12 @@ const tableSchema = new Schema(
       required: true,
       index: true,
     },
+    branch: {
+      type: Schema.Types.ObjectId,
+      ref: 'Branch',
+      default: null,
+      index: true,
+    },
     tableNumber: {
       type: String,
       required: [true, 'Table number is required'],
