@@ -87,6 +87,7 @@ const tableSessionSchema = new Schema(
 // Compound indexes for quick active session lookups
 tableSessionSchema.index({ table: 1, status: 1 });
 tableSessionSchema.index({ restaurant: 1, table: 1, status: 1 });
+tableSessionSchema.index({ restaurant: 1, status: 1 });
 
 const TableSessionModel = mongoose.model('TableSession', tableSessionSchema);
 TableSessionModel.SESSION_STATUSES = SESSION_STATUSES;

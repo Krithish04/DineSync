@@ -172,22 +172,9 @@ export default function ArchitecturalFloorPlan({
   // Synchronize local table state ONLY when not actively editing/dragging (Prevents Socket snap-back!)
   useEffect(() => {
     if (!hasUnsavedChanges && !dragState) {
-      const positionCounts = {};
-      const synced = tables.map((t, idx) => {
-        let posX = t.positionX ?? 100;
-        let posY = t.positionY ?? 100;
-
-        // Auto-assign clean grid slots if position is default 100,100 or colliding stacked default
-        const key = `${posX},${posY}`;
-        if (positionCounts[key] || (posX === 100 && posY === 100)) {
-          positionCounts[key] = (positionCounts[key] || 0) + 1;
-          const stackOffset = (positionCounts[key] - 1) * 140;
-          posX = Math.min(820, (posX === 100 ? 50 + (idx % 4) * 140 : posX + stackOffset));
-          posY = posY === 100 ? 80 + Math.floor(idx / 4) * 110 : posY;
-        } else {
-          positionCounts[key] = 1;
-        }
-
+      const synced = tables.map((t) => {
+        const posX = t.positionX ?? 100;
+        const posY = t.positionY ?? 100;
         const detected = detectZoneForTable(posX, posY, t.shape, customZones);
         return { ...t, positionX: posX, positionY: posY, zone: detected };
       });
@@ -334,14 +321,21 @@ export default function ArchitecturalFloorPlan({
 
     e.currentTarget.setPointerCapture(e.pointerId);
 
+    const startX = itemData.posX ?? itemData.positionX ?? 100;
+    const startY = itemData.posY ?? itemData.positionY ?? 100;
+
+    if (type === 'table') {
+      console.log(`[DRAG_START] Table ID: ${id} | Start Pos: (${startX}, ${startY})`);
+    }
+
     setDragState({
       id,
       type,
       pointerId: e.pointerId,
       startX: pointerX,
       startY: pointerY,
-      origX: itemData.posX ?? itemData.positionX ?? 100,
-      origY: itemData.posY ?? itemData.positionY ?? 100,
+      origX: startX,
+      origY: startY,
       origW: itemData.width ?? 300,
       origH: itemData.height ?? 200,
     });
@@ -441,14 +435,20 @@ export default function ArchitecturalFloorPlan({
         }
       }
       const wasTableDrag = dragState.type === 'table';
+      const draggedId = dragState.id;
       setDragState(null);
 
       // Auto-save on table drop so position changes persist immediately
       if (wasTableDrag && onSaveLayout) {
+        const targetTable = localTables.find((t) => t._id === draggedId);
+        console.log(
+          `[DRAG_END/DROP] Table ID: ${draggedId} | Drop Pos: (${targetTable?.positionX}, ${targetTable?.positionY})`
+        );
+
         const layoutItems = localTables.map((t) => ({
           _id: t._id,
-          positionX: t.positionX || 100,
-          positionY: t.positionY || 100,
+          positionX: t.positionX ?? 100,
+          positionY: t.positionY ?? 100,
           shape: t.shape || 'Square',
           zone: t.zone || 'Unassigned / Open Floor',
           isAccessible: Boolean(t.isAccessible),
@@ -456,8 +456,18 @@ export default function ArchitecturalFloorPlan({
           width: t.width || 90,
           height: t.height || 90,
         }));
+
+        const draggedPayloadItem = layoutItems.find((item) => item._id === draggedId);
+        console.log(
+          `[PAYLOAD_SENT] Payload item for Table ${draggedId}:`,
+          draggedPayloadItem
+        );
+
         onSaveLayout(layoutItems)
-          .then(() => setHasUnsavedChanges(false))
+          .then(() => {
+            console.log(`[SAVE_SUCCESS] Save layout API call resolved for Table ID: ${draggedId}`);
+            setHasUnsavedChanges(false);
+          })
           .catch((err) => console.error('Auto-save table layout failed:', err));
       }
     }

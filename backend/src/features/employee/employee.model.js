@@ -195,6 +195,7 @@ const employeeSchema = new Schema(
 
 // Ensure employeeCode is unique per-restaurant (sparse indices fallback)
 employeeSchema.index({ employeeCode: 1, restaurant: 1 }, { unique: true });
+employeeSchema.index({ user: 1, restaurant: 1 });
 
 // Pre-validate hook to generate sequential employeeId
 employeeSchema.pre('validate', async function generateEmployeeId(next) {

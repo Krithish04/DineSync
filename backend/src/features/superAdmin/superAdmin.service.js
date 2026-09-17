@@ -144,10 +144,54 @@ const getSystemHealth = async () => {
   };
 };
 
+// ==========================================
+// 4. TENANT IMPERSONATION
+// ==========================================
+const impersonateTenant = async (restaurantId, superAdminUser) => {
+  const restaurant = await Restaurant.findById(restaurantId);
+  if (!restaurant) throw ApiError.notFound('Restaurant tenant not found.');
+
+  const { signToken } = require('../../utils/jwt.util');
+  const token = signToken({
+    id: superAdminUser._id.toString(),
+    role: ROLES.SUPER_ADMIN,
+    restaurantId: restaurant._id.toString(),
+    isImpersonating: true,
+    impersonatedRestaurantId: restaurant._id.toString(),
+    impersonatedRestaurantName: restaurant.name,
+    impersonatedRestaurantSlug: restaurant.slug,
+  });
+
+  await auditService.logAction({
+    restaurantId: restaurant._id,
+    userId: superAdminUser._id,
+    userEmail: superAdminUser.email,
+    userRole: superAdminUser.role,
+    action: 'TENANT_IMPERSONATED',
+    resource: restaurant.name,
+  });
+
+  return { token, restaurant };
+};
+
+const exitImpersonation = async (superAdminUser) => {
+  const { signToken } = require('../../utils/jwt.util');
+  const token = signToken({
+    id: superAdminUser._id.toString(),
+    role: ROLES.SUPER_ADMIN,
+    restaurantId: null,
+    isImpersonating: false,
+  });
+
+  return { token };
+};
+
 module.exports = {
   getPlatformOverview,
   listTenants,
   getTenantDetails,
   updateTenantStatus,
   getSystemHealth,
+  impersonateTenant,
+  exitImpersonation,
 };

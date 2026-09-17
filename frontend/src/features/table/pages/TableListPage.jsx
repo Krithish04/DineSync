@@ -74,7 +74,7 @@ export default function TableListPage() {
     try {
       const params = {
         page,
-        limit,
+        limit: viewMode === 'floorplan' ? 1000 : limit,
         search: searchDebounced,
       };
 
@@ -88,7 +88,7 @@ export default function TableListPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [restaurantId, page, searchDebounced, selectedStatusFilter]);
+  }, [restaurantId, page, limit, searchDebounced, selectedStatusFilter, viewMode]);
 
   useEffect(() => {
     if (restaurantId) {
@@ -246,9 +246,21 @@ export default function TableListPage() {
   const handleSaveLayout = async (layoutItems) => {
     setIsSavingLayout(true);
     try {
-      await tableApi.bulkUpdateTableLayout(restaurantId, layoutItems);
+      console.log('[PARENT_SAVE_START] Sending bulkUpdateTableLayout API call...');
+      const res = await tableApi.bulkUpdateTableLayout(restaurantId, layoutItems);
+      console.log('[PARENT_SAVE_RESPONSE] Backend API response:', res);
+
+      // Optimistically update tables state in TableListPage so parent tables state matches saved layout
+      setTables((prev) =>
+        prev.map((t) => {
+          const updated = layoutItems.find((item) => String(item._id) === String(t._id));
+          return updated ? { ...t, ...updated } : t;
+        })
+      );
+
       setSuccess('Floor plan layout saved successfully!');
-      loadTables();
+      await loadTables();
+      console.log('[PARENT_RELOAD_COMPLETE] loadTables finished after layout save.');
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to save floor plan layout.');

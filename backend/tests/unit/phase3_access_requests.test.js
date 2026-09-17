@@ -38,23 +38,34 @@ describe('Phase 3 — Access Request & Host Approval Tests', () => {
     assert.strictEqual(session.coOrderers[0].phone, '+919123456789');
   });
 
-  it('should support Option A Host Promotion Fallback — longest-standing co-orderer promoted on host session end', () => {
-    const earlyDate = new Date(Date.now() - 10000);
-    const lateDate = new Date(Date.now() - 2000);
+  it('should support Option A Host Promotion Fallback — Host + 2 co-orderers active, earliest approved becomes Host & other co-orderer rights unaffected', () => {
+    const earliestApprovedDate = new Date(Date.now() - 15000);
+    const laterApprovedDate = new Date(Date.now() - 5000);
 
     const session = {
+      hostName: 'Original Host',
+      hostPhone: '+919876543210',
       coOrderers: [
-        { name: 'Late Guest', phone: '+919988776655', approvedAt: lateDate },
-        { name: 'Early Guest', phone: '+919123456789', approvedAt: earlyDate },
+        { name: 'Later Co-Orderer', phone: '+919988776655', approvedAt: laterApprovedDate },
+        { name: 'Earliest Co-Orderer', phone: '+919123456789', approvedAt: earliestApprovedDate },
       ],
     };
 
-    // Sort by approvedAt ascending to identify longest-standing co-orderer
-    const sorted = [...session.coOrderers].sort((a, b) => new Date(a.approvedAt) - new Date(b.approvedAt));
-    const nextHost = sorted.shift();
+    // Simulate Host Session End Promotion
+    const sortedCoOrderers = [...session.coOrderers].sort(
+      (a, b) => new Date(a.approvedAt || 0) - new Date(b.approvedAt || 0)
+    );
+    const nextHost = sortedCoOrderers.shift();
+    session.coOrderers = sortedCoOrderers;
+    session.hostName = nextHost.name;
+    session.hostPhone = nextHost.phone;
 
-    assert.strictEqual(nextHost.phone, '+919123456789', 'Longest-standing co-orderer (earliest approvedAt) should be selected');
-    assert.strictEqual(nextHost.name, 'Early Guest');
+    // Assertions
+    assert.strictEqual(session.hostPhone, '+919123456789', 'Earliest-approved co-orderer (+919123456789) should become new Host');
+    assert.strictEqual(session.hostName, 'Earliest Co-Orderer');
+    assert.strictEqual(session.coOrderers.length, 1, 'Remaining co-orderer count should be 1');
+    assert.strictEqual(session.coOrderers[0].phone, '+919988776655', 'Second co-orderer should remain in coOrderers list unaffected');
+    assert.strictEqual(session.coOrderers[0].name, 'Later Co-Orderer');
   });
 
   it('should grant ordering rights to approved co-orderers in placeCustomerOrder authorization logic', () => {

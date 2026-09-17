@@ -43,44 +43,33 @@ const cleanupStaleTableSessions = async (restaurantId = null) => {
           { $set: { orderStatus: 'Completed' } }
         );
 
-        table.status = 'Available';
-        table.currentHostName = '';
-        table.currentHostPhone = '';
-        await table.save();
-
         if (activeSession) {
-          activeSession.status = 'released';
-          activeSession.endedAt = new Date();
-          await activeSession.save();
-
-          // Log audit record
-          await TableSessionAudit.create({
-            restaurant: table.restaurant,
-            table: table._id,
-            session: activeSession._id,
-            action: TableSessionAudit.AUDIT_ACTIONS.STALE_AUTO_RELEASE,
-            actorPhone: activeSession.hostPhone || '',
-            actorName: activeSession.hostName || '',
-            reason: 'System auto-released abandoned table session after 15 minutes of inactivity with 0 active orders.',
-            metadata: { lastActivity },
-          }).catch(() => null);
-
-          socketConfig.broadcastEvent(table.restaurant, 'table:session-ended', {
+          const customerExperienceService = require('../customerExperience/customerExperience.service');
+          const releaseResult = await customerExperienceService.releaseTableSession(table.restaurant, {
             sessionId: activeSession._id,
             tableId: table._id,
+          });
+
+          if (releaseResult && releaseResult.promoted) {
+            // Longest-standing co-orderer was promoted to Host (Option A Fallback)
+            continue;
+          }
+        } else {
+          table.status = 'Available';
+          table.currentHostName = '';
+          table.currentHostPhone = '';
+          await table.save();
+          await redisConfig.releaseTableLock(table._id.toString());
+
+          socketConfig.broadcastEvent(table.restaurant, 'table:updated', {
+            tableId: table._id,
             tableNumber: table.tableNumber,
-            status: 'released',
+            status: 'Available',
+            currentHostName: '',
+            currentHostPhone: '',
+            forceLogout: true,
           });
         }
-
-        socketConfig.broadcastEvent(table.restaurant, 'table:updated', {
-          tableId: table._id,
-          tableNumber: table.tableNumber,
-          status: 'Available',
-          currentHostName: '',
-          currentHostPhone: '',
-          forceLogout: true,
-        });
       }
     }
   } catch (err) {

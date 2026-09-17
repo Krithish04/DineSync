@@ -43,5 +43,6 @@ const categorySchema = new Schema(
 
 // A category name must be unique within its restaurant (not globally)
 categorySchema.index({ restaurant: 1, name: 1 }, { unique: true });
+categorySchema.index({ restaurant: 1, isActive: 1, displayOrder: 1 });
 
 module.exports = mongoose.model('Category', categorySchema);

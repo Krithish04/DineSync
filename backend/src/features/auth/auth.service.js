@@ -188,6 +188,7 @@ const resendOtp = async ({ email, restaurantSlug, purpose }) => {
  * Blocks login for unverified accounts.
  */
 const login = async ({ email, password, restaurantSlug }) => {
+  const t0 = performance.now();
   let user;
   let restaurant = null;
 
@@ -200,12 +201,14 @@ const login = async ({ email, password, restaurantSlug }) => {
       restaurant = await Restaurant.findById(user.restaurant);
     }
   }
+  const t1 = performance.now();
 
   if (!user) {
     throw ApiError.unauthorized('Invalid email or password.');
   }
 
   const isMatch = await user.comparePassword(password);
+  const t2 = performance.now();
   if (!isMatch) {
     throw ApiError.unauthorized('Invalid email or password.');
   }
@@ -214,12 +217,17 @@ const login = async ({ email, password, restaurantSlug }) => {
     throw ApiError.forbidden('This account has been deactivated.');
   }
 
+  if (restaurant && !restaurant.isActive && user.role !== ROLES.SUPER_ADMIN) {
+    throw ApiError.forbidden('Your restaurant tenant is pending Super Admin review & approval or has been suspended.');
+  }
+
   if (!user.isEmailVerified) {
     throw ApiError.forbidden('Please verify your email before logging in.');
   }
 
   user.lastLoginAt = new Date();
   await user.save({ validateBeforeSave: false });
+  const t3 = performance.now();
 
   // Auto clock-in employee on POS/KDS login if staff account
   if (user.restaurant && ['staff', 'chef', 'manager'].includes(user.role)) {
@@ -230,12 +238,17 @@ const login = async ({ email, password, restaurantSlug }) => {
       // Non-blocking fallback
     }
   }
+  const t4 = performance.now();
 
   const token = signToken({
     id: user._id.toString(),
     role: user.role,
     restaurantId: user.restaurant ? user.restaurant.toString() : null,
   });
+  const t5 = performance.now();
+
+  // eslint-disable-next-line no-console
+  console.log(`[PROFILE login] Total: ${(t5 - t0).toFixed(2)}ms | FindUser: ${(t1 - t0).toFixed(2)}ms | BcryptCompare: ${(t2 - t1).toFixed(2)}ms | SaveUser: ${(t3 - t2).toFixed(2)}ms | AutoClockIn: ${(t4 - t3).toFixed(2)}ms | TokenSign: ${(t5 - t4).toFixed(2)}ms`);
 
   return { user: user.toSafeObject(), restaurant, token };
 };
@@ -314,8 +327,63 @@ const getCurrentUser = async (userId) => {
   return user;
 };
 
+/**
+  * Registers a brand-new restaurant tenant via self-serve onboarding.
+  * Starts as isActive: false pending Super Admin review.
+  */
+const registerTenant = async ({ restaurantName, ownerName, email, password, phone, address, cuisine }) => {
+  const session = await mongoose.startSession();
+  try {
+    let createdUser;
+    let createdRestaurant;
+
+    await session.withTransaction(async () => {
+      const [restaurant] = await Restaurant.create(
+        [{ name: restaurantName, address: address || '', phone: phone || '', cuisine: cuisine || [], isActive: false }],
+        { session }
+      );
+
+      const existingUser = await User.findOne({ email }).session(session);
+      if (existingUser) {
+        throw ApiError.conflict('An account with this email address already exists.');
+      }
+
+      const [owner] = await User.create(
+        [
+          {
+            name: ownerName,
+            email,
+            password,
+            phone: phone || '',
+            role: ROLES.OWNER,
+            restaurant: restaurant._id,
+            isEmailVerified: true,
+            isActive: true,
+          },
+        ],
+        { session }
+      );
+
+      restaurant.owner = owner._id;
+      await restaurant.save({ session });
+
+      createdUser = owner;
+      createdRestaurant = restaurant;
+    });
+
+    return {
+      user: createdUser.toSafeObject(),
+      restaurant: createdRestaurant,
+      message: 'Registration submitted successfully! Your restaurant account is pending Super Admin review & approval.',
+    };
+  } finally {
+    session.endSession();
+  }
+};
+
 module.exports = {
   registerRestaurant,
+  registerTenant,
   registerUser,
   verifyEmail,
   resendOtp,

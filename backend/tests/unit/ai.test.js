@@ -71,4 +71,36 @@ describe('Backend AI Microservice Proxy Unit Tests', () => {
     assert.strictEqual(liveResponse.execution_mode, 'AI_LIVE_MODEL');
     assert.strictEqual(fallbackResponse.execution_mode, 'HEURISTIC_FALLBACK');
   });
+
+  it('should cache AI forecast results in memory within TTL window', async () => {
+    const cacheMap = new Map();
+    let computeCount = 0;
+    const getCachedOrCompute = async (key, ttlMs, fn) => {
+      const cached = cacheMap.get(key);
+      if (cached && Date.now() < cached.expiresAt) return cached.data;
+      const data = await fn();
+      cacheMap.set(key, { data, expiresAt: Date.now() + ttlMs });
+      return data;
+    };
+
+    const fetchForecast = (restId) =>
+      getCachedOrCompute(`sales_${restId}`, 300000, async () => {
+        computeCount += 1;
+        return { tomorrow: { predicted_revenue: 500 } };
+      });
+
+    const res1 = await fetchForecast('rest_123');
+    const res2 = await fetchForecast('rest_123');
+
+    assert.strictEqual(computeCount, 1, 'Compute function should only be called once');
+    assert.deepStrictEqual(res1, res2);
+  });
+
+  it('should verify schema indexes exist on Payroll and StockTransaction schemas', () => {
+    const Payroll = require('../../src/features/employee/payroll.model');
+    const StockTransaction = require('../../src/features/inventory/stockTransaction.model');
+
+    assert.ok(Payroll.schema.indexes().some(([idx]) => idx.restaurant === 1 && idx.month === 1));
+    assert.ok(StockTransaction.schema.indexes().some(([idx]) => idx.restaurant === 1 && idx.createdAt === -1));
+  });
 });

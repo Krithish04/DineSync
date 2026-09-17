@@ -77,6 +77,16 @@ export const assignEmployeesToShift = async (restaurantId, shiftId, employeeIds)
   return data.data.shift;
 };
 
+export const markBatchAttendance = async (restaurantId, payload) => {
+  const { data } = await api.post(`${employeesUrl(restaurantId)}/attendance/batch`, payload);
+  return data.data.attendance;
+};
+
+export const correctAttendance = async (restaurantId, attendanceId, payload) => {
+  const { data } = await api.patch(`${employeesUrl(restaurantId)}/attendance/${attendanceId}/correct`, payload);
+  return data.data.attendance;
+};
+
 export const generatePayroll = async (restaurantId, month) => {
   const { data } = await api.post(`${employeesUrl(restaurantId)}/payroll/generate`, { month });
   return data.data.payrolls;
@@ -87,8 +97,8 @@ export const listPayroll = async (restaurantId, month) => {
   return data.data.payrolls;
 };
 
-export const paySalary = async (restaurantId, payrollId) => {
-  const { data } = await api.patch(`${employeesUrl(restaurantId)}/payroll/${payrollId}/pay`);
+export const paySalary = async (restaurantId, payrollId, payload = {}) => {
+  const { data } = await api.patch(`${employeesUrl(restaurantId)}/payroll/${payrollId}/pay`, payload);
   return data.data.payroll;
 };
 
@@ -96,3 +106,4 @@ export const getEmployeeStats = async (restaurantId, params = {}) => {
   const { data } = await api.get(`${employeesUrl(restaurantId)}/stats`, { params });
   return data.data.stats;
 };
+

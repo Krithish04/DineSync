@@ -144,6 +144,15 @@ const menuItemSchema = new Schema(
       type: Boolean,
       default: true,
     },
+    isAuto86: {
+      type: Boolean,
+      default: false,
+    },
+    auto86Reason: {
+      type: String,
+      enum: ['none', 'stock', 'manual'],
+      default: 'none',
+    },
     availableBranches: {
       type: [{ type: Schema.Types.ObjectId, ref: 'Branch' }],
       default: [],
@@ -188,5 +197,7 @@ const menuItemSchema = new Schema(
 
 // A menu item name must be unique within its restaurant (not globally)
 menuItemSchema.index({ restaurant: 1, name: 1 }, { unique: true });
+menuItemSchema.index({ restaurant: 1, isAvailable: 1, isDeleted: 1 });
+menuItemSchema.index({ restaurant: 1, category: 1 });
 
 module.exports = mongoose.model('MenuItem', menuItemSchema);

@@ -263,12 +263,15 @@ const updateTicketStatus = async (restaurantId, ticketId, newStatus) => {
 
   await ticket.save();
 
-  // Deduct stock on items readiness
-  if (newStatus === 'Ready') {
+  // Deduct stock on items readiness without double deduction
+  if (newStatus === 'Ready' || newStatus === 'Served') {
     try {
       const inventoryService = require('../inventory/inventory.service');
       for (const item of ticket.items) {
-        await inventoryService.consumeStockForMenuItem(restaurantId, item.menuItem, item.quantity);
+        if (!item.deducted) {
+          await inventoryService.consumeStockForMenuItem(restaurantId, item.menuItem, item.quantity);
+          item.deducted = true;
+        }
       }
     } catch (err) {
       // eslint-disable-next-line no-console
@@ -324,11 +327,12 @@ const updateTicketItemStatus = async (restaurantId, ticketId, itemId, newStatus)
     item.delayedAt = now;
   }
 
-  // Deduct stock for this item if marked Ready
-  if (newStatus === 'Ready') {
+  // Deduct stock for this item if marked Ready/Served without double-deduction
+  if ((newStatus === 'Ready' || newStatus === 'Served') && !item.deducted) {
     try {
       const inventoryService = require('../inventory/inventory.service');
       await inventoryService.consumeStockForMenuItem(restaurantId, item.menuItem, item.quantity);
+      item.deducted = true;
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error('[KDS] Failed to deduct stock during item readiness: ', err);

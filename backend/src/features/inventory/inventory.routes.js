@@ -36,11 +36,16 @@ router
   .post(canManage, validateBody(createIngredientSchema), inventoryController.createIngredient)
   .get(inventoryController.listIngredients);
 
+const canStaff = authorize(ROLES.SUPER_ADMIN, ROLES.OWNER, ROLES.MANAGER, ROLES.STAFF, ROLES.CHEF);
+
 router
   .route('/ingredients/:ingredientId')
   .get(inventoryController.getIngredient)
   .patch(canManage, validateBody(createIngredientSchema.partial()), inventoryController.updateIngredient)
   .delete(canManage, inventoryController.deleteIngredient);
+
+router.patch('/ingredients/:ingredientId/kitchen-status', canStaff, inventoryController.updateIngredientKitchenStatus);
+router.post('/ingredients/:ingredientId/reorder-request', canStaff, inventoryController.requestIngredientReorder);
 
 // Recipes
 router

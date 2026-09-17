@@ -157,6 +157,7 @@ const payrollSchema = new Schema(
 
 // Ensure index exists to prevent double payroll logs per employee per month
 payrollSchema.index({ employee: 1, month: 1 }, { unique: true });
+payrollSchema.index({ restaurant: 1, month: 1 });
 
 const PayrollModel = mongoose.model('Payroll', payrollSchema);
 PayrollModel.PAYROLL_STATUSES = PAYROLL_STATUSES;

@@ -52,14 +52,14 @@ export default function KdsShell({ socketConnected, isFullscreen, onToggleFullsc
         </div>
 
         {/* Center Persistent Live Socket Connection Badge */}
-        <div className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full border font-bold text-xs ${
+        <div className={`flex items-center gap-2.5 px-4 py-2 rounded-full border-2 font-black text-xs sm:text-sm ${
           socketConnected
-            ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30'
-            : 'bg-amber-500/15 text-amber-600 border-amber-500/40 animate-pulse'
+            ? 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-200 border-emerald-500/40 shadow-xs'
+            : 'bg-amber-500/20 text-amber-950 dark:text-amber-100 border-amber-500/60 animate-pulse shadow-md'
         }`}>
-          <span className={`inline-flex h-3 w-3 rounded-full ${socketConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500 animate-ping'}`} />
+          <span className={`inline-flex h-3.5 w-3.5 rounded-full ${socketConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500 animate-ping'}`} />
           <span>
-            {socketConnected ? 'KDS Live Online' : 'Reconnecting...'}
+            {socketConnected ? '⚡ KDS Online (Live)' : '⚠️ Reconnecting...'}
           </span>
         </div>
 

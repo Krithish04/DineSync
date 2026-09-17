@@ -70,6 +70,14 @@ const protect = asyncHandler(async (req, res, next) => {
 
   req.user = user;
   req.tenantId = user.restaurant ? user.restaurant.toString() : null;
+
+  if (decoded.isImpersonating && decoded.impersonatedRestaurantId) {
+    req.user.restaurant = decoded.impersonatedRestaurantId;
+    req.user.isImpersonating = true;
+    req.user.impersonatedRestaurantName = decoded.impersonatedRestaurantName;
+    req.user.impersonatedRestaurantSlug = decoded.impersonatedRestaurantSlug;
+    req.tenantId = decoded.impersonatedRestaurantId;
+  }
   next();
 });
 

@@ -72,6 +72,8 @@ async function main() {
   await runSuite('Reservation Reconciliation Tests', './unit/reservationReconciliation.test.js');
   await runSuite('Guest History Personalization & Privacy Tests', './unit/guestHistoryPersonalization.test.js');
   await runSuite('Reservation Lock Timeline & Notification Provider Tests', './unit/reservationTimelineAndNotification.test.js');
+  await runSuite('KDS Stock & Auto-86 Unit Tests', './unit/kdsStockAutoDeduct.test.js');
+  await runSuite('Super Admin Multi-Tenant & Impersonation Tests', './unit/superAdminMultiTenant.test.js');
   await runSuite('Payroll Foundation (Phase 1 & 2) Tests', './payrollFoundation.test.js');
   await runSuite('API & Integration Tests', './integration/api.test.js');
 

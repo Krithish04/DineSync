@@ -64,6 +64,7 @@ const EmployeeProfilePage = lazyLoad(() => import('@/features/employee/pages/Emp
 const AttendanceDashboardPage = lazyLoad(() => import('@/features/employee/pages/AttendanceDashboardPage'));
 const ShiftManagementPage = lazyLoad(() => import('@/features/employee/pages/ShiftManagementPage'));
 const LeaveManagementPage = lazyLoad(() => import('@/features/employee/pages/LeaveManagementPage'));
+const StaffAttendancePayrollPage = lazyLoad(() => import('@/features/employee/pages/StaffAttendancePayrollPage'));
 const ExecutiveDashboardPage = lazyLoad(() => import('@/features/reports/pages/ExecutiveDashboardPage'));
 const SalesReportPage = lazyLoad(() => import('@/features/reports/pages/SalesReportPage'));
 const CustomerReportPage = lazyLoad(() => import('@/features/reports/pages/CustomerReportPage'));
@@ -335,6 +336,10 @@ const router = createBrowserRouter([
       {
         path: '/restaurant/employees/leaves',
         element: <LeaveManagementPage />,
+      },
+      {
+        path: '/restaurant/employees/payroll',
+        element: <StaffAttendancePayrollPage />,
       },
       {
         path: '/restaurant/notifications/alerts',

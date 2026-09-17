@@ -18,6 +18,7 @@ export default function KitchenTicketCard({
   isDraggable = true,
   isReadOnly = false,
   isPeakMode = false,
+  isLeadTicket = false,
 }) {
   const [elapsed, setElapsed] = useState('');
   const [elapsedMinsNum, setElapsedMinsNum] = useState(0);
@@ -65,121 +66,140 @@ export default function KitchenTicketCard({
 
   const flag = ticket.priorityFlag || (elapsedMinsNum >= 15 ? 'late' : elapsedMinsNum >= 10 ? 'at-risk' : 'on-track');
 
-  // Color escalation based on priorityFlag and aging scale
-  const getSlaTheme = () => {
-    if (ticket.status === 'Ready' || ticket.status === 'Served') {
-      return 'border-l-[12px] border-l-[#2FA86E] bg-emerald-500/10 dark:bg-emerald-950/20';
-    }
-    if (flag === 'late' || ticket.status === 'Delayed') {
-      return 'border-l-[12px] border-l-[#D64545] bg-rose-500/15 dark:bg-rose-950/30 ring-4 ring-rose-500/40 animate-pulse';
-    }
-    if (flag === 'at-risk') {
-      return 'border-l-[12px] border-l-[#E8A93C] bg-amber-500/15 dark:bg-amber-950/25';
-    }
-    return 'border-l-[12px] border-l-primary bg-card';
-  };
-
   // Target ready time calculation string
   const targetReadyStr = ticket.targetReadyTime
     ? new Date(ticket.targetReadyTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     : null;
 
+  // Dynamic visual SLA escalation card themes (Phase 1 & 2)
+  const getSlaTheme = () => {
+    if (isLeadTicket) {
+      return 'border-l-[24px] border-l-rose-600 bg-gradient-to-br from-rose-500/20 via-rose-950/30 to-amber-950/20 border-rose-500 ring-8 ring-rose-500/60 shadow-[0_0_40px_rgba(225,29,72,0.5)] scale-[1.01]';
+    }
+    if (ticket.status === 'Ready' || ticket.status === 'Served') {
+      return 'border-l-[16px] border-l-emerald-500 bg-emerald-500/10 dark:bg-emerald-950/30 border-emerald-500/30';
+    }
+    if (flag === 'late' || ticket.status === 'Delayed') {
+      return 'border-l-[20px] border-l-rose-600 bg-rose-500/15 dark:bg-rose-950/40 border-rose-500/50 ring-4 ring-rose-500/40 shadow-[0_0_25px_rgba(225,29,72,0.35)] animate-pulse';
+    }
+    if (flag === 'at-risk') {
+      return 'border-l-[16px] border-l-amber-500 bg-amber-500/15 dark:bg-amber-950/35 border-amber-500/40 shadow-[0_0_20px_rgba(245,158,11,0.25)]';
+    }
+    return 'border-l-[16px] border-l-primary bg-card border-border';
+  };
+
   return (
     <Card
       draggable={canDrag}
       onDragStart={handleDragStart}
-      className={`relative overflow-hidden transition-all duration-300 border-2 border-border shadow-lg rounded-2xl animate-in slide-in-from-top-4 fade-in duration-300 ${getSlaTheme()} ${
+      className={`relative overflow-hidden transition-all duration-300 border-3 shadow-xl rounded-3xl animate-in slide-in-from-top-4 fade-in duration-300 ${getSlaTheme()} ${
         canDrag ? 'cursor-grab active:cursor-grabbing' : ''
       }`}
     >
-      <CardContent className={`space-y-3 ${isPeakMode ? 'p-3' : 'p-4 sm:p-5'}`}>
+      <CardContent className={`space-y-4 ${isLeadTicket ? 'p-6 sm:p-8 space-y-6' : isPeakMode ? 'p-4' : 'p-5 sm:p-6'}`}>
+        {/* Lead Ticket Special Dominance Banner */}
+        {isLeadTicket && (
+          <div className="bg-rose-600 text-white p-3 rounded-2xl flex items-center justify-between font-mono font-black text-sm sm:text-base tracking-wider uppercase shadow-xl animate-pulse">
+            <span className="flex items-center gap-2">
+              🚨 MOST URGENT TICKET — IMMEDIATE KITCHEN PRIORITY
+            </span>
+            <span className="bg-white text-rose-950 px-3 py-1 rounded-xl font-mono text-xs font-black">
+              1-SECOND GLANCE LEAD
+            </span>
+          </div>
+        )}
         {/* SLA Priority Flag Banner */}
-        <div className="flex items-center justify-between gap-2 flex-wrap text-[11px] font-extrabold uppercase tracking-wider">
-          <div className="flex items-center gap-1.5">
+        <div className="flex items-center justify-between gap-2 flex-wrap text-xs sm:text-sm font-black uppercase tracking-wider">
+          <div className="flex items-center gap-2">
             {flag === 'late' && (
-              <span className="px-2.5 py-0.5 rounded-full bg-rose-500 text-white font-mono shadow-xs animate-bounce">
+              <span className="px-3 py-1 rounded-full bg-rose-600 text-white font-mono shadow-md animate-bounce flex items-center gap-1.5 text-xs sm:text-sm font-black">
                 🚨 OVERDUE SLA
               </span>
             )}
             {flag === 'at-risk' && (
-              <span className="px-2.5 py-0.5 rounded-full bg-amber-500 text-slate-950 font-mono shadow-xs">
+              <span className="px-3 py-1 rounded-full bg-amber-500 text-slate-955 font-mono shadow-md flex items-center gap-1.5 text-xs sm:text-sm font-black">
                 ⚠️ AT-RISK SLA (-3m)
               </span>
             )}
             {flag === 'on-track' && (
-              <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-mono border border-emerald-500/30">
-                ✓ ON TRACK SLA
+              <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-800 dark:text-emerald-200 font-mono border border-emerald-500/40 flex items-center gap-1.5 text-xs sm:text-sm font-extrabold">
+                ✓ ON TRACK
               </span>
             )}
           </div>
 
           {targetReadyStr && (
-            <span className="text-[10px] font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded-md border">
+            <span className="text-xs font-mono text-muted-foreground bg-muted/80 px-2.5 py-1 rounded-lg border font-bold">
               Target: {targetReadyStr}
             </span>
           )}
         </div>
 
-        {/* Ticket Header: Prominent 32px Table # & Ticking Age Timer */}
-        <div className="flex items-start justify-between gap-3 border-b border-border/80 pb-2.5">
+        {/* Ticket Header: Prominent 32px+ Table # & Ticking Age Timer */}
+        <div className="flex items-start justify-between gap-3 border-b-2 border-border/80 pb-3">
           <div className="cursor-pointer flex-1" onClick={() => onSelectTicket && onSelectTicket(ticket)}>
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs font-mono font-extrabold text-foreground bg-muted border border-border rounded-lg px-2 py-0.5">
+              <span className="text-sm font-mono font-black text-foreground bg-muted border-2 border-border rounded-xl px-2.5 py-1">
                 #{ticket.ticketNumber || ticket._id?.slice(-4)}
               </span>
               {queuePosition && (
-                <span className="text-xs font-bold font-mono text-amber-800 dark:text-amber-200 bg-amber-500/20 border border-amber-500/40 rounded-lg px-2 py-0.5">
+                <span className="text-sm font-extrabold font-mono text-amber-900 dark:text-amber-100 bg-amber-500/20 border border-amber-500/50 rounded-xl px-2.5 py-1">
                   #{queuePosition} Queue
                 </span>
               )}
             </div>
 
-            <h3 className={`font-extrabold text-foreground mt-1 tracking-tight font-display leading-none ${isPeakMode ? 'text-xl' : 'text-2xl sm:text-3xl'}`}>
+            {/* Distance-Readable 32px+ Header */}
+            <h3 className={`font-black text-foreground mt-1.5 tracking-tight font-display leading-tight ${isPeakMode ? 'text-2xl' : 'text-3xl sm:text-4xl'}`}>
               {tableNum ? `Table #${tableNum}` : ticket.orderType || 'General Order'}
-              {custName && <span className="text-sm text-muted-foreground font-semibold ml-2">({custName})</span>}
+              {custName && <span className="text-base sm:text-lg text-muted-foreground font-extrabold ml-2">({custName})</span>}
             </h3>
           </div>
 
-          <div className="flex flex-col items-end gap-1 shrink-0">
+          <div className="flex flex-col items-end gap-1.5 shrink-0">
             <span
-              className={`flex items-center gap-1 font-extrabold font-mono ${isPeakMode ? 'text-base' : 'text-lg sm:text-xl'} ${
-                flag === 'late' ? 'text-[#D64545] animate-bounce' : flag === 'at-risk' ? 'text-[#E8A93C]' : 'text-primary'
+              className={`flex items-center gap-1.5 font-black font-mono ${isPeakMode ? 'text-xl' : 'text-2xl sm:text-3xl'} ${
+                flag === 'late' ? 'text-rose-600 animate-bounce' : flag === 'at-risk' ? 'text-amber-600' : 'text-primary'
               }`}
               title="Time elapsed since order placed"
             >
-              <Clock className="h-4 w-4 shrink-0 animate-pulse" />
+              <Clock className="h-6 w-6 shrink-0 animate-pulse" />
               {elapsed}
             </span>
             <span
-              className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-extrabold uppercase border shadow-xs ${
-                ticket.status === 'Pending' ? 'bg-[#8B8078]/25 text-[#8B8078] border-[#8B8078]/50' :
-                ticket.status === 'Preparing' ? 'bg-[#E8A93C]/25 text-[#E8A93C] border-[#E8A93C]/50' :
-                ticket.status === 'Ready' ? 'bg-[#2FA86E]/25 text-[#2FA86E] border-[#2FA86E]/50' :
-                'bg-[#6B5B95]/25 text-[#6B5B95] border-[#6B5B95]/50'
+              className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs sm:text-sm font-black uppercase border-2 shadow-xs ${
+                ticket.status === 'Pending' ? 'bg-amber-500/20 text-amber-900 dark:text-amber-200 border-amber-500/50' :
+                ticket.status === 'Preparing' ? 'bg-orange-500/20 text-orange-900 dark:text-orange-200 border-orange-500/50' :
+                ticket.status === 'Ready' ? 'bg-emerald-500/20 text-emerald-900 dark:text-emerald-200 border-emerald-500/50' :
+                'bg-purple-500/20 text-purple-900 dark:text-purple-200 border-purple-500/50'
               }`}
             >
-              {ticket.status}
+              {ticket.status === 'Pending' && '⏳ Pending'}
+              {ticket.status === 'Preparing' && '🔥 Preparing'}
+              {ticket.status === 'Ready' && '✅ Ready'}
+              {ticket.status === 'Delayed' && '🚨 Delayed'}
+              {ticket.status === 'Served' && '🍽️ Served'}
             </span>
           </div>
         </div>
 
-        {/* Ticket Items Grid */}
-        <div className="space-y-2 cursor-pointer" onClick={() => onSelectTicket && onSelectTicket(ticket)}>
+        {/* Ticket Items Grid: Distance-Readable 20px+ Item Names & Quantities */}
+        <div className="space-y-3 cursor-pointer" onClick={() => onSelectTicket && onSelectTicket(ticket)}>
           {ticket.items.map((item) => {
             const hasModifiers = item.modifiers?.length > 0 || item.specialInstructions;
             return (
-              <div key={item._id} className="space-y-1 border-b border-border/40 pb-2 last:border-none last:pb-0">
-                <div className="flex justify-between items-start gap-2">
-                  <span className={`font-extrabold text-foreground leading-tight ${isPeakMode ? 'text-base' : 'text-lg sm:text-xl'}`}>
-                    {item.itemName} <span className="font-mono text-primary font-extrabold text-xl ml-1">x{item.quantity}</span>
+              <div key={item._id} className="space-y-1.5 border-b-2 border-border/40 pb-3 last:border-none last:pb-0">
+                <div className="flex justify-between items-center gap-3">
+                  <span className={`font-black text-foreground leading-snug ${isPeakMode ? 'text-lg' : 'text-xl sm:text-2xl'}`}>
+                    {item.itemName} <span className="font-mono text-primary font-black text-2xl sm:text-3xl ml-2">x{item.quantity}</span>
                   </span>
 
                   {!isReadOnly && onItemStatusChange && (
-                    <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
                       {item.kitchenStatus === 'Pending' && (
                         <button
                           onClick={() => onItemStatusChange(ticket._id, item._id, 'Preparing')}
-                          className="text-xs font-bold px-3 py-2 border rounded-xl bg-background hover:bg-muted text-foreground touch-manipulation min-h-[44px] shadow-xs"
+                          className="text-sm font-extrabold px-4 py-2 border-2 rounded-xl bg-background hover:bg-muted text-foreground touch-manipulation min-h-[48px] shadow-xs"
                         >
                           Accept
                         </button>
@@ -187,7 +207,7 @@ export default function KitchenTicketCard({
                       {item.kitchenStatus === 'Preparing' && (
                         <button
                           onClick={() => onItemStatusChange(ticket._id, item._id, 'Ready')}
-                          className="text-xs font-bold px-3 py-2 border rounded-xl bg-[#2FA86E] hover:bg-[#2FA86E]/90 text-white touch-manipulation min-h-[44px] shadow-xs"
+                          className="text-sm font-extrabold px-4 py-2 border-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white touch-manipulation min-h-[48px] shadow-xs"
                         >
                           Ready ✓
                         </button>
@@ -195,53 +215,53 @@ export default function KitchenTicketCard({
                       {item.kitchenStatus === 'Ready' && (
                         <button
                           onClick={() => onItemStatusChange(ticket._id, item._id, 'Preparing')}
-                          className="text-xs font-semibold p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-xl touch-manipulation min-h-[44px]"
+                          className="text-sm font-extrabold p-2.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-xl touch-manipulation min-h-[48px]"
                           title="Recall item"
                         >
-                          <CornerDownLeft className="h-4 w-4" />
+                          <CornerDownLeft className="h-5 w-5" />
                         </button>
                       )}
                     </div>
                   )}
                 </div>
 
-                {/* Modifiers & Special Instructions — Collapsible in Peak Mode */}
+                {/* Modifiers & Special Instructions — Bold Alert Highlight Box */}
                 {hasModifiers && isPeakMode && !showPeakModifiers ? (
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       setShowPeakModifiers(true);
                     }}
-                    className="text-[11px] font-bold text-primary hover:underline bg-primary/10 px-2 py-0.5 rounded-md border border-primary/20"
+                    className="text-xs font-black text-primary hover:underline bg-primary/10 px-3 py-1 rounded-lg border border-primary/30"
                   >
-                    + Modifiers / Notes
+                    + Modifiers / Custom Notes
                   </button>
                 ) : (
-                  <>
+                  <div className="space-y-1 mt-1">
                     {item.modifiers?.length > 0 && (
-                      <p className="text-xs font-extrabold text-primary pl-2 border-l-2 border-primary/40">
+                      <p className="text-sm sm:text-base font-black text-primary pl-3 border-l-4 border-primary">
                         • {item.modifiers.map((m) => m.optionName).join(', ')}
                       </p>
                     )}
                     {item.specialInstructions && (
-                      <p className="text-xs text-amber-900 dark:text-amber-200 font-extrabold italic pl-2 bg-amber-500/20 border-l-2 border-amber-500 p-1.5 rounded-r-lg">
-                        Note: {item.specialInstructions}
-                      </p>
+                      <div className="text-sm sm:text-base text-amber-950 dark:text-amber-100 font-black pl-3 bg-amber-500/25 border-l-4 border-amber-500 p-2 rounded-r-xl shadow-xs">
+                        ⚠️ NOTE: <span className="underline">{item.specialInstructions}</span>
+                      </div>
                     )}
-                  </>
+                  </div>
                 )}
               </div>
             );
           })}
         </div>
 
-        {/* Footer Actions: Minimum 56px Touch Target Buttons */}
+        {/* Footer Actions: Generous Minimum 56px Touch Target Buttons with Clear Separation */}
         {!isReadOnly && onStatusChange && (
-          <div className="flex items-center gap-2 border-t border-border/60 pt-2.5" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center gap-3 border-t-2 border-border/80 pt-3" onClick={(e) => e.stopPropagation()}>
             {ticket.status === 'Pending' && (
               <Button
                 size="lg"
-                className="w-full text-base font-extrabold min-h-[56px] gap-2 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg active:scale-[0.98] touch-manipulation"
+                className="w-full text-lg font-black min-h-[56px] gap-2 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg active:scale-[0.98] touch-manipulation"
                 onClick={() => onStatusChange(ticket._id, 'Preparing')}
               >
                 <Play className="h-6 w-6" /> Start Cooking
@@ -252,7 +272,7 @@ export default function KitchenTicketCard({
               <>
                 <Button
                   size="lg"
-                  className="flex-1 text-base font-extrabold min-h-[56px] gap-2 rounded-2xl bg-[#2FA86E] hover:bg-[#2FA86E]/90 text-white shadow-lg active:scale-[0.98] touch-manipulation"
+                  className="flex-1 text-lg font-black min-h-[56px] gap-2 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg active:scale-[0.98] touch-manipulation"
                   onClick={() => onStatusChange(ticket._id, 'Ready')}
                 >
                   <CheckCircle2 className="h-6 w-6" /> Mark Ready ✓
@@ -260,7 +280,7 @@ export default function KitchenTicketCard({
                 <Button
                   size="lg"
                   variant="outline"
-                  className="text-base font-extrabold min-h-[56px] gap-1.5 rounded-2xl border-[#D64545]/50 text-[#D64545] hover:bg-[#D64545]/15 touch-manipulation px-4 shadow-xs"
+                  className="text-base sm:text-lg font-black min-h-[56px] gap-2 rounded-2xl border-2 border-rose-600/50 text-rose-600 hover:bg-rose-500/15 touch-manipulation px-4 shadow-xs"
                   onClick={() => onStatusChange(ticket._id, 'Delayed')}
                 >
                   <AlertTriangle className="h-6 w-6" /> Delay
@@ -271,7 +291,7 @@ export default function KitchenTicketCard({
             {ticket.status === 'Delayed' && (
               <Button
                 size="lg"
-                className="w-full text-base font-extrabold min-h-[56px] gap-2 rounded-2xl bg-[#E8A93C] hover:bg-[#E8A93C]/90 text-white shadow-lg active:scale-[0.98] touch-manipulation"
+                className="w-full text-lg font-black min-h-[56px] gap-2 rounded-2xl bg-amber-600 hover:bg-amber-700 text-white shadow-lg active:scale-[0.98] touch-manipulation"
                 onClick={() => onStatusChange(ticket._id, 'Preparing')}
               >
                 <Play className="h-6 w-6" /> Resume Cooking
@@ -282,7 +302,7 @@ export default function KitchenTicketCard({
               <>
                 <Button
                   size="lg"
-                  className="flex-1 text-base font-extrabold min-h-[56px] gap-2 rounded-2xl bg-[#6B5B95] hover:bg-[#6B5B95]/90 text-white shadow-lg active:scale-[0.98] touch-manipulation"
+                  className="flex-1 text-lg font-black min-h-[56px] gap-2 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white shadow-lg active:scale-[0.98] touch-manipulation"
                   onClick={() => onStatusChange(ticket._id, 'Served')}
                 >
                   <UserCheck className="h-6 w-6" /> Mark Served
@@ -290,7 +310,7 @@ export default function KitchenTicketCard({
                 <Button
                   size="lg"
                   variant="ghost"
-                  className="text-sm font-bold min-h-[56px] rounded-2xl touch-manipulation px-4"
+                  className="text-base font-extrabold min-h-[56px] rounded-2xl touch-manipulation px-4"
                   onClick={() => onStatusChange(ticket._id, 'Preparing')}
                 >
                   Recall

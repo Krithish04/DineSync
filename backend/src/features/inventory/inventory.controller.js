@@ -121,6 +121,26 @@ const listStockTransactions = asyncHandler(async (req, res) => {
   return new ApiResponse(200, { transactions }, 'Stock history fetched successfully').send(res);
 });
 
+const updateIngredientKitchenStatus = asyncHandler(async (req, res) => {
+  const { status } = req.body;
+  const ingredient = await inventoryService.updateIngredientKitchenStatus(
+    req.params.restaurantId,
+    req.params.ingredientId,
+    status,
+    req.user?._id
+  );
+  return new ApiResponse(200, { ingredient }, `Ingredient status updated to "${status}"`).send(res);
+});
+
+const requestIngredientReorder = asyncHandler(async (req, res) => {
+  const result = await inventoryService.requestIngredientReorder(
+    req.params.restaurantId,
+    req.params.ingredientId,
+    req.user?._id
+  );
+  return new ApiResponse(200, result, 'Reorder request sent to management').send(res);
+});
+
 const getInventoryStats = asyncHandler(async (req, res) => {
   const branch = req.query.branch || undefined;
   const stats = await inventoryService.getInventoryStats(req.params.restaurantId, branch);
@@ -143,6 +163,8 @@ module.exports = {
   createPurchase,
   listPurchases,
   adjustStock,
+  updateIngredientKitchenStatus,
+  requestIngredientReorder,
   listStockTransactions,
   getInventoryStats,
 };

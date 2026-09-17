@@ -33,6 +33,12 @@ router.post(
 );
 
 router.post(
+  '/register-tenant',
+  sensitiveLimiter,
+  authController.registerTenant
+);
+
+router.post(
   '/register',
   sensitiveLimiter,
   validateBody(registerUserSchema),

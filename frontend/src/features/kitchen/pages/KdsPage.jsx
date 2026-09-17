@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { Clock, Play, CheckSquare, AlertOctagon, Volume2, VolumeX, BellRing, Filter, Eye, Zap } from 'lucide-react';
+import { Clock, Play, CheckSquare, AlertOctagon, Volume2, VolumeX, BellRing, Filter, Zap, Package, Flame } from 'lucide-react';
 
 import KdsShell from '../components/KdsShell';
 import KitchenQueue from '../components/KitchenQueue';
+import KitchenTicketCard from '../components/KitchenTicketCard';
 import KitchenTicketDetailModal from '../components/KitchenTicketDetailModal';
+import KitchenStockDrawer from '../components/KitchenStockDrawer';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Loader from '@/components/common/Loader';
@@ -39,10 +41,12 @@ export default function KdsPage() {
     togglePeakMode,
     atRiskCount,
     lateCount,
+    restaurantId,
   } = useKitchenTickets();
 
   const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'preparing' | 'ready' | 'delayed'
   const [selectedTicketForDetail, setSelectedTicketForDetail] = useState(null);
+  const [isStockDrawerOpen, setIsStockDrawerOpen] = useState(false);
 
   // Filtered tickets based on active status filter
   const filteredPreparingLanes = statusFilter === 'ready' ? [] : lanes.preparing.filter((t) => {
@@ -58,6 +62,18 @@ export default function KdsPage() {
   });
 
   const filteredReadyLanes = (statusFilter === 'preparing' || statusFilter === 'delayed') ? [] : lanes.ready;
+
+  // Identify the single #1 most urgent ticket for Phase 1 One-Glance dominance
+  const findLeadTicket = () => {
+    if (filteredPreparingLanes.length === 0) return null;
+    const late = filteredPreparingLanes.filter((t) => t.priorityFlag === 'late' || t.status === 'Delayed');
+    if (late.length > 0) return late.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))[0];
+    const atRisk = filteredPreparingLanes.filter((t) => t.priorityFlag === 'at-risk');
+    if (atRisk.length > 0) return atRisk.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))[0];
+    return filteredPreparingLanes[0];
+  };
+
+  const leadTicket = findLeadTicket();
 
   return (
     <KdsShell
@@ -93,17 +109,17 @@ export default function KdsPage() {
         )}
 
         {/* Station, SLA & Control Header Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-3 bg-card p-4 rounded-2xl border border-border shadow-xs">
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-card p-4 sm:p-5 rounded-3xl border-2 border-border shadow-md">
           {/* Station Tabs */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 scrollbar-none max-w-full">
+          <div className="flex items-center gap-2.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none max-w-full">
             {(stations || []).map((station) => (
               <button
                 key={station}
                 onClick={() => setSelectedStation(station)}
-                className={`px-4 py-2 text-sm font-extrabold rounded-xl shrink-0 transition-all min-h-[44px] touch-manipulation flex items-center justify-center ${
+                className={`px-5 py-2.5 text-base font-black rounded-2xl shrink-0 transition-all min-h-[48px] touch-manipulation flex items-center justify-center border-2 ${
                   selectedStation === station
-                    ? 'bg-primary text-primary-foreground shadow-md'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                    ? 'bg-primary text-primary-foreground border-primary shadow-lg scale-[1.02]'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted border-transparent'
                 }`}
               >
                 {station}
@@ -112,19 +128,30 @@ export default function KdsPage() {
           </div>
 
           {/* SLA Badges & Toggles */}
-          <div className="flex items-center gap-2 shrink-0 flex-wrap">
+          <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
+            {/* Stock Tracking Drawer Toggle */}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setIsStockDrawerOpen(true)}
+              className="h-12 px-4 text-sm font-black gap-2 rounded-2xl border-2 border-primary/40 text-primary bg-primary/10 hover:bg-primary/20 touch-manipulation min-h-[48px]"
+              title="Kitchen Stock Tracking & Auto-86 Controls"
+            >
+              <Package className="h-5 w-5" /> Stock & Auto-86
+            </Button>
+
             {/* SLA Priority Summary Badges */}
-            <div className="flex items-center gap-1.5 bg-muted p-1 rounded-xl border">
-              <span className="text-[11px] font-extrabold text-emerald-700 dark:text-emerald-300 px-2 py-1 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
-                SLA Active
+            <div className="flex items-center gap-2 bg-muted p-1.5 rounded-2xl border-2 border-border">
+              <span className="text-xs sm:text-sm font-black text-emerald-800 dark:text-emerald-200 px-3 py-1.5 bg-emerald-500/20 rounded-xl border border-emerald-500/40">
+                ✓ SLA Active
               </span>
               {atRiskCount > 0 && (
-                <span className="text-[11px] font-extrabold text-amber-800 dark:text-amber-200 px-2 py-1 bg-amber-500/20 rounded-lg border border-amber-500/40">
+                <span className="text-xs sm:text-sm font-black text-amber-900 dark:text-amber-100 px-3 py-1.5 bg-amber-500/25 rounded-xl border border-amber-500/50">
                   ⚠️ {atRiskCount} At Risk
                 </span>
               )}
               {lateCount > 0 && (
-                <span className="text-[11px] font-extrabold text-rose-700 dark:text-rose-200 px-2 py-1 bg-rose-500/20 rounded-lg border border-rose-500/40 animate-pulse">
+                <span className="text-xs sm:text-sm font-black text-rose-900 dark:text-rose-100 px-3 py-1.5 bg-rose-500/25 rounded-xl border border-rose-500/50 animate-pulse">
                   🚨 {lateCount} Late
                 </span>
               )}
@@ -135,11 +162,11 @@ export default function KdsPage() {
               size="sm"
               variant={isPeakMode ? 'default' : 'outline'}
               onClick={togglePeakMode}
-              className={`h-11 px-3 text-xs font-extrabold gap-1.5 rounded-xl touch-manipulation min-h-[44px] ${
-                isPeakMode ? 'bg-amber-600 hover:bg-amber-700 text-white' : 'border-border'
+              className={`h-12 px-4 text-sm font-black gap-2 rounded-2xl touch-manipulation min-h-[48px] ${
+                isPeakMode ? 'bg-amber-600 hover:bg-amber-700 text-white shadow-md' : 'border-2 border-border'
               }`}
             >
-              <Zap className="h-4 w-4" /> Peak Mode {isPeakMode ? 'ON' : 'OFF'}
+              <Zap className="h-5 w-5" /> Peak Mode {isPeakMode ? 'ON' : 'OFF'}
             </Button>
 
             {/* Sound Mute Toggle */}
@@ -147,14 +174,14 @@ export default function KdsPage() {
               size="sm"
               variant={isMuted ? 'destructive' : 'outline'}
               onClick={toggleMute}
-              className={`h-11 px-3.5 text-xs font-bold gap-1.5 rounded-xl border touch-manipulation min-h-[44px] ${
+              className={`h-12 px-4 text-sm font-black gap-2 rounded-2xl border-2 touch-manipulation min-h-[48px] ${
                 isMuted
-                  ? 'bg-rose-500/20 text-rose-600 border-rose-500/40 hover:bg-rose-500/30'
-                  : 'border-emerald-500/30 text-emerald-600 bg-emerald-500/10 hover:bg-emerald-500/20'
+                  ? 'bg-rose-500/20 text-rose-600 border-rose-500/50 hover:bg-rose-500/30'
+                  : 'border-emerald-500/40 text-emerald-600 bg-emerald-500/10 hover:bg-emerald-500/20'
               }`}
               title={isMuted ? 'Chime Muted (Visual Alerts Active)' : 'Chime Unmuted (Sound Alert Active)'}
             >
-              {isMuted ? <VolumeX className="h-4 w-4 text-rose-600" /> : <Volume2 className="h-4 w-4 text-emerald-600" />}
+              {isMuted ? <VolumeX className="h-5 w-5 text-rose-600" /> : <Volume2 className="h-5 w-5 text-emerald-600" />}
               <span>{isMuted ? 'Muted' : 'Chime'}</span>
             </Button>
 
@@ -162,18 +189,18 @@ export default function KdsPage() {
               size="sm"
               variant="outline"
               onClick={() => playKitchenAlertSound()}
-              className="h-11 px-3 text-xs gap-1.5 border-amber-500/40 text-amber-700 dark:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 font-bold rounded-xl touch-manipulation min-h-[44px]"
+              className="h-12 px-4 text-sm gap-2 border-2 border-amber-500/40 text-amber-900 dark:text-amber-200 bg-amber-500/15 hover:bg-amber-500/25 font-black rounded-2xl touch-manipulation min-h-[48px]"
               title="Test Kitchen Order Bell Sound"
             >
-              <BellRing className="h-4 w-4 text-amber-600" /> Bell
+              <BellRing className="h-5 w-5 text-amber-600" /> Bell
             </Button>
           </div>
         </div>
 
         {/* Status Filter Bar */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-          <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1 shrink-0 mr-1">
-            <Filter size={14} /> Filter Tickets:
+        <div className="flex items-center gap-2.5 overflow-x-auto pb-1 scrollbar-none">
+          <span className="text-xs sm:text-sm font-black text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 shrink-0 mr-1">
+            <Filter size={16} /> Filter Tickets:
           </span>
           {[
             { id: 'all', label: 'All Tickets' },
@@ -184,9 +211,9 @@ export default function KdsPage() {
             <button
               key={filter.id}
               onClick={() => setStatusFilter(filter.id)}
-              className={`px-3.5 py-1.5 text-xs font-bold rounded-xl shrink-0 transition-all border min-h-[40px] touch-manipulation ${
+              className={`px-4 py-2.5 text-sm font-black rounded-2xl shrink-0 transition-all border-2 min-h-[48px] touch-manipulation ${
                 statusFilter === filter.id
-                  ? 'bg-primary text-primary-foreground border-primary shadow-xs font-extrabold'
+                  ? 'bg-primary text-primary-foreground border-primary shadow-md font-black scale-[1.02]'
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted border-transparent'
               }`}
             >
@@ -264,6 +291,24 @@ export default function KdsPage() {
           </div>
         )}
 
+        {/* Phase 1 One-Glance Lead Ticket Hero Section */}
+        {!isLoading && leadTicket && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400 font-black text-sm uppercase tracking-wider pl-1">
+              <Flame className="h-5 w-5 animate-pulse" />
+              <span>1-Second Glance Priority Focus (Lead Ticket)</span>
+            </div>
+            <KitchenTicketCard
+              ticket={leadTicket}
+              onStatusChange={handleStatusChange}
+              onItemStatusChange={handleItemStatusChange}
+              onSelectTicket={(t) => setSelectedTicketForDetail(t)}
+              isLeadTicket={true}
+              isPeakMode={isPeakMode}
+            />
+          </div>
+        )}
+
         {/* Smart Batch Preparation Console */}
         {!isLoading && (
           <BatchCookingSummary
@@ -311,6 +356,13 @@ export default function KdsPage() {
         onStatusChange={handleStatusChange}
         onItemStatusChange={handleItemStatusChange}
         elapsed="Live"
+      />
+
+      {/* Kitchen Stock Drawer */}
+      <KitchenStockDrawer
+        isOpen={isStockDrawerOpen}
+        onClose={() => setIsStockDrawerOpen(false)}
+        restaurantId={restaurantId}
       />
     </KdsShell>
   );

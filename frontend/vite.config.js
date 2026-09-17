@@ -18,4 +18,27 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('xlsx') || id.includes('jspdf') || id.includes('html2canvas')) {
+              return 'export-libs';
+            }
+            if (id.includes('recharts')) {
+              return 'charting-libs';
+            }
+            if (id.includes('lucide-react')) {
+              return 'ui-icons';
+            }
+            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router-dom') || id.includes('zustand') || id.includes('axios')) {
+              return 'vendor-core';
+            }
+          }
+        },
+      },
+    },
+  },
 });

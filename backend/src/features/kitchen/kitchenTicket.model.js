@@ -72,6 +72,10 @@ const kitchenTicketItemSchema = new Schema(
       type: Number,
       default: 0, // in minutes
     },
+    deducted: {
+      type: Boolean,
+      default: false,
+    },
   },
   { _id: true }
 );

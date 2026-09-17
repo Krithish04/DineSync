@@ -42,6 +42,8 @@ const stockTransactionSchema = new Schema(
   { timestamps: true }
 );
 
+stockTransactionSchema.index({ restaurant: 1, createdAt: -1 });
+
 const StockTransactionModel = mongoose.model('StockTransaction', stockTransactionSchema);
 StockTransactionModel.TRANSACTION_TYPES = TRANSACTION_TYPES;
 

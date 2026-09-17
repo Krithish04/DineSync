@@ -56,3 +56,13 @@ export const getSystemHealth = async () => {
   const { data } = await api.get(`${superUrl}/health`);
   return data.data;
 };
+
+export const impersonateTenant = async (tenantId) => {
+  const { data } = await api.post(`${superUrl}/tenants/${tenantId}/impersonate`);
+  return data.data;
+};
+
+export const exitImpersonation = async () => {
+  const { data } = await api.post(`${superUrl}/exit-impersonation`);
+  return data.data;
+};

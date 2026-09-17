@@ -61,6 +61,20 @@ const getSystemHealth = asyncHandler(async (req, res) => {
   return new ApiResponse(200, data, 'System health and monitoring metrics fetched').send(res);
 });
 
+const impersonateTenant = asyncHandler(async (req, res) => {
+  const { token, restaurant } = await superAdminService.impersonateTenant(req.params.tenantId, req.user);
+  const { setTokenCookie } = require('../../utils/jwt.util');
+  setTokenCookie(res, token);
+  return new ApiResponse(200, { token, restaurant }, `Impersonating tenant ${restaurant.name}`).send(res);
+});
+
+const exitImpersonation = asyncHandler(async (req, res) => {
+  const { token } = await superAdminService.exitImpersonation(req.user);
+  const { setTokenCookie } = require('../../utils/jwt.util');
+  setTokenCookie(res, token);
+  return new ApiResponse(200, { token }, 'Exited impersonation mode').send(res);
+});
+
 module.exports = {
   getPlatformOverview,
   listTenants,
@@ -73,4 +87,6 @@ module.exports = {
   updateFeatureFlags,
   listAuditLogs,
   getSystemHealth,
+  impersonateTenant,
+  exitImpersonation,
 };

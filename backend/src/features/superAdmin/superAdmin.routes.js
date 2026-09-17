@@ -12,6 +12,8 @@ router.get('/overview', superAdminController.getPlatformOverview);
 router.get('/tenants', superAdminController.listTenants);
 router.get('/tenants/:tenantId', superAdminController.getTenantDetails);
 router.patch('/tenants/:tenantId/status', superAdminController.updateTenantStatus);
+router.post('/tenants/:tenantId/impersonate', superAdminController.impersonateTenant);
+router.post('/exit-impersonation', superAdminController.exitImpersonation);
 
 router.get('/plans', superAdminController.listSubscriptionPlans);
 router.get('/tenants/:tenantId/subscription', superAdminController.getTenantSubscription);

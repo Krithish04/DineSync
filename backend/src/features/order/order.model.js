@@ -219,6 +219,8 @@ const orderSchema = new Schema(
 orderSchema.index({ restaurant: 1, createdAt: -1 });
 orderSchema.index({ restaurant: 1, orderStatus: 1 });
 orderSchema.index({ restaurant: 1, customerPhone: 1, createdAt: -1 });
+orderSchema.index({ restaurant: 1, tableSession: 1 });
+orderSchema.index({ restaurant: 1, table: 1, createdAt: -1 });
 
 // Auto-generate order number on document validation if not preset
 orderSchema.pre('validate', async function generateOrderNumber(next) {

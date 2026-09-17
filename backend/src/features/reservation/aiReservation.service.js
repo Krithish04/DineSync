@@ -203,11 +203,17 @@ const runAiReservationMonitorCycle = async () => {
 
     const provider = getNotificationProvider();
 
+    const settingsCachePerTick = new Map();
+
     for (const res of activeReservations) {
       if (!res.table) continue;
 
       const restId = res.restaurant.toString();
-      const settings = await getRestaurantReservationSettings(restId);
+      let settings = settingsCachePerTick.get(restId);
+      if (!settings) {
+        settings = await getRestaurantReservationSettings(restId);
+        settingsCachePerTick.set(restId, settings);
+      }
       const resMins = timeToMinutes(res.reservationTime);
 
       const hardLockStart = resMins - settings.hardLockOffsetMins;

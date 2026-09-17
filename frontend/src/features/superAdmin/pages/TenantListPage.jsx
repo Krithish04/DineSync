@@ -1,13 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Building2, ShieldCheck, CheckCircle2, PauseCircle, Trash2, Eye } from 'lucide-react';
+import { Search, Building2, ShieldCheck, CheckCircle2, PauseCircle, Trash2, Eye, LogIn } from 'lucide-react';
 import SuperAdminLayout from '../components/SuperAdminLayout';
 import Loader from '@/components/common/Loader';
 import { Button } from '@/components/ui/button';
+import useAuthStore from '@/features/auth/store/auth.store';
 import * as superAdminApi from '../api/superAdmin.api';
 
 export default function TenantListPage() {
   const navigate = useNavigate();
+  const { user, setSession } = useAuthStore();
 
   const [tenants, setTenants] = useState([]);
   const [search, setSearch] = useState('');
@@ -40,6 +42,18 @@ export default function TenantListPage() {
     }
   };
 
+  const handleImpersonate = async (tenant) => {
+    try {
+      const res = await superAdminApi.impersonateTenant(tenant._id);
+      if (res?.token) {
+        setSession({ ...user, isImpersonating: true, restaurant: tenant._id, impersonatedRestaurantName: tenant.name }, tenant, res.token);
+        navigate('/dashboard', { replace: true });
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to impersonate tenant.');
+    }
+  };
+
   return (
     <SuperAdminLayout title="Tenant Management" description="Approve, monitor, suspend, or reactivate multi-tenant restaurant workspaces.">
       <div className="space-y-4 max-w-full">
@@ -63,7 +77,7 @@ export default function TenantListPage() {
           >
             <option value="">All Statuses</option>
             <option value="active">Active Only</option>
-            <option value="suspended">Suspended Only</option>
+            <option value="suspended">Suspended / Pending Only</option>
           </select>
         </div>
 
@@ -71,7 +85,7 @@ export default function TenantListPage() {
         {error && <div className="bg-rose-50 border border-rose-200 text-rose-700 rounded-xl p-4 text-xs">{error}</div>}
 
         {!isLoading && !error && (
-          <div className="bg-card border border-border rounded-xl overflow-hidden">
+          <div className="bg-card border border-border rounded-xl overflow-hidden shadow-xs">
             <table className="w-full text-xs">
               <thead className="bg-muted/40">
                 <tr>
@@ -97,7 +111,7 @@ export default function TenantListPage() {
                         <p className="text-[10px] text-muted-foreground font-mono">slug: {t.slug}</p>
                       </td>
                       <td className="px-4 py-3">
-                        <p className="font-semibold">{t.owner?.fullName || 'N/A'}</p>
+                        <p className="font-semibold">{t.owner?.name || t.owner?.fullName || 'N/A'}</p>
                         <p className="text-[10px] text-muted-foreground">{t.owner?.email || t.email}</p>
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
@@ -108,13 +122,33 @@ export default function TenantListPage() {
                           className={`px-2.5 py-0.5 rounded-full font-bold border ${
                             t.isActive
                               ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                              : 'bg-rose-50 text-rose-700 border-rose-200'
+                              : 'bg-amber-50 text-amber-700 border-amber-200'
                           }`}
                         >
-                          {t.isActive ? 'Active' : 'Suspended'}
+                          {t.isActive ? 'Active' : 'Pending Review / Suspended'}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right space-x-1">
+                        {t.isActive ? (
+                          <Button
+                            variant="default"
+                            size="sm"
+                            onClick={() => handleImpersonate(t)}
+                            className="h-7 px-2.5 text-[10px] bg-purple-600 hover:bg-purple-700 text-white font-semibold gap-1 shadow-xs"
+                            title="Switch context to view this restaurant's admin portal"
+                          >
+                            <LogIn size={12} /> View Portal
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="default"
+                            size="sm"
+                            onClick={() => handleAction(t._id, 'approve')}
+                            className="h-7 px-2.5 text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white font-semibold gap-1 shadow-xs"
+                          >
+                            <CheckCircle2 size={12} /> Approve
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="sm"

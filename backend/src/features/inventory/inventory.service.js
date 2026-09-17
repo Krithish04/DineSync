@@ -231,6 +231,72 @@ const adjustStock = async (restaurantId, payload, userId = null) => {
 };
 
 /**
+ * Checks if ingredient stock levels affect recipes and triggers auto-86 or auto-restore on dependent menu items.
+ */
+const checkAndTriggerAuto86 = async (restaurantId, ingredientId) => {
+  const MenuItem = require('../menu/menuItem.model');
+  const socketConfig = require('../../config/socket.config');
+
+  const recipes = await Recipe.find({
+    restaurant: restaurantId,
+    'ingredients.ingredient': ingredientId,
+  }).populate('ingredients.ingredient');
+
+  for (const recipe of recipes) {
+    if (!recipe.menuItem) continue;
+
+    let isOutOfStock = false;
+    let outIngredientName = '';
+
+    for (const itemMap of recipe.ingredients) {
+      const ing = itemMap.ingredient;
+      if (ing && (ing.currentStock <= 0 || !ing.isActive || ing.isDeleted)) {
+        isOutOfStock = true;
+        outIngredientName = ing.ingredientName;
+        break;
+      }
+    }
+
+    const menuItem = await MenuItem.findOne({ _id: recipe.menuItem, restaurant: restaurantId });
+    if (!menuItem) continue;
+
+    if (isOutOfStock) {
+      if (menuItem.isAvailable || menuItem.auto86Reason !== 'manual') {
+        menuItem.isAvailable = false;
+        menuItem.isAuto86 = true;
+        menuItem.auto86Reason = 'stock';
+        await menuItem.save();
+
+        socketConfig.broadcastEvent(restaurantId, 'menu:auto_86', {
+          menuItemId: menuItem._id,
+          itemName: menuItem.name,
+          reason: `Auto 86'd: Ingredient "${outIngredientName}" is out of stock`,
+          isAvailable: false,
+          isAuto86: true,
+          auto86Reason: 'stock',
+        });
+        socketConfig.broadcastEvent(restaurantId, 'menu:item_updated', menuItem);
+      }
+    } else if (menuItem.isAuto86 && menuItem.auto86Reason === 'stock') {
+      menuItem.isAvailable = true;
+      menuItem.isAuto86 = false;
+      menuItem.auto86Reason = 'none';
+      await menuItem.save();
+
+      socketConfig.broadcastEvent(restaurantId, 'menu:auto_restore', {
+        menuItemId: menuItem._id,
+        itemName: menuItem.name,
+        reason: 'Restored availability: All required ingredients back in stock',
+        isAvailable: true,
+        isAuto86: false,
+        auto86Reason: 'none',
+      });
+      socketConfig.broadcastEvent(restaurantId, 'menu:item_updated', menuItem);
+    }
+  }
+};
+
+/**
  * Automates inventory deductions when a kitchen ticket is completed/marked Ready.
  * Finds mapped Recipe and subtracts ingredient stock values.
  */
@@ -243,7 +309,7 @@ const consumeStockForMenuItem = async (restaurantId, menuItemId, qtyPrepared) =>
     if (ingredient) {
       const consumedQty = mapping.quantityNeeded * qtyPrepared;
       const newStock = Math.max(0, ingredient.currentStock - consumedQty);
-      
+
       ingredient.currentStock = Math.round(newStock * 1000) / 1000;
       await ingredient.save();
 
@@ -255,8 +321,78 @@ const consumeStockForMenuItem = async (restaurantId, menuItemId, qtyPrepared) =>
         quantity: -consumedQty,
         reason: `Auto consumption for preparing menu item.`,
       });
+
+      // Trigger Auto-86 check
+      await checkAndTriggerAuto86(restaurantId, ingredient._id);
     }
   }
+};
+
+const updateIngredientKitchenStatus = async (restaurantId, ingredientId, status, userId = null) => {
+  const ingredient = await Ingredient.findOne({ _id: ingredientId, restaurant: restaurantId, isDeleted: false });
+  if (!ingredient) throw ApiError.notFound('Ingredient not found.');
+
+  const oldStock = ingredient.currentStock;
+  const reorderLvl = ingredient.reorderLevel || 5;
+  let newStock = oldStock;
+
+  if (status === 'Out') {
+    newStock = 0;
+  } else if (status === 'Low') {
+    newStock = Math.min(oldStock, reorderLvl);
+    if (newStock <= 0) newStock = Math.max(1, Math.round(reorderLvl * 0.5));
+  } else if (status === 'OK') {
+    newStock = Math.max(oldStock, (reorderLvl * 3) || 20);
+  }
+
+  ingredient.currentStock = newStock;
+  await ingredient.save();
+
+  await StockTransaction.create({
+    restaurant: restaurantId,
+    ingredient: ingredient._id,
+    transactionType: 'Adjustment',
+    quantity: newStock - oldStock,
+    reason: `Kitchen one-tap status update to "${status}"`,
+    createdBy: userId,
+  }).catch(() => null);
+
+  const socketConfig = require('../../config/socket.config');
+  socketConfig.broadcastEvent(restaurantId, 'inventory:stock_updated', {
+    ingredientId: ingredient._id,
+    ingredientName: ingredient.ingredientName,
+    currentStock: ingredient.currentStock,
+    status,
+  });
+
+  await checkAndTriggerAuto86(restaurantId, ingredient._id);
+
+  return ingredient;
+};
+
+const requestIngredientReorder = async (restaurantId, ingredientId, userId = null) => {
+  const ingredient = await Ingredient.findOne({ _id: ingredientId, restaurant: restaurantId, isDeleted: false });
+  if (!ingredient) throw ApiError.notFound('Ingredient not found.');
+
+  const notificationService = require('../notification/notification.service');
+  await notificationService.dispatchNotification(restaurantId, {
+    title: `📦 Reorder Requested: ${ingredient.ingredientName}`,
+    message: `Kitchen staff requested a reorder for "${ingredient.ingredientName}" (Current Stock: ${ingredient.currentStock} ${ingredient.unit}).`,
+    category: 'Inventory',
+    priority: 'Warning',
+    channels: ['In-App', 'Email'],
+  }).catch(() => null);
+
+  await StockTransaction.create({
+    restaurant: restaurantId,
+    ingredient: ingredient._id,
+    transactionType: 'Adjustment',
+    quantity: 0,
+    reason: `Reorder requested by kitchen staff`,
+    createdBy: userId,
+  }).catch(() => null);
+
+  return { success: true, ingredientName: ingredient.ingredientName };
 };
 
 const listStockTransactions = async (restaurantId, { ingredient }) => {
@@ -331,6 +467,9 @@ module.exports = {
   listPurchases,
   adjustStock,
   consumeStockForMenuItem,
+  updateIngredientKitchenStatus,
+  requestIngredientReorder,
+  checkAndTriggerAuto86,
   listStockTransactions,
   getInventoryStats,
 };

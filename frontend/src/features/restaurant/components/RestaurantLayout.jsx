@@ -32,6 +32,7 @@ import NotificationBell from '@/features/notification/components/NotificationBel
 import useAuthStore from '@/features/auth/store/auth.store';
 import useSocketStore from '@/store/socket.store';
 import * as authApi from '@/features/auth/api/auth.api';
+import SuperAdminImpersonationBanner from '@/features/superAdmin/components/SuperAdminImpersonationBanner';
 
 // Grouped Sidebar Navigation Configuration
 const NAV_GROUPS = [
@@ -68,6 +69,7 @@ const NAV_GROUPS = [
     items: [
       { to: '/restaurant/billing/dashboard', label: 'Billing & Invoices', icon: CreditCard, roles: ['manager'] },
       { to: '/restaurant/employees/dashboard', label: 'Employees & Shift', icon: UserCheck, roles: ['owner', 'manager'] },
+      { to: '/restaurant/employees/payroll', label: 'Attendance & Payroll', icon: CreditCard, roles: ['owner', 'manager'] },
     ],
   },
   {
@@ -288,6 +290,7 @@ export default function RestaurantLayout({ title, description, children }) {
       {/* MAIN CONTENT AREA WITH TOP HEADER BAR                   */}
       {/* ======================================================== */}
       <div className="flex-1 flex flex-col min-w-0">
+        <SuperAdminImpersonationBanner />
         <header className="border-b border-border bg-card sticky top-0 z-30 h-16 flex items-center justify-between px-6 shadow-xs">
           <div>
             <h1 className="font-display text-lg font-bold text-foreground">{title}</h1>

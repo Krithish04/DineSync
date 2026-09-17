@@ -611,6 +611,9 @@ const releaseTableSession = async (restaurantId, payload = {}) => {
     session.coOrderers = sortedCoOrderers;
     session.hostName = nextHost.name || 'Diner';
     session.hostPhone = nextHost.phone || '';
+    if (nextHost.customer) {
+      session.customer = nextHost.customer;
+    }
     await session.save();
 
     if (table) {

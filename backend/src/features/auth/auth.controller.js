@@ -14,6 +14,11 @@ const registerRestaurant = asyncHandler(async (req, res) => {
   ).send(res);
 });
 
+const registerTenant = asyncHandler(async (req, res) => {
+  const { user, restaurant, message } = await authService.registerTenant(req.body);
+  return new ApiResponse(201, { user, restaurant }, message).send(res);
+});
+
 const registerUser = asyncHandler(async (req, res) => {
   const { user, restaurant, requiresVerification, devOtp } = await authService.registerUser(req.body);
   return new ApiResponse(
@@ -67,6 +72,7 @@ const getMe = asyncHandler(async (req, res) => {
 
 module.exports = {
   registerRestaurant,
+  registerTenant,
   registerUser,
   verifyEmail,
   resendOtp,

@@ -91,7 +91,7 @@ userSchema.index({ email: 1, restaurant: 1 }, { unique: true });
 userSchema.pre('save', async function hashPassword(next) {
   if (!this.isModified('password')) return next();
 
-  const salt = await bcrypt.genSalt(12);
+  const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
 
   // Skip on initial document creation — only stamp this on actual changes,
