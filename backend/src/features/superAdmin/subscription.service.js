@@ -231,11 +231,35 @@ const initializeTenantTrialAndMandate = async (restaurantId, requestedPlanCode =
 /**
  * Super Admin Review Queue: List all tenants pending manual review.
  */
+/**
+ * Super Admin Review Queue: List all tenants pending manual review with side-by-side diff candidates.
+ */
 const listManualReviewQueue = async () => {
   const pendingTenants = await Restaurant.find({ approvalStatus: 'Pending Review' })
     .populate('owner', 'name email phone role')
     .sort({ createdAt: -1 });
-  return pendingTenants;
+
+  const enrichedQueue = await Promise.all(
+    pendingTenants.map(async (tenant) => {
+      const obj = tenant.toObject();
+      const matchQueries = [];
+      if (tenant.gstin) {
+        matchQueries.push({ gstin: tenant.gstin, _id: { $ne: tenant._id } });
+      }
+      if (tenant.address) {
+        matchQueries.push({ address: { $regex: tenant.address.slice(0, 10), $options: 'i' }, _id: { $ne: tenant._id } });
+      }
+
+      let matchingCandidates = [];
+      if (matchQueries.length > 0) {
+        matchingCandidates = await Restaurant.find({ $or: matchQueries }, '_id name gstin address phone approvalStatus createdAt');
+      }
+      obj.matchingCandidates = matchingCandidates;
+      return obj;
+    })
+  );
+
+  return enrichedQueue;
 };
 
 /**
@@ -284,15 +308,23 @@ const approveTenantRegistration = async (restaurantId, reviewerUser) => {
 };
 
 /**
- * Super Admin Review Queue: Reject tenant registration.
+ * Super Admin Review Queue: Reject tenant registration with reason template & optional notes.
  */
-const rejectTenantRegistration = async (restaurantId, { rejectionReason }, reviewerUser) => {
+const rejectTenantRegistration = async (restaurantId, { templateCode, notes, rejectionReason }, reviewerUser) => {
   const restaurant = await Restaurant.findById(restaurantId).populate('owner');
   if (!restaurant) {
     throw ApiError.notFound('Restaurant tenant not found.');
   }
 
-  const reasonText = rejectionReason || 'Registration details could not be verified by Super Admin.';
+  const templateMap = {
+    DUPLICATE_GSTIN: 'Duplicate GSTIN detected on platform',
+    INVALID_ADDRESS: 'Invalid or unverified physical business address',
+    INCOMPLETE_DOCUMENTATION: 'Incomplete business registration documentation',
+    OTHER: 'Registration details could not be verified by Super Admin',
+  };
+
+  const templateLabel = templateMap[templateCode] || rejectionReason || 'Registration details could not be verified by Super Admin';
+  const reasonText = notes ? `${templateLabel} — ${notes.trim()}` : templateLabel;
 
   restaurant.approvalStatus = 'Rejected';
   restaurant.isActive = false;
@@ -322,11 +354,102 @@ const rejectTenantRegistration = async (restaurantId, { rejectionReason }, revie
     userRole: reviewerUser?.role || 'super_admin',
     action: 'TENANT_REGISTRATION_REJECTED',
     resource: 'Restaurant',
-    details: { restaurantName: restaurant.name, rejectionReason: reasonText },
+    details: { restaurantName: restaurant.name, templateCode, rejectionReason: reasonText },
   });
 
   return restaurant;
 };
+
+/**
+ * Phase 3 — Resend / Regenerate Mandate link for tenants in Trial or Grace Period.
+ */
+const resendMandate = async (restaurantId, adminUser) => {
+  const sub = await TenantSubscription.findOne({ restaurant: restaurantId });
+  if (!sub) throw ApiError.notFound('Tenant subscription record not found.');
+
+  const paymentProvider = getPaymentProvider();
+  const rzpSub = await paymentProvider.createSubscription({
+    planId: sub.razorpayPlanId || 'plan_starter_monthly',
+    totalCount: 12,
+    quantity: 1,
+    startAt: sub.trialEndsAt || new Date(Date.now() + 14 * 86400000),
+    notes: { restaurantId: restaurantId.toString(), resend: 'true' },
+  });
+
+  sub.mandateUrl = rzpSub.shortUrl;
+  sub.razorpaySubscriptionId = rzpSub.id;
+  await sub.save();
+
+  await auditService.logAction({
+    restaurantId,
+    userId: adminUser?._id,
+    userEmail: adminUser?.email || 'superadmin@dinesync.ai',
+    userRole: adminUser?.role || 'super_admin',
+    action: 'MANDATE_RESEND_TRIGGERED',
+    resource: 'TenantSubscription',
+    details: { mandateUrl: rzpSub.shortUrl, razorpaySubscriptionId: rzpSub.id },
+  });
+
+  return { mandateUrl: rzpSub.shortUrl, subscription: sub };
+};
+
+/**
+ * Phase 3 — B2B GST SaaS Invoice Document Generator (SAC 998313)
+ */
+const generateGstInvoice = async (restaurantId, invoiceId) => {
+  const restaurant = await Restaurant.findById(restaurantId);
+  if (!restaurant) throw ApiError.notFound('Restaurant tenant not found.');
+
+  const sub = await TenantSubscription.findOne({ restaurant: restaurantId });
+
+  const priceMap = { starter: 1999, pro: 4999, enterprise: 9999 };
+  const baseAmount = priceMap[sub?.planCode || 'starter'] || 1999;
+
+  // India GST breakdown: SAC 998313 @ 18%
+  const isSameState = restaurant.gstin ? restaurant.gstin.startsWith('27') : true; // Default Maharashtra 27
+  const cgstRate = isSameState ? 0.09 : 0;
+  const sgstRate = isSameState ? 0.09 : 0;
+  const igstRate = isSameState ? 0 : 0.18;
+
+  const cgstAmount = Math.round(baseAmount * cgstRate * 100) / 100;
+  const sgstAmount = Math.round(baseAmount * sgstRate * 100) / 100;
+  const igstAmount = Math.round(baseAmount * igstRate * 100) / 100;
+  const totalTax = cgstAmount + sgstAmount + igstAmount;
+  const grandTotal = baseAmount + totalTax;
+
+  return {
+    invoiceNumber: invoiceId || `INV-SAAS-${Date.now()}`,
+    invoiceDate: new Date().toISOString(),
+    sacCode: '998313', // IT SaaS Services
+    supplier: {
+      name: 'DineSync AI Technologies Pvt Ltd',
+      gstin: '27AAACD1234E1Z5',
+      address: 'Tech Park, Bandra Kurla Complex, Mumbai, Maharashtra - 400051',
+    },
+    customer: {
+      name: restaurant.name,
+      gstin: restaurant.gstin || 'Unregistered B2B',
+      address: restaurant.address || 'Registered Business Address',
+    },
+    lineItems: [
+      {
+        description: `DineSync AI Subscription (${(sub?.planCode || 'starter').toUpperCase()} Tier)`,
+        baseAmount,
+        cgstAmount,
+        sgstAmount,
+        igstAmount,
+        totalAmount: grandTotal,
+      },
+    ],
+    summary: {
+      baseAmount,
+      totalTax,
+      grandTotal,
+      currency: 'INR',
+    },
+  };
+};
+
 
 /**
  * Handles Webhook: Razorpay Mandate Authorized (`subscription.authenticated` or `subscription.activated`).
@@ -503,7 +626,11 @@ const getTenantSubscription = async (restaurantId) => {
 
 const updateTenantSubscription = async (restaurantId, { planCode, status, autoRenew, mandateStatus, extendTrialDays }) => {
   const updates = {};
-  if (planCode) updates.planCode = planCode;
+  if (planCode) {
+    const normalizedPlan = planCode.toLowerCase();
+    updates.planCode = normalizedPlan;
+    await Restaurant.updateOne({ _id: restaurantId }, { subscriptionPlan: normalizedPlan });
+  }
   if (status) {
     updates.status = status;
     if (status === 'Active' || status === 'Trial') {
@@ -519,7 +646,7 @@ const updateTenantSubscription = async (restaurantId, { planCode, status, autoRe
   if (!sub) {
     sub = await TenantSubscription.create({
       restaurant: restaurantId,
-      planCode: planCode || 'starter',
+      planCode: (planCode || 'starter').toLowerCase(),
       status: status || 'Active',
       ...updates,
     });
@@ -565,6 +692,8 @@ module.exports = {
   listManualReviewQueue,
   approveTenantRegistration,
   rejectTenantRegistration,
+  resendMandate,
+  generateGstInvoice,
   handleMandateAuthorized,
   checkExpiredTrialsAndDunning,
   handleRecurringChargeSuccess,
@@ -573,3 +702,4 @@ module.exports = {
   updateTenantSubscription,
   updatePlanConfig,
 };
+

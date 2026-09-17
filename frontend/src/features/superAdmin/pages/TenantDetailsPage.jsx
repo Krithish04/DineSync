@@ -76,23 +76,14 @@ export default function TenantDetailsPage() {
                   <span>Subscription Plan</span>
                   <CreditCard size={16} className="text-purple-600" />
                 </div>
-                <select
-                  value={subscription?.planCode || restaurant.subscriptionPlan || 'starter'}
-                  onChange={async (e) => {
-                    const newPlan = e.target.value;
-                    try {
-                      await superAdminApi.updateTenantSubscription(restaurant._id, { planCode: newPlan });
-                      loadData();
-                    } catch (err) {
-                      alert(err.response?.data?.message || 'Failed to update subscription plan.');
-                    }
-                  }}
-                  className="w-full border border-border rounded-lg px-2 py-1 text-xs font-bold text-primary capitalize bg-card hover:border-primary cursor-pointer"
-                >
-                  <option value="starter">Starter Plan (₹1,999)</option>
-                  <option value="pro">Pro Plan (₹4,999)</option>
-                  <option value="enterprise">Enterprise Plan (₹9,999)</option>
-                </select>
+                <p className="text-sm font-bold text-foreground">
+                  {(() => {
+                    const c = String(subscription?.planCode || restaurant.subscriptionPlan || 'starter').toLowerCase();
+                    if (c === 'pro') return 'Pro Plan (₹4,999)';
+                    if (c === 'enterprise') return 'Enterprise Plan (₹9,999)';
+                    return 'Starter Plan (₹1,999)';
+                  })()}
+                </p>
                 <p className="text-[10px] text-muted-foreground">Status: <span className="font-semibold text-emerald-600 capitalize">{subscription?.status || 'active'}</span></p>
               </div>
             </div>

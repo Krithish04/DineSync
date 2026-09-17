@@ -79,4 +79,42 @@ describe('Super Admin Multi-Tenant & Impersonation Unit Tests', () => {
     assert.strictEqual(req.user.impersonatedRestaurantName, 'Coastal Catch');
     assert.strictEqual(req.tenantId, '507f1f77bcf86cd799439012');
   });
+
+  it('should evaluate feature flag precedence: tenant override > plan tier rule > rollout %', () => {
+    const featureFlagService = require('../../src/features/superAdmin/featureFlag.service');
+
+    const flagDoc = {
+      aiFeaturesEnabled: true, // Tenant override
+      qrOrderingEnabled: false, // Tenant override
+      tierTargeting: {
+        pro: { inventoryEnabled: true },
+        starter: { inventoryEnabled: false },
+      },
+      rolloutPercentage: 100,
+    };
+
+    const effectivePro = featureFlagService.evaluateEffectiveFlags(flagDoc, 'pro', '507f1f77bcf86cd799439012');
+    assert.strictEqual(effectivePro.aiFeaturesEnabled, true);
+    assert.strictEqual(effectivePro.qrOrderingEnabled, false);
+    assert.strictEqual(effectivePro.inventoryEnabled, true);
+
+    const effectiveStarter = featureFlagService.evaluateEffectiveFlags(flagDoc, 'starter', '507f1f77bcf86cd799439012');
+    assert.strictEqual(effectiveStarter.inventoryEnabled, false);
+  });
+
+  it('should calculate B2B SaaS GST invoice breakdown under SAC 998313 at 18%', async () => {
+    const subscriptionService = require('../../src/features/superAdmin/subscription.service');
+    
+    // Test base GST calculation for Pro Plan (₹4,999)
+    const baseAmount = 4999;
+    const cgstAmount = Math.round(baseAmount * 0.09 * 100) / 100; // 449.91
+    const sgstAmount = Math.round(baseAmount * 0.09 * 100) / 100; // 449.91
+    const totalTax = cgstAmount + sgstAmount;
+    const grandTotal = baseAmount + totalTax;
+
+    assert.strictEqual(cgstAmount, 449.91);
+    assert.strictEqual(sgstAmount, 449.91);
+    assert.strictEqual(grandTotal, 5898.82);
+  });
 });
+

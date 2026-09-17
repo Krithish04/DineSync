@@ -95,22 +95,69 @@ const rejectTenantRegistration = asyncHandler(async (req, res) => {
   return new ApiResponse(200, { restaurant }, 'Tenant registration rejected').send(res);
 });
 
+const bulkUpdateTenantStatus = asyncHandler(async (req, res) => {
+  const { tenantIds, action } = req.body;
+  const results = await superAdminService.bulkUpdateTenantStatus(tenantIds, action, req.user);
+  return new ApiResponse(200, { results }, `Bulk status update completed (${action})`).send(res);
+});
+
+const manualPlanOverride = asyncHandler(async (req, res) => {
+  const { newPlan, reason } = req.body;
+  const tenant = await superAdminService.manualPlanOverride(req.params.tenantId, newPlan, reason, req.user);
+  return new ApiResponse(200, { tenant }, `Subscription plan manually overridden to ${newPlan}`).send(res);
+});
+
+const resendMandate = asyncHandler(async (req, res) => {
+  const data = await subscriptionService.resendMandate(req.params.tenantId, req.user);
+  return new ApiResponse(200, data, 'Razorpay mandate short URL regenerated & resent').send(res);
+});
+
+const generateGstInvoice = asyncHandler(async (req, res) => {
+  const invoice = await subscriptionService.generateGstInvoice(req.params.tenantId, req.params.invoiceId);
+  return new ApiResponse(200, { invoice }, 'B2B GST SaaS invoice generated successfully').send(res);
+});
+
+const getHistoricalHealthSnapshots = asyncHandler(async (req, res) => {
+  const snapshots = await superAdminService.getHistoricalHealthSnapshots(req.query.days ? Number(req.query.days) : 7);
+  return new ApiResponse(200, { snapshots }, 'Historical health check snapshots fetched').send(res);
+});
+
+const getPerTenantAiUsage = asyncHandler(async (req, res) => {
+  const usage = await superAdminService.getPerTenantAiUsage();
+  return new ApiResponse(200, { usage }, 'Per-tenant AI microservice usage metrics fetched').send(res);
+});
+
+const exportAuditLogsCSV = asyncHandler(async (req, res) => {
+  const csvContent = await superAdminService.exportAuditLogsCSV(req.query);
+  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Disposition', `attachment; filename=audit-logs-${Date.now()}.csv`);
+  return res.status(200).send(csvContent);
+});
+
 module.exports = {
   getPlatformOverview,
   listTenants,
   getTenantDetails,
   updateTenantStatus,
+  bulkUpdateTenantStatus,
+  manualPlanOverride,
   listSubscriptionPlans,
   updatePlanConfig,
   getTenantSubscription,
   updateTenantSubscription,
+  resendMandate,
+  generateGstInvoice,
   getFeatureFlags,
   updateFeatureFlags,
   listAuditLogs,
+  exportAuditLogsCSV,
   getSystemHealth,
+  getHistoricalHealthSnapshots,
+  getPerTenantAiUsage,
   impersonateTenant,
   exitImpersonation,
   listManualReviewQueue,
   approveTenantRegistration,
   rejectTenantRegistration,
 };
+

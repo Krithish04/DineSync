@@ -3,13 +3,15 @@ const ApiResponse = require('../../utils/ApiResponse');
 const branchService = require('./branch.service');
 
 const createBranch = asyncHandler(async (req, res) => {
-  const { managerId, ...rest } = req.body;
-  const branch = await branchService.createBranch(req.params.restaurantId, {
-    ...rest,
-    managerId: managerId || null,
-  });
+  const branch = await branchService.createBranch(req.params.restaurantId, req.body, req.user);
   return new ApiResponse(201, { branch }, 'Branch created successfully').send(res);
 });
+
+const getBranchDashboardSummary = asyncHandler(async (req, res) => {
+  const summary = await branchService.getBranchDashboardSummary(req.params.restaurantId);
+  return new ApiResponse(200, summary, 'Admin multi-branch dashboard summary fetched successfully').send(res);
+});
+
 
 const listBranches = asyncHandler(async (req, res) => {
   const page = parseInt(req.query.page, 10) || 1;
@@ -114,6 +116,7 @@ const listBranchUsers = asyncHandler(async (req, res) => {
 
 module.exports = {
   createBranch,
+  getBranchDashboardSummary,
   listBranches,
   getBranch,
   updateBranch,
@@ -128,3 +131,4 @@ module.exports = {
   createBranchStaff,
   listBranchUsers,
 };
+

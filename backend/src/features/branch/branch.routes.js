@@ -31,6 +31,10 @@ router
   .post(canManage, validateBody(createBranchSchema), branchController.createBranch)
   .get(canManage, branchController.listBranches);
 
+// --- Admin All-Branches Summary Dashboard ---
+router.get('/dashboard-summary', canManageCritical, branchController.getBranchDashboardSummary);
+
+
 // --- Eligible managers lookup (for the manager-assignment picker) ---
 router.get('/managers/eligible', canManage, branchController.listEligibleManagers);
 

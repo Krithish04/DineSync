@@ -56,18 +56,70 @@ export default function TenantListPage() {
 
   const handlePlanChange = async (tenantId, newPlanCode) => {
     try {
+      setTenants((prev) =>
+        prev.map((t) => (t._id === tenantId ? { ...t, subscriptionPlan: newPlanCode } : t))
+      );
       await superAdminApi.updateTenantSubscription(tenantId, { planCode: newPlanCode });
       loadTenants();
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to update tenant subscription plan.');
+      loadTenants();
+    }
+  };
+
+  const [selectedTenantIds, setSelectedTenantIds] = useState([]);
+  const [overrideModalTenant, setOverrideModalTenant] = useState(null);
+  const [overridePlan, setOverridePlan] = useState('pro');
+  const [overrideReason, setOverrideReason] = useState('');
+
+
+  const toggleSelectAll = () => {
+    if (selectedTenantIds.length === tenants.length) {
+      setSelectedTenantIds([]);
+    } else {
+      setSelectedTenantIds(tenants.map((t) => t._id));
+    }
+  };
+
+  const toggleSelectTenant = (id) => {
+    setSelectedTenantIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleBulkAction = async (action) => {
+    if (selectedTenantIds.length === 0) return;
+    if (!confirm(`Are you sure you want to ${action} ${selectedTenantIds.length} selected tenants?`)) return;
+    try {
+      await superAdminApi.bulkUpdateTenantStatus(selectedTenantIds, action);
+      setSelectedTenantIds([]);
+      loadTenants();
+    } catch (err) {
+      alert(err.response?.data?.message || `Failed bulk ${action}`);
+    }
+  };
+
+  const submitManualOverride = async (e) => {
+    e.preventDefault();
+    if (!overrideReason.trim()) {
+      alert('A mandatory reason is required for manual plan overrides.');
+      return;
+    }
+    try {
+      await superAdminApi.manualPlanOverride(overrideModalTenant._id, overridePlan, overrideReason);
+      setOverrideModalTenant(null);
+      setOverrideReason('');
+      loadTenants();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to submit plan override.');
     }
   };
 
   return (
     <SuperAdminLayout title="Tenant Management" description="Approve, monitor, suspend, reactivate, or change subscription tier plans for restaurant workspaces.">
       <div className="space-y-4 max-w-full">
-        {/* Search & Filter Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        {/* Search & Bulk Action Bar */}
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-card p-3 rounded-xl border border-border shadow-xs">
           <div className="relative flex-1 max-w-md">
             <Search size={16} className="absolute left-3 top-3 text-muted-foreground" />
             <input
@@ -75,19 +127,33 @@ export default function TenantListPage() {
               placeholder="Search by restaurant name, email, or slug..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-xs border border-border rounded-xl bg-card text-foreground"
+              className="w-full pl-9 pr-3 py-2 text-xs border border-border rounded-xl bg-background text-foreground"
             />
           </div>
 
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="border border-border rounded-xl px-3 py-2 text-xs bg-card"
-          >
-            <option value="">All Statuses</option>
-            <option value="active">Active Only</option>
-            <option value="suspended">Suspended / Pending Only</option>
-          </select>
+          <div className="flex items-center gap-2">
+            {selectedTenantIds.length > 0 && (
+              <div className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-xl text-xs font-semibold text-amber-800">
+                <span>{selectedTenantIds.length} selected</span>
+                <Button size="sm" variant="outline" onClick={() => handleBulkAction('suspend')} className="h-6 text-[10px] bg-white text-amber-700">
+                  Suspend All
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => handleBulkAction('reactivate')} className="h-6 text-[10px] bg-white text-emerald-700">
+                  Reactivate All
+                </Button>
+              </div>
+            )}
+
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="border border-border rounded-xl px-3 py-2 text-xs bg-background"
+            >
+              <option value="">All Statuses</option>
+              <option value="active">Active Only</option>
+              <option value="suspended">Suspended / Pending Only</option>
+            </select>
+          </div>
         </div>
 
         {isLoading && <Loader />}
@@ -98,6 +164,14 @@ export default function TenantListPage() {
             <table className="w-full text-xs">
               <thead className="bg-muted/40">
                 <tr>
+                  <th className="px-3 py-3 w-8">
+                    <input
+                      type="checkbox"
+                      checked={tenants.length > 0 && selectedTenantIds.length === tenants.length}
+                      onChange={toggleSelectAll}
+                      className="rounded border-border"
+                    />
+                  </th>
                   <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Restaurant Tenant</th>
                   <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Owner</th>
                   <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Subscription Plan</th>
@@ -108,13 +182,21 @@ export default function TenantListPage() {
               <tbody>
                 {tenants.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
+                    <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
                       No restaurant tenants found matching your criteria.
                     </td>
                   </tr>
                 ) : (
                   tenants.map((t) => (
                     <tr key={t._id} className="border-t border-border hover:bg-muted/30 transition-colors">
+                      <td className="px-3 py-3 text-center">
+                        <input
+                          type="checkbox"
+                          checked={selectedTenantIds.includes(t._id)}
+                          onChange={() => toggleSelectTenant(t._id)}
+                          className="rounded border-border"
+                        />
+                      </td>
                       <td className="px-4 py-3 font-medium">
                         <p className="text-sm font-bold text-foreground">{t.name}</p>
                         <p className="text-[10px] text-muted-foreground font-mono">slug: {t.slug}</p>
@@ -124,16 +206,25 @@ export default function TenantListPage() {
                         <p className="text-[10px] text-muted-foreground">{t.owner?.email || t.email}</p>
                       </td>
                       <td className="px-4 py-3">
-                        <select
-                          value={t.subscriptionPlan || 'starter'}
-                          onChange={(e) => handlePlanChange(t._id, e.target.value)}
-                          className="border border-border rounded-lg px-2 py-1 text-[11px] bg-card font-semibold text-primary capitalize cursor-pointer hover:border-primary"
-                          title="Super Admin override subscription plan"
-                        >
-                          <option value="starter">Starter Plan (₹1,999)</option>
-                          <option value="pro">Pro Plan (₹4,999)</option>
-                          <option value="enterprise">Enterprise Plan (₹9,999)</option>
-                        </select>
+                        <div className="flex items-center gap-1.5">
+                          <span className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-purple-50 text-purple-700 border border-purple-200/80 inline-block">
+                            {(() => {
+                              const c = String(t.subscriptionPlan || 'starter').toLowerCase();
+                              if (c === 'pro') return 'Pro Plan (₹4,999)';
+                              if (c === 'enterprise') return 'Enterprise Plan (₹9,999)';
+                              return 'Starter Plan (₹1,999)';
+                            })()}
+                          </span>
+                          <button
+                            onClick={() => {
+                              setOverrideModalTenant(t);
+                              setOverridePlan(t.subscriptionPlan || 'pro');
+                            }}
+                            className="text-[10px] text-indigo-600 hover:underline font-semibold"
+                          >
+                            Override
+                          </button>
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-center">
                         <span
@@ -147,17 +238,7 @@ export default function TenantListPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right space-x-1">
-                        {t.isActive ? (
-                          <Button
-                            variant="default"
-                            size="sm"
-                            onClick={() => handleImpersonate(t)}
-                            className="h-7 px-2.5 text-[10px] bg-purple-600 hover:bg-purple-700 text-white font-semibold gap-1 shadow-xs"
-                            title="Switch context to view this restaurant's admin portal"
-                          >
-                            <LogIn size={12} /> View Portal
-                          </Button>
-                        ) : (
+                        {!t.isActive && (
                           <Button
                             variant="default"
                             size="sm"
@@ -210,7 +291,57 @@ export default function TenantListPage() {
             </table>
           </div>
         )}
+
+        {/* Manual Plan Override Modal */}
+        {overrideModalTenant && (
+          <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-card border border-border rounded-2xl max-w-md w-full p-5 shadow-2xl space-y-4">
+              <h3 className="text-base font-bold text-foreground">Manual Plan Override (Comp / Support)</h3>
+              <p className="text-xs text-muted-foreground">
+                Overriding subscription plan for <span className="font-bold text-foreground">{overrideModalTenant.name}</span>.
+                This action is logged in audit history under <span className="font-mono text-purple-600">PLAN_MANUALLY_OVERRIDDEN</span>.
+              </p>
+
+              <form onSubmit={submitManualOverride} className="space-y-3">
+                <div>
+                  <label className="text-xs font-semibold block mb-1">Select New Tier Plan</label>
+                  <select
+                    value={overridePlan}
+                    onChange={(e) => setOverridePlan(e.target.value)}
+                    className="w-full border border-border rounded-xl p-2 text-xs bg-background"
+                  >
+                    <option value="starter">Starter Plan (₹1,999/mo)</option>
+                    <option value="pro">Professional Plan (₹4,999/mo)</option>
+                    <option value="enterprise">Enterprise Plan (₹9,999/mo)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold block mb-1">Mandatory Override Reason *</label>
+                  <textarea
+                    rows={3}
+                    placeholder="e.g. VIP comp tier upgrade requested by support ticket #4920"
+                    value={overrideReason}
+                    onChange={(e) => setOverrideReason(e.target.value)}
+                    required
+                    className="w-full border border-border rounded-xl p-2.5 text-xs bg-background"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button type="button" variant="outline" size="sm" onClick={() => setOverrideModalTenant(null)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" size="sm" className="bg-purple-600 hover:bg-purple-700 text-white font-semibold">
+                    Submit Override
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     </SuperAdminLayout>
   );
 }
+

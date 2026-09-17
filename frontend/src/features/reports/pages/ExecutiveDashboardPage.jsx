@@ -6,6 +6,7 @@ import {
 import RestaurantLayout from '@/features/restaurant/components/RestaurantLayout';
 import Loader from '@/components/common/Loader';
 import useAuthStore from '@/features/auth/store/auth.store';
+import useBranchStore from '@/store/branch.store';
 import KpiCard from '../components/KpiCard';
 import ChartWidget from '../components/ChartWidget';
 import { Button } from '@/components/ui/button';
@@ -13,6 +14,7 @@ import * as reportsApi from '../api/reports.api';
 
 export default function ExecutiveDashboardPage() {
   const restaurantId = useAuthStore((s) => s.restaurant?._id);
+  const selectedBranchId = useBranchStore((s) => s.selectedBranchId);
   const [data, setData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -27,14 +29,15 @@ export default function ExecutiveDashboardPage() {
     setIsLoading(true);
     setError('');
     try {
-      const result = await reportsApi.getExecutiveDashboard(restaurantId);
+      const branchIdParam = selectedBranchId !== 'all' ? selectedBranchId : undefined;
+      const result = await reportsApi.getExecutiveDashboard(restaurantId, { branchId: branchIdParam });
       setData(result);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load dashboard data.');
     } finally {
       setIsLoading(false);
     }
-  }, [restaurantId]);
+  }, [restaurantId, selectedBranchId]);
 
   const loadRevenueData = useCallback(async (groupBy) => {
     if (!restaurantId) return;
@@ -51,10 +54,12 @@ export default function ExecutiveDashboardPage() {
         startDate = new Date(now.getTime() - 5 * 365 * 24 * 60 * 60 * 1000).toISOString();
       }
 
+      const branchIdParam = selectedBranchId !== 'all' ? selectedBranchId : undefined;
       const summary = await reportsApi.getSalesSummary(restaurantId, {
         startDate,
         endDate: now.toISOString(),
         groupBy,
+        branchId: branchIdParam,
       });
       setRevenueSummary(summary);
     } catch (err) {
@@ -62,7 +67,7 @@ export default function ExecutiveDashboardPage() {
     } finally {
       setIsRevenueLoading(false);
     }
-  }, [restaurantId]);
+  }, [restaurantId, selectedBranchId]);
 
   useEffect(() => {
     loadDashboard();

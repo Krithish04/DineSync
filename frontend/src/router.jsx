@@ -24,7 +24,9 @@ const ForgotPasswordPage = lazyLoad(() => import('@/features/auth/pages/ForgotPa
 const ResetPasswordPage = lazyLoad(() => import('@/features/auth/pages/ResetPasswordPage'));
 const DashboardPage = lazyLoad(() => import('@/features/dashboard/pages/DashboardPage'));
 const RestaurantProfilePage = lazyLoad(() => import('@/features/restaurant/pages/RestaurantProfilePage'));
+const AdminBranchDashboardPage = lazyLoad(() => import('@/features/restaurant/pages/AdminBranchDashboardPage'));
 const TenantSubscriptionPage = lazyLoad(() => import('@/features/restaurant/pages/TenantSubscriptionPage'));
+
 const RestaurantSettingsPage = lazyLoad(() => import('@/features/restaurant/pages/RestaurantSettingsPage'));
 const GstSettingsPage = lazyLoad(() => import('@/features/restaurant/pages/GstSettingsPage'));
 const OpeningHoursPage = lazyLoad(() => import('@/features/restaurant/pages/OpeningHoursPage'));
@@ -151,6 +153,10 @@ const router = createBrowserRouter([
         path: '/kds',
         element: <KdsPage />,
       },
+      {
+        path: '/restaurant/kitchen',
+        element: <KdsPage />,
+      },
     ],
   },
   {
@@ -202,7 +208,7 @@ const router = createBrowserRouter([
   },
   {
     /* Manager Operations: Tables, Orders & POS, Inventory, Billing, Settings, Reports, Notifications */
-    element: <ProtectedRoute allowedRoles={['super_admin', 'manager']} />,
+    element: <ProtectedRoute allowedRoles={['super_admin', 'owner', 'manager']} />,
     children: [
       {
         path: '/restaurant/tables',
@@ -353,9 +359,14 @@ const router = createBrowserRouter([
     element: <ProtectedRoute allowedRoles={['super_admin', 'owner']} />,
     children: [
       {
+        path: '/restaurant/admin/branches',
+        element: <AdminBranchDashboardPage />,
+      },
+      {
         path: '/restaurant/reports/executive',
         element: <ExecutiveDashboardPage />,
       },
+
       {
         path: '/restaurant/feedback/insights',
         element: <FeedbackInsightsPage />,

@@ -7,10 +7,14 @@ const ApiError = require('../../utils/ApiError');
  */
 const getFeedback = asyncHandler(async (req, res) => {
   const { restaurantId } = req.params;
-  const { rating, resolved, aggregate, page = 1, limit = 20 } = req.query;
+  const { branchId, branch, rating, resolved, aggregate, page = 1, limit = 20 } = req.query;
+  const targetBranch = branchId || branch;
+
+  const queryFilter = { restaurant: restaurantId };
+  if (targetBranch) queryFilter.branch = targetBranch;
 
   if (aggregate === 'true') {
-    const allFeedback = await Feedback.find({ restaurant: restaurantId });
+    const allFeedback = await Feedback.find(queryFilter);
 
     const totalFeedback = allFeedback.length;
     const totalRatingSum = allFeedback.reduce((acc, f) => acc + (f.rating || 0), 0);
@@ -51,9 +55,10 @@ const getFeedback = asyncHandler(async (req, res) => {
   }
 
   // Actionable List View
-  const filter = { restaurant: restaurantId };
+  const filter = { ...queryFilter };
   if (rating) filter.rating = Number(rating);
   if (resolved !== undefined) filter.resolved = resolved === 'true';
+
 
   const skip = (Number(page) - 1) * Number(limit);
 

@@ -26,6 +26,16 @@ export default function DashboardQuickActions({ onNavigate, role }) {
       </div>
 
       <div className="flex items-center gap-2 w-full sm:w-auto">
+        {['owner', 'super_admin'].includes(role) && (
+          <Button
+            size="sm"
+            onClick={() => onNavigate('/restaurant/admin/branches')}
+            className="text-xs h-8 font-semibold shadow-xs w-full sm:w-auto shrink-0 bg-purple-600 hover:bg-purple-700 text-white"
+          >
+            Manage Branches
+          </Button>
+        )}
+
         <Button
           size="sm"
           variant="outline"
@@ -43,6 +53,7 @@ export default function DashboardQuickActions({ onNavigate, role }) {
           <Calendar className="h-3.5 w-3.5 mr-1.5" /> New Reservation
         </Button>
       </div>
+
     </div>
   );
 }

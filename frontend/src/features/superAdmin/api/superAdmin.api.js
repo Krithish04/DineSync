@@ -71,3 +71,49 @@ export const exitImpersonation = async () => {
   const { data } = await api.post(`${superUrl}/exit-impersonation`);
   return data.data;
 };
+
+export const bulkUpdateTenantStatus = async (tenantIds, action) => {
+  const { data } = await api.patch(`${superUrl}/tenants/bulk-status`, { tenantIds, action });
+  return data.data;
+};
+
+export const manualPlanOverride = async (tenantId, newPlan, reason) => {
+  const { data } = await api.patch(`${superUrl}/tenants/${tenantId}/plan-override`, { newPlan, reason });
+  return data.data;
+};
+
+export const resendMandate = async (tenantId) => {
+  const { data } = await api.post(`${superUrl}/tenants/${tenantId}/resend-mandate`);
+  return data.data;
+};
+
+export const listManualReviewQueue = async () => {
+  const { data } = await api.get(`${superUrl}/review-queue`);
+  return data.data;
+};
+
+export const approveTenantRegistration = async (tenantId) => {
+  const { data } = await api.post(`${superUrl}/review-queue/${tenantId}/approve`);
+  return data.data;
+};
+
+export const rejectTenantRegistration = async (tenantId, payload) => {
+  const { data } = await api.post(`${superUrl}/review-queue/${tenantId}/reject`, payload);
+  return data.data;
+};
+
+export const getHistoricalHealthSnapshots = async (days = 7) => {
+  const { data } = await api.get(`${superUrl}/health/history`, { params: { days } });
+  return data.data;
+};
+
+export const getPerTenantAiUsage = async () => {
+  const { data } = await api.get(`${superUrl}/ai-usage`);
+  return data.data;
+};
+
+export const exportAuditLogsCSV = async (params = {}) => {
+  const response = await api.get(`${superUrl}/audit-logs/export`, { params, responseType: 'blob' });
+  return response.data;
+};
+

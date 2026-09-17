@@ -161,4 +161,18 @@ describe('Branch Entity & 3-Tier Account Hierarchy Unit Tests', () => {
   it('Data Migration: migrateBranchData function is exported and ready for execution', () => {
     assert.strictEqual(typeof migrateBranchData, 'function');
   });
+
+  it('Phase 1 & 3: Mandatory Manager requirement during branch creation', async () => {
+    const branchService = require('../../src/features/branch/branch.service');
+    const restaurantId = new mongoose.Types.ObjectId();
+
+    try {
+      await branchService.createBranch(restaurantId, { name: 'Unmanaged Branch', code: 'UB-01' });
+      assert.fail('Should have failed due to missing manager');
+    } catch (err) {
+      assert.strictEqual(err.statusCode, 400);
+      assert.ok(err.message.includes('Mandatory Manager assignment is required'));
+    }
+  });
 });
+

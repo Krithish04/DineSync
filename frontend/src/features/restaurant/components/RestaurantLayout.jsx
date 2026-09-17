@@ -31,6 +31,8 @@ import HostTransferApprovalModal from './HostTransferApprovalModal';
 import NotificationBell from '@/features/notification/components/NotificationBell';
 import useAuthStore from '@/features/auth/store/auth.store';
 import useSocketStore from '@/store/socket.store';
+import useBranchStore from '@/store/branch.store';
+import { listBranches } from '@/features/restaurant/api/branch.api';
 import * as authApi from '@/features/auth/api/auth.api';
 import SuperAdminImpersonationBanner from '@/features/superAdmin/components/SuperAdminImpersonationBanner';
 
@@ -57,6 +59,7 @@ const NAV_GROUPS = [
     group: 'Administration',
     roles: ['owner', 'manager', 'super_admin'],
     items: [
+      { to: '/restaurant/admin/branches', label: 'Multi-Branch', icon: Building2, roles: ['owner', 'super_admin'] },
       { to: '/restaurant/profile', label: 'Profile', icon: Settings, roles: ['owner'] },
       { to: '/restaurant/subscription', label: 'Subscription Plan', icon: CreditCard, roles: ['owner', 'super_admin'] },
       { to: '/restaurant/gst', label: 'GST Config', icon: FileCheck, roles: ['owner'] },
@@ -64,6 +67,8 @@ const NAV_GROUPS = [
       { to: '/restaurant/settings', label: 'Settings', icon: Settings, roles: ['manager'] },
     ],
   },
+
+
   {
     group: 'Finance & Staff',
     roles: ['owner', 'manager', 'super_admin'],
@@ -109,7 +114,9 @@ export default function RestaurantLayout({ title, description, children }) {
   const restaurantId = restaurant?._id;
 
   const connectSocket = useSocketStore((state) => state.connect);
+  const { selectedBranchId, setSelectedBranchId } = useBranchStore();
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [availableBranches, setAvailableBranches] = useState([]);
 
   // Auto-connect to real-time Socket.IO room for this restaurant
   useEffect(() => {
@@ -117,6 +124,18 @@ export default function RestaurantLayout({ title, description, children }) {
       connectSocket(restaurantId);
     }
   }, [restaurantId, connectSocket]);
+
+  // Fetch branches list for multi-branch selector if eligible
+  useEffect(() => {
+    if (restaurantId && ['owner', 'manager', 'super_admin'].includes(role)) {
+      listBranches(restaurantId)
+        .then((res) => {
+          const list = Array.isArray(res) ? res : res?.branches || [];
+          setAvailableBranches(list);
+        })
+        .catch(() => setAvailableBranches([]));
+    }
+  }, [restaurantId, role]);
 
   const handleLogout = async () => {
     try {
@@ -292,19 +311,37 @@ export default function RestaurantLayout({ title, description, children }) {
       {/* ======================================================== */}
       <div className="flex-1 flex flex-col min-w-0">
         <SuperAdminImpersonationBanner />
-        <header className="border-b border-border bg-card sticky top-0 z-30 h-16 flex items-center justify-between px-6 shadow-xs">
+        <header className="border-b border-border bg-card/95 backdrop-blur-sm sticky top-0 z-30 min-h-[4rem] py-2 flex items-center justify-between px-6 shadow-xs">
           <div>
-            <h1 className="font-display text-lg font-bold text-foreground">{title}</h1>
-            {description && <p className="text-xs text-muted-foreground hidden sm:block">{description}</p>}
+            <h1 className="font-display text-base md:text-lg font-bold text-foreground leading-tight">{title}</h1>
+            {description && <p className="text-xs text-muted-foreground hidden sm:block leading-tight mt-0.5">{description}</p>}
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 shrink-0">
+            {availableBranches.length > 0 && (
+              <div className="flex items-center gap-2 bg-muted/40 border border-border px-3 py-1 rounded-lg">
+                <Building2 className="h-4 w-4 text-primary shrink-0" />
+                <select
+                  value={selectedBranchId}
+                  onChange={(e) => setSelectedBranchId(e.target.value)}
+                  className="bg-transparent text-xs font-semibold text-foreground focus:outline-none cursor-pointer pr-1"
+                >
+                  <option value="all">🏢 All Branches (Chain View)</option>
+                  {availableBranches.map((b) => (
+                    <option key={b._id} value={b._id}>
+                      📍 {b.branchName || b.name} ({b.branchCode || 'Branch'})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <NotificationBell />
-            <Button variant="outline" size="sm" onClick={() => navigate(dashboardTarget)} className="text-xs">
+            <Button variant="outline" size="sm" onClick={() => navigate(dashboardTarget)} className="text-xs font-semibold shadow-xs">
               Back to Dashboard
             </Button>
           </div>
         </header>
+
 
         <main className="flex-1 p-6 md:p-8 max-w-7xl w-full mx-auto">
           {children}
