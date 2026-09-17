@@ -14,10 +14,13 @@ import RestaurantLayout from '@/features/restaurant/components/RestaurantLayout'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import Loader from '@/components/common/Loader';
 import useAuthStore from '@/features/auth/store/auth.store';
+import useBranchStore from '@/store/branch.store';
+import BranchContextBadge from '@/features/restaurant/components/BranchContextBadge';
 import * as customerApi from '../api/customer.api';
 
 export default function FeedbackInsightsPage() {
   const restaurantId = useAuthStore((state) => state.restaurant?._id);
+  const selectedBranchId = useBranchStore((state) => state.selectedBranchId);
 
   const [stats, setStats] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -27,15 +30,16 @@ export default function FeedbackInsightsPage() {
     if (!restaurantId) return;
     setIsLoading(true);
     setError('');
+    const branchParam = selectedBranchId && selectedBranchId !== 'all' ? selectedBranchId : undefined;
     try {
-      const data = await customerApi.listFeedback(restaurantId, { aggregate: 'true' });
+      const data = await customerApi.listFeedback(restaurantId, { aggregate: 'true', branch: branchParam });
       setStats(data);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load feedback analytics.');
     } finally {
       setIsLoading(false);
     }
-  }, [restaurantId]);
+  }, [restaurantId, selectedBranchId]);
 
   useEffect(() => {
     loadAggregateData();
@@ -52,6 +56,8 @@ export default function FeedbackInsightsPage() {
       title="Customer Feedback & Sentiment Insights"
       description="Executive analytics on guest satisfaction trends, star distributions, and service quality."
     >
+      <div className="space-y-6">
+        <BranchContextBadge />
       {isLoading ? (
         <Loader label="Loading executive feedback insights..." />
       ) : error ? (
@@ -210,6 +216,7 @@ export default function FeedbackInsightsPage() {
           </div>
         </div>
       )}
+      </div>
     </RestaurantLayout>
   );
 }

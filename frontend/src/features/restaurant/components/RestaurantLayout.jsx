@@ -114,7 +114,7 @@ export default function RestaurantLayout({ title, description, children }) {
   const restaurantId = restaurant?._id;
 
   const connectSocket = useSocketStore((state) => state.connect);
-  const { selectedBranchId, setSelectedBranchId } = useBranchStore();
+  const { selectedBranchId, setSelectedBranchId, setBranches } = useBranchStore();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [availableBranches, setAvailableBranches] = useState([]);
 
@@ -130,12 +130,16 @@ export default function RestaurantLayout({ title, description, children }) {
     if (restaurantId && ['owner', 'manager', 'super_admin'].includes(role)) {
       listBranches(restaurantId)
         .then((res) => {
-          const list = Array.isArray(res) ? res : res?.branches || [];
+          const list = Array.isArray(res) ? res : res?.branches || res?.items || [];
           setAvailableBranches(list);
+          setBranches(list);
         })
-        .catch(() => setAvailableBranches([]));
+        .catch(() => {
+          setAvailableBranches([]);
+          setBranches([]);
+        });
     }
-  }, [restaurantId, role]);
+  }, [restaurantId, role, setBranches]);
 
   const handleLogout = async () => {
     try {

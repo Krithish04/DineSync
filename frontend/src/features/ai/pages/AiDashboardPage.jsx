@@ -3,6 +3,8 @@ import { Sparkles, DollarSign, TrendingUp, AlertTriangle, Star, Clock, Heart, Sh
 import RestaurantLayout from '@/features/restaurant/components/RestaurantLayout';
 import Loader from '@/components/common/Loader';
 import useAuthStore from '@/features/auth/store/auth.store';
+import useBranchStore from '@/store/branch.store';
+import BranchContextBadge from '@/features/restaurant/components/BranchContextBadge';
 import ForecastCard from '../components/ForecastCard';
 import AiInsightCard from '../components/AiInsightCard';
 import ConfidenceIndicator from '../components/ConfidenceIndicator';
@@ -12,6 +14,7 @@ import * as aiApi from '../api/ai.api';
 
 export default function AiDashboardPage() {
   const restaurantId = useAuthStore((s) => s.restaurant?._id);
+  const selectedBranchId = useBranchStore((s) => s.selectedBranchId);
 
   const [overview, setOverview] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -21,15 +24,16 @@ export default function AiDashboardPage() {
     if (!restaurantId) return;
     setIsLoading(true);
     setError('');
+    const branchParam = selectedBranchId && selectedBranchId !== 'all' ? selectedBranchId : undefined;
     try {
-      const res = await aiApi.getAiDashboardOverview(restaurantId);
+      const res = await aiApi.getAiDashboardOverview(restaurantId, { branch: branchParam });
       setOverview(res);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load AI overview metrics.');
     } finally {
       setIsLoading(false);
     }
-  }, [restaurantId]);
+  }, [restaurantId, selectedBranchId]);
 
   useEffect(() => { loadOverview(); }, [loadOverview]);
 
@@ -39,6 +43,7 @@ export default function AiDashboardPage() {
       description="Real-time predictive insights, sales forecasts, demand models, and smart menu optimization."
     >
       <div className="space-y-8 max-w-full">
+        <BranchContextBadge />
         {isLoading && <Loader />}
         {error && (
           <div className="bg-rose-50 border border-rose-200 text-rose-700 rounded-xl p-4 text-sm">

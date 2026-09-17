@@ -4,11 +4,14 @@ import RestaurantLayout from '@/features/restaurant/components/RestaurantLayout'
 import Loader from '@/components/common/Loader';
 import { Button } from '@/components/ui/button';
 import useAuthStore from '@/features/auth/store/auth.store';
+import useBranchStore from '@/store/branch.store';
+import BranchContextBadge from '@/features/restaurant/components/BranchContextBadge';
 import AlertCard from '../components/AlertCard';
 import * as notificationApi from '../api/notification.api';
 
 export default function NotificationCenterPage() {
   const restaurantId = useAuthStore((s) => s.restaurant?._id);
+  const selectedBranchId = useBranchStore((s) => s.selectedBranchId);
 
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -21,10 +24,12 @@ export default function NotificationCenterPage() {
     if (!restaurantId) return;
     setIsLoading(true);
     setError('');
+    const branchParam = selectedBranchId && selectedBranchId !== 'all' ? selectedBranchId : undefined;
     try {
       const data = await notificationApi.listNotifications(restaurantId, {
         priority: priorityFilter || undefined,
         category: categoryFilter || undefined,
+        branch: branchParam,
         limit: 100,
       });
       setNotifications(data.notifications || []);
@@ -34,7 +39,7 @@ export default function NotificationCenterPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [restaurantId, priorityFilter, categoryFilter]);
+  }, [restaurantId, priorityFilter, categoryFilter, selectedBranchId]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -48,6 +53,7 @@ export default function NotificationCenterPage() {
   return (
     <RestaurantLayout title="Alert Center & Notifications" description="Centralized workspace notifications, critical alerts, and event logs.">
       <div className="space-y-6 max-w-full">
+        <BranchContextBadge />
         {/* Action & Filter Bar */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-xs">

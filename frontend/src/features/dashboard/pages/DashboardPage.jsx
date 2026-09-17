@@ -36,8 +36,12 @@ import * as inventoryApi from '@/features/inventory/api/inventory.api';
 import * as customerApi from '@/features/customer/api/customer.api';
 import * as employeeApi from '@/features/employee/api/employee.api';
 
+import useBranchStore from '@/store/branch.store';
+import BranchContextBadge from '@/features/restaurant/components/BranchContextBadge';
+
 export default function DashboardPage() {
   const { user, restaurant } = useAuthStore();
+  const selectedBranchId = useBranchStore((s) => s.selectedBranchId);
   const navigate = useNavigate();
 
   const role = user?.role || 'manager';
@@ -81,6 +85,7 @@ export default function DashboardPage() {
     let pendingReservations = 0;
     let lowStockCount = 0;
 
+    const branchParam = selectedBranchId && selectedBranchId !== 'all' ? selectedBranchId : undefined;
     const now = new Date();
     const last7Days = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
@@ -97,16 +102,16 @@ export default function DashboardPage() {
       pendingResResult,
       inventoryStatsResult,
     ] = await Promise.allSettled([
-      reportsApi.getSalesSummary(restaurantId, { range: 'today' }),
-      reportsApi.getSalesSummary(restaurantId, { startDate: monthStart, endDate: now.toISOString() }),
-      reportsApi.getSalesSummary(restaurantId, { startDate: last7Days, endDate: now.toISOString(), groupBy: 'day' }),
-      customerApi.listFeedback(restaurantId, { aggregate: 'true' }),
-      employeeApi.getEmployeeStats ? employeeApi.getEmployeeStats(restaurantId) : employeeApi.listEmployees(restaurantId),
-      orderApi.listOrders(restaurantId, { status: 'active', limit: 100 }),
-      tableApi.listTables(restaurantId, { limit: 100 }),
-      reservationApi.getDashboardStats(restaurantId),
-      reservationApi.listReservations(restaurantId, { status: 'pending', limit: 50 }),
-      inventoryApi.getInventoryStats(restaurantId),
+      reportsApi.getSalesSummary(restaurantId, { range: 'today', branch: branchParam }),
+      reportsApi.getSalesSummary(restaurantId, { startDate: monthStart, endDate: now.toISOString(), branch: branchParam }),
+      reportsApi.getSalesSummary(restaurantId, { startDate: last7Days, endDate: now.toISOString(), groupBy: 'day', branch: branchParam }),
+      customerApi.listFeedback(restaurantId, { aggregate: 'true', branch: branchParam }),
+      employeeApi.getEmployeeStats ? employeeApi.getEmployeeStats(restaurantId, { branch: branchParam }) : employeeApi.listEmployees(restaurantId, { branch: branchParam }),
+      orderApi.listOrders(restaurantId, { status: 'active', limit: 100, branch: branchParam }),
+      tableApi.listTables(restaurantId, { limit: 100, branch: branchParam }),
+      reservationApi.getDashboardStats(restaurantId, { branch: branchParam }),
+      reservationApi.listReservations(restaurantId, { status: 'pending', limit: 50, branch: branchParam }),
+      inventoryApi.getInventoryStats(restaurantId, { branch: branchParam }),
     ]);
 
     // 1. Sales Today
@@ -197,7 +202,7 @@ export default function DashboardPage() {
     });
 
     setIsLoading(false);
-  }, [restaurantId]);
+  }, [restaurantId, selectedBranchId]);
 
   useEffect(() => {
     loadDashboardData();
@@ -217,6 +222,7 @@ export default function DashboardPage() {
       }
     >
       <div className="space-y-6 max-w-7xl mx-auto pb-8">
+        <BranchContextBadge />
         {/* Compact Super Admin Banner */}
         {role === 'super_admin' && (
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 px-4 py-2.5 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-950 dark:text-purple-200">

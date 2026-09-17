@@ -10,10 +10,13 @@ const useBranchStore = create(
   persist(
     (set) => ({
       selectedBranchId: 'all', // 'all' means chain-wide view
+      branches: [],
       setSelectedBranchId: (branchId) => set({ selectedBranchId: branchId }),
+      setBranches: (branches) => set({ branches }),
     }),
     {
       name: 'dinesync-branch',
+      partialize: (state) => ({ selectedBranchId: state.selectedBranchId }),
     }
   )
 );

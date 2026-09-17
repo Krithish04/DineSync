@@ -27,12 +27,15 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import useAuthStore from '@/features/auth/store/auth.store';
+import useBranchStore from '@/store/branch.store';
+import BranchContextBadge from '@/features/restaurant/components/BranchContextBadge';
 import { useNavigate } from 'react-router-dom';
 import * as employeeApi from '../api/employee.api';
 
 export default function StaffAttendancePayrollPage() {
   const navigate = useNavigate();
   const restaurantId = useAuthStore((s) => s.restaurant?._id);
+  const selectedBranchId = useBranchStore((s) => s.selectedBranchId);
   const restaurantName = useAuthStore((s) => s.restaurant?.name) || 'DineSync Gourmet';
   const userRole = useAuthStore((s) => s.user?.role) || 'manager';
 
@@ -105,7 +108,7 @@ export default function StaffAttendancePayrollPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [restaurantId, selectedMonth]);
+  }, [restaurantId, selectedMonth, selectedBranchId]);
 
   useEffect(() => {
     if (restaurantId) {
@@ -285,6 +288,7 @@ export default function StaffAttendancePayrollPage() {
       description="Daily attendance logging, automated tip distribution, and monthly payroll calculation for managers."
     >
       <div className="space-y-6">
+        <BranchContextBadge />
         {/* Restrict Non-Managers */}
         {!canManagePayroll && (
           <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/40 p-4 text-amber-800 dark:text-amber-300 flex items-center gap-3">

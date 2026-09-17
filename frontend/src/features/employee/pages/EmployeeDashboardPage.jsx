@@ -5,11 +5,13 @@ import RestaurantLayout from '@/features/restaurant/components/RestaurantLayout'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Loader from '@/components/common/Loader';
-import useAuthStore from '@/features/auth/store/auth.store';
+import useBranchStore from '@/store/branch.store';
+import BranchContextBadge from '@/features/restaurant/components/BranchContextBadge';
 import * as employeeApi from '../api/employee.api';
 
 export default function EmployeeDashboardPage() {
   const restaurantId = useAuthStore((s) => s.restaurant?._id);
+  const selectedBranchId = useBranchStore((s) => s.selectedBranchId);
   const navigate = useNavigate();
 
   const [stats, setStats] = useState(null);
@@ -21,10 +23,11 @@ export default function EmployeeDashboardPage() {
     if (!restaurantId) return;
     setIsLoading(true);
     setError('');
+    const branchParam = selectedBranchId && selectedBranchId !== 'all' ? selectedBranchId : undefined;
     try {
       const [statsRes, empRes] = await Promise.all([
-        employeeApi.getEmployeeStats(restaurantId),
-        employeeApi.listEmployees(restaurantId),
+        employeeApi.getEmployeeStats(restaurantId, { branch: branchParam }),
+        employeeApi.listEmployees(restaurantId, { branch: branchParam }),
       ]);
       setStats(statsRes);
       setEmployees(empRes || []);
@@ -33,7 +36,7 @@ export default function EmployeeDashboardPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [restaurantId]);
+  }, [restaurantId, selectedBranchId]);
 
   useEffect(() => {
     if (restaurantId) loadData();
@@ -64,6 +67,7 @@ export default function EmployeeDashboardPage() {
   return (
     <RestaurantLayout title="Restaurant Management" description="Staff headcount, daily attendance, leave counters, and birthday logs.">
       <div className="space-y-8">
+        <BranchContextBadge />
         {/* Header controls */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-border/40 pb-4">
           <h2 className="text-xl font-bold tracking-tight">Staff Overview</h2>

@@ -7,6 +7,7 @@ import RestaurantLayout from '@/features/restaurant/components/RestaurantLayout'
 import Loader from '@/components/common/Loader';
 import useAuthStore from '@/features/auth/store/auth.store';
 import useBranchStore from '@/store/branch.store';
+import BranchContextBadge from '@/features/restaurant/components/BranchContextBadge';
 import KpiCard from '../components/KpiCard';
 import ChartWidget from '../components/ChartWidget';
 import { Button } from '@/components/ui/button';
@@ -167,6 +168,7 @@ export default function ExecutiveDashboardPage() {
       description="Real-time business intelligence and key performance indicators."
     >
       <div className="space-y-8 max-w-full">
+        <BranchContextBadge />
         {isLoading && <Loader />}
         {error && (
           <div className="bg-rose-50 border border-rose-200 text-rose-700 rounded-xl p-4 text-sm">
