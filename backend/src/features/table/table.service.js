@@ -457,6 +457,31 @@ const bulkUpdateFloorPlanLayout = async (restaurantId, tablesData) => {
   return { success: true, count: operations.length };
 };
 
+/**
+ * Batch migrates all existing table QR codes for a restaurant to encrypted URL format (/t/enc_...)
+ */
+const migrateTableQrTokens = async (restaurantId) => {
+  const query = { isDeleted: false };
+  if (restaurantId && restaurantId !== 'all') {
+    query.restaurant = restaurantId;
+  }
+
+  const tables = await Table.find(query);
+  let updatedCount = 0;
+
+  for (const table of tables) {
+    if (!table.qrCode || !table.qrCode.includes('/t/enc_')) {
+      const restId = table.restaurant?._id || table.restaurant || restaurantId;
+      const qrToken = encryptQrToken({ tableId: table._id.toString(), restaurantId: restId.toString() });
+      table.qrCode = `${env.CLIENT_URL}/t/${qrToken}`;
+      await table.save();
+      updatedCount++;
+    }
+  }
+
+  return { total: tables.length, updatedCount };
+};
+
 module.exports = {
   createTable,
   listTables,
@@ -468,4 +493,5 @@ module.exports = {
   mergeTables,
   unmergeTables,
   bulkUpdateFloorPlanLayout,
+  migrateTableQrTokens,
 };

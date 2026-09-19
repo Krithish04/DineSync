@@ -13,6 +13,10 @@ const canManage = authorize(ROLES.SUPER_ADMIN, ROLES.OWNER, ROLES.MANAGER);
 router.use(protect, enforceTenantIsolation);
 
 router
+  .route('/migrate-qr-tokens')
+  .post(canManage, tableController.migrateTableQrTokens);
+
+router
   .route('/floor-plan/layout')
   .put(canManage, validateBody(bulkUpdateLayoutSchema), tableController.bulkUpdateLayout);
 

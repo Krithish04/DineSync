@@ -14,7 +14,7 @@ const { evaluateOperatingStatus } = require('../../utils/schedule.util');
 const socketConfig = require('../../config/socket.config');
 const redisConfig = require('../../config/redis.config');
 const aiService = require('../ai/ai.service');
-const { decryptQrToken } = require('../../utils/encryption.util');
+const { decryptQrToken, encryptQrToken } = require('../../utils/encryption.util');
 
 // ==========================================
 // 1. RESOLVE QR CODE TARGET & CONTEXT
@@ -370,10 +370,17 @@ const placeCustomerOrder = async (restaurantId, payload, authenticatedUserId = n
 
   socketConfig.broadcastEvent(restaurantId, 'order:created', order);
 
-  return order.populate([
+  const populatedOrder = await order.populate([
     { path: 'table', select: 'tableNumber' },
     { path: 'customer', select: 'fullName phoneNumber loyaltyPoints membershipTier' },
   ]);
+
+  const orderObj = populatedOrder.toObject ? populatedOrder.toObject() : { ...populatedOrder };
+  const encryptedTrackingToken = encryptQrToken({ orderId: order._id.toString(), restaurantId: restaurantId.toString() });
+  orderObj.encryptedTrackingToken = encryptedTrackingToken;
+  orderObj.trackingUrl = `/menu/orders/${encryptedTrackingToken}/track`;
+
+  return orderObj;
 };
 
 // ==========================================
@@ -1027,6 +1034,27 @@ const releaseTableHost = async (restaurantId, payload) => {
 // ==========================================
 const trackLiveOrder = async (restaurantId, orderId, authContext = {}) => {
   const { customerId, hostToken } = authContext;
+
+  // Resolve encrypted order tracking token
+  if (orderId && typeof orderId === 'string' && orderId.startsWith('enc_')) {
+    const decrypted = decryptQrToken(orderId);
+    if (!decrypted) {
+      throw ApiError.badRequest('Invalid or tampered order tracking token.');
+    }
+    if (typeof decrypted === 'object') {
+      if (decrypted.orderId) orderId = decrypted.orderId;
+      if (decrypted.restaurantId && (!restaurantId || restaurantId === 'general' || restaurantId === 'undefined' || restaurantId === 'null')) {
+        restaurantId = decrypted.restaurantId;
+      }
+    } else if (typeof decrypted === 'string') {
+      orderId = decrypted;
+    }
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(orderId)) {
+    throw ApiError.badRequest('Invalid order identifier.');
+  }
+
   const order = await Order.findOne({ _id: orderId, restaurant: restaurantId })
     .populate('table', 'tableNumber')
     .populate('items.menuItem', 'name price imageCover');

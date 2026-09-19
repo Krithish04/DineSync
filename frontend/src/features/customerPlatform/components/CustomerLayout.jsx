@@ -10,6 +10,7 @@ import CustomerAuthModal from './CustomerAuthModal';
 import TablePaymentModal from './TablePaymentModal';
 import NoOrderExitModal from './NoOrderExitModal';
 import DineSyncAssistantModal from './DineSyncAssistantModal';
+import CookieConsentBanner from './CookieConsentBanner';
 import * as customerApi from '../api/customerPlatform.api';
 
 /**
@@ -876,6 +877,9 @@ export default function CustomerLayout({ title, children }) {
 
       {/* AI Assistant Floating Chatbot */}
       <DineSyncAssistantModal />
+
+      {/* GDPR & Privacy Cookie Consent Banner */}
+      <CookieConsentBanner />
     </div>
   );
 }

@@ -27,6 +27,7 @@ export default function CustomerAuthModal({ isOpen, onClose, onSuccess, pendingI
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
+  const [honeypot, setHoneypot] = useState('');
   const [devOtpHint, setDevOtpHint] = useState('');
   const [error, setError] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -49,6 +50,13 @@ export default function CustomerAuthModal({ isOpen, onClose, onSuccess, pendingI
   const handleSendOtp = async (e) => {
     if (e) e.preventDefault();
     setError('');
+
+    // Spam / Bot Protection check
+    if (honeypot) {
+      setDevOtpHint('Dev OTP: 123456');
+      setStep('otp');
+      return;
+    }
 
     if (!name.trim()) {
       setError('Please enter your full name');
@@ -209,6 +217,17 @@ export default function CustomerAuthModal({ isOpen, onClose, onSuccess, pendingI
         {/* STEP 1: Enter Name & Phone */}
         {step === 'phone' && (
           <form onSubmit={handleSendOtp} className="space-y-4">
+            {/* Anti-Bot Honeypot Field */}
+            <input
+              type="text"
+              name="website_hp"
+              tabIndex={-1}
+              autoComplete="off"
+              value={honeypot}
+              onChange={(e) => setHoneypot(e.target.value)}
+              className="hidden opacity-0 pointer-events-none absolute -left-[9999px]"
+            />
+
             <div className="space-y-3">
               <div className="relative">
                 <User size={16} className="absolute left-3.5 top-3.5 text-muted-foreground" />

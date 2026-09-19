@@ -19,6 +19,14 @@ const app = express();
 // Trust proxy setup for reverse proxies (Nginx / Cloud Load Balancers / Tunnels)
 app.set('trust proxy', env.TRUST_PROXY);
 
+// Force HTTPS redirect in production if forwarded over HTTP
+app.use((req, res, next) => {
+  if (env.isProduction && req.headers['x-forwarded-proto'] && req.headers['x-forwarded-proto'] !== 'https') {
+    return res.redirect(301, `https://${req.headers.host}${req.url}`);
+  }
+  next();
+});
+
 // Security headers
 app.use(helmet());
 

@@ -82,6 +82,11 @@ const bulkUpdateLayout = asyncHandler(async (req, res) => {
   return new ApiResponse(200, result, 'Table layout positions updated successfully').send(res);
 });
 
+const migrateTableQrTokens = asyncHandler(async (req, res) => {
+  const result = await tableService.migrateTableQrTokens(req.params.restaurantId);
+  return new ApiResponse(200, result, 'Table QR tokens migrated successfully').send(res);
+});
+
 module.exports = {
   createTable,
   listTables,
@@ -93,4 +98,5 @@ module.exports = {
   mergeTables,
   unmergeTables,
   bulkUpdateLayout,
+  migrateTableQrTokens,
 };

@@ -75,10 +75,15 @@ const maskValue = (value, visibleSuffixLength = 4) => {
 /**
  * Encrypts payload object or string (e.g. { tableId, restaurantId }) into a URL-safe token.
  * Token format: "enc_<base64url(iv + authTag + encryptedData)>"
+ * Supports optional options: { expiresInSeconds }
  */
-const encryptQrToken = (data) => {
+const encryptQrToken = (data, options = {}) => {
   if (!data) return '';
-  const payloadStr = typeof data === 'object' ? JSON.stringify(data) : String(data);
+  let payloadObj = typeof data === 'object' ? { ...data } : { value: String(data) };
+  if (options.expiresInSeconds && typeof options.expiresInSeconds === 'number') {
+    payloadObj.exp = Date.now() + options.expiresInSeconds * 1000;
+  }
+  const payloadStr = JSON.stringify(payloadObj);
   const key = getEncryptionKey();
   const iv = crypto.randomBytes(IV_LENGTH);
   const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
@@ -94,7 +99,7 @@ const encryptQrToken = (data) => {
 
 /**
  * Decrypts a URL-safe token "enc_<base64url(...)>".
- * Returns parsed object or raw string. Returns null if invalid or corrupt.
+ * Returns parsed object or raw string. Returns null if invalid, corrupt, or expired.
  */
 const decryptQrToken = (token) => {
   if (!token || typeof token !== 'string' || !token.startsWith('enc_')) {
@@ -117,11 +122,20 @@ const decryptQrToken = (token) => {
     const decryptedBuf = Buffer.concat([decipher.update(encryptedBuf), decipher.final()]);
     const decryptedStr = decryptedBuf.toString('utf8');
 
+    let parsed;
     try {
-      return JSON.parse(decryptedStr);
+      parsed = JSON.parse(decryptedStr);
     } catch {
-      return decryptedStr;
+      parsed = decryptedStr;
     }
+
+    if (parsed && typeof parsed === 'object' && parsed.exp) {
+      if (Date.now() > parsed.exp) {
+        return null; // Expired token
+      }
+    }
+
+    return parsed;
   } catch (error) {
     return null;
   }
