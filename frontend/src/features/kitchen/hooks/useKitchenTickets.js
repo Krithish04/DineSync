@@ -77,29 +77,50 @@ export function useKitchenTickets() {
     });
   }, []);
 
-  const triggerNewTicketAlert = useCallback(() => {
+  const triggerNewTicketAlert = useCallback((incomingTickets) => {
     // 1. Play audible chime if NOT muted
     if (!isMuted) {
       playKitchenAlertSound();
     }
-    // 2. ALWAYS trigger visual pulse signal equivalent (hearing-impaired staff accessibility signal)
+    // 2. Voice order & table number callout via Web Speech API
+    if (!isMuted && typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      try {
+        const ticket = Array.isArray(incomingTickets) ? incomingTickets[0] : incomingTickets;
+        const table = ticket?.table?.tableNumber || ticket?.table?.tableName || ticket?.tableNumber || ticket?.order?.table?.tableNumber || ticket?.table;
+        const text = table ? `New order arrived for Table ${table}` : `New kitchen order received`;
+
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 1.0;
+        utterance.pitch = 1.0;
+        window.speechSynthesis.speak(utterance);
+      } catch (e) {
+        // Voice callout fallback
+      }
+    }
+    // 3. ALWAYS trigger visual pulse signal equivalent (hearing-impaired staff accessibility signal)
     setHasVisualFlashSignal(true);
     setTimeout(() => setHasVisualFlashSignal(false), 4500);
   }, [isMuted]);
 
-  const [isManualPeakMode, setIsManualPeakMode] = useState(false);
+  const [manualPeakOverride, setManualPeakOverride] = useState(null); // null = Auto mode, true = Forced ON, false = Forced OFF
   const [slaCounts, setSlaCounts] = useState({ atRiskCount: 0, lateCount: 0 });
 
-  // Auto-detect Peak Mode if active tickets for selected station > 8 or total tickets > 15
+  // Auto-detect Peak Mode if active tickets for selected station > 8 OR if any tickets are SLA at-risk/late
   const isPeakModeAuto = useMemo(() => {
-    return tickets.length > 8;
-  }, [tickets]);
+    return tickets.length > 8 || slaCounts.atRiskCount > 0 || slaCounts.lateCount > 0;
+  }, [tickets.length, slaCounts.atRiskCount, slaCounts.lateCount]);
 
-  const isPeakMode = isManualPeakMode || isPeakModeAuto;
+  // Peak Mode resolves to manual override if set, otherwise follows auto-detection
+  const isPeakMode = manualPeakOverride !== null ? manualPeakOverride : isPeakModeAuto;
 
   const togglePeakMode = useCallback(() => {
-    setIsManualPeakMode((prev) => !prev);
-  }, []);
+    setManualPeakOverride((prev) => {
+      if (prev === null) return !isPeakModeAuto; // cycle to manual opposite of auto
+      if (prev === !isPeakModeAuto) return isPeakModeAuto; // cycle to manual same as auto
+      return null; // reset back to pure auto mode
+    });
+  }, [isPeakModeAuto]);
 
   // Real-time Socket.IO Connection for KDS Ticket Updates
   useEffect(() => {
@@ -169,7 +190,7 @@ export function useKitchenTickets() {
     });
 
     socket.on('kitchen:tickets_created', (newTickets) => {
-      triggerNewTicketAlert();
+      triggerNewTicketAlert(newTickets);
       const ticketsArray = Array.isArray(newTickets) ? newTickets : [newTickets];
       const matched = ticketsArray.filter((t) => t.station === selectedStation && t.status !== 'Served');
 
@@ -299,6 +320,7 @@ export function useKitchenTickets() {
     hasVisualFlashSignal,
     isPeakMode,
     isPeakModeAuto,
+    manualPeakOverride,
     togglePeakMode,
     atRiskCount: slaCounts.atRiskCount,
     lateCount: slaCounts.lateCount,

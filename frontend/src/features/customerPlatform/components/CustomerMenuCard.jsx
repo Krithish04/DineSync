@@ -1,14 +1,17 @@
 import { useState, memo } from 'react';
-import { Plus, Minus, Sparkles, Flame, ChevronRight, Utensils } from 'lucide-react';
+import { Plus, Minus, Sparkles, Flame, ChevronRight, Utensils, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import useCartStore from '../store/cart.store';
 import ItemModifierSheet from './ItemModifierSheet';
 
-const CustomerMenuCard = memo(function CustomerMenuCard({ item }) {
+const CustomerMenuCard = memo(function CustomerMenuCard({ item, isClosed: propIsClosed }) {
   const addItem = useCartStore((s) => s.addItem);
   const updateQuantity = useCartStore((s) => s.updateQuantity);
   const items = useCartStore((s) => s.items);
   const isViewOnly = useCartStore((s) => s.isViewOnly);
+  const operatingStatus = useCartStore((s) => s.operatingStatus);
+
+  const isClosed = Boolean(propIsClosed || operatingStatus?.isClosed);
 
   const cartItemsForItem = items.filter((i) => i.menuItemId === item._id);
   const cartQuantity = cartItemsForItem.reduce((sum, i) => sum + i.quantity, 0);
@@ -19,7 +22,7 @@ const CustomerMenuCard = memo(function CustomerMenuCard({ item }) {
   const isInactiveTable = useCartStore((s) => s.isInactiveTable || s.tableStatus === 'Inactive');
   const tableHost = useCartStore((s) => s.tableHost);
   const isVerifiedHost = Boolean(tableHost && tableHost.phone);
-  const canAdd = !isViewOnly && !isInactiveTable;
+  const canAdd = !isViewOnly && !isInactiveTable && !isClosed;
 
   const hasModifiers = Boolean(
     (item.modifierGroups && item.modifierGroups.length > 0) ||
@@ -150,7 +153,11 @@ const CustomerMenuCard = memo(function CustomerMenuCard({ item }) {
             )}
           </div>
 
-          {canAdd && (
+          {isClosed ? (
+            <span className="h-9 min-h-[36px] px-3 text-xs font-bold rounded-xl bg-muted text-muted-foreground border border-border flex items-center gap-1 shrink-0 cursor-not-allowed select-none opacity-80">
+              <Clock size={14} /> Closed
+            </span>
+          ) : canAdd ? (
             cartQuantity > 0 ? (
               <div className="flex items-center border-2 border-primary rounded-xl bg-primary/10 p-0.5 overflow-hidden shadow-xs shrink-0">
                 <button
@@ -182,7 +189,7 @@ const CustomerMenuCard = memo(function CustomerMenuCard({ item }) {
                 <Plus size={16} /> ADD
               </Button>
             )
-          )}
+          ) : null}
         </div>
       </div>
 

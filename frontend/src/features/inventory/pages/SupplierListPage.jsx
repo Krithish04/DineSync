@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Search, Plus, Pencil, Trash2, Phone, Mail, MapPin } from 'lucide-react';
+import { Search, Plus, Pencil, Trash2, Phone, Mail, MapPin, X } from 'lucide-react';
 import RestaurantLayout from '@/features/restaurant/components/RestaurantLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -189,9 +189,22 @@ export default function SupplierListPage() {
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-background border rounded-lg shadow-xl w-full max-w-md overflow-hidden p-5 animate-in fade-in zoom-in-95 duration-150">
-            <h4 className="font-bold text-sm text-foreground mb-4">
-              {activeEditData ? 'Edit Supplier Details' : 'Add New Supplier'}
-            </h4>
+            <div className="flex items-center justify-between border-b pb-3 mb-4">
+              <h4 className="font-bold text-sm text-foreground">
+                {activeEditData ? 'Edit Supplier Details' : 'Add New Supplier'}
+              </h4>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsModalOpen(false);
+                  setActiveEditData(null);
+                }}
+                className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors"
+                aria-label="Close modal"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
             <SupplierForm
               initialData={activeEditData}
               onSubmit={handleFormSubmit}

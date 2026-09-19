@@ -7,7 +7,8 @@ export default function RecommendationCards({ recommendations = [], items = [] }
   const addItem = useCartStore((s) => s.addItem);
   const isViewOnly = useCartStore((s) => s.isViewOnly);
   const isInactiveTable = useCartStore((s) => s.isInactiveTable || s.tableStatus === 'Inactive');
-  const canAdd = !isViewOnly && !isInactiveTable;
+  const operatingStatus = useCartStore((s) => s.operatingStatus);
+  const canAdd = !isViewOnly && !isInactiveTable && !operatingStatus?.isClosed;
 
   if (!recommendations || recommendations.length === 0) return null;
 

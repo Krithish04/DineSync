@@ -1,6 +1,9 @@
 import api from '@/lib/axios';
 
-const publicUrl = (restaurantId) => `/public/restaurants/${restaurantId}`;
+const publicUrl = (restaurantId) => {
+  const validId = (restaurantId && restaurantId !== 'null' && restaurantId !== 'undefined') ? restaurantId : 'general';
+  return `/public/restaurants/${validId}`;
+};
 
 export const resolveQrCode = async (restaurantId, params = {}) => {
   const { data } = await api.get(`${publicUrl(restaurantId)}/qr-resolve`, { params });

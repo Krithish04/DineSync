@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { 
-  Move, Save, RotateCcw, Users, QrCode, Eye, LogOut, CheckCircle2, 
+import {
+  Move, Save, RotateCcw, Users, QrCode, Eye, LogOut, CheckCircle2,
   Sparkles, Layers, Compass, Grid, Maximize2, Coffee, Utensils, Wine, Bell, CreditCard, ShieldAlert, Lock,
   AlertTriangle, Accessibility, ChevronUp, ChevronDown, Plus, Trash2, Palette, Link2, HelpCircle, X
 } from 'lucide-react';
@@ -121,7 +121,7 @@ export default function ArchitecturalFloorPlan({
   const [isEditMode, setIsEditMode] = useState(false);
   const [localTables, setLocalTables] = useState([]);
   const [activeTable, setActiveTable] = useState(null);
-  
+
   // Custom Manager Zones State (Data-driven blank canvas zones)
   const [customZones, setCustomZones] = useState(() => {
     try {
@@ -142,14 +142,13 @@ export default function ArchitecturalFloorPlan({
   // Zone Deletion Confirmation Target Modal State
   const [zoneToDeleteTarget, setZoneToDeleteTarget] = useState(null);
 
-  // Draggable Canvas Fixtures (Positioned cleanly inside canvas grid)
-  const [fixtures, setFixtures] = useState([
-    { id: 'restroom', name: 'Restrooms', icon: '🚻', posX: 60, posY: 50, color: 'bg-slate-800 text-slate-300 border-slate-700 shadow-md' },
-    { id: 'kitchen', name: 'Kitchen Pass', icon: '🍳', posX: 220, posY: 50, color: 'bg-amber-950/80 text-amber-300 border-amber-800/60 shadow-md' },
-    { id: 'entrance', name: 'Entrance Gate', icon: '🚪', posX: 380, posY: 50, color: 'bg-emerald-950/80 text-emerald-300 border-emerald-800/60 shadow-md' },
-  ]);
+  // Draggable Canvas Fixtures
+  const [fixtures, setFixtures] = useState([]);
 
   const canvasRef = useRef(null);
+
+  // Helper to normalize table ID format safely (supports _id ObjectId, _id string, id string)
+  const getTableId = (t) => (t?._id ? String(t._id) : t?.id ? String(t.id) : null);
 
   // Auto-detect containing zone for a table based on center coordinate
   const detectZoneForTable = (posX, posY, shape, zonesList) => {
@@ -169,18 +168,46 @@ export default function ArchitecturalFloorPlan({
     return matched ? matched.name : 'Unassigned / Open Floor';
   };
 
-  // Synchronize local table state ONLY when not actively editing/dragging (Prevents Socket snap-back!)
-  useEffect(() => {
-    if (!hasUnsavedChanges && !dragState) {
-      const synced = tables.map((t) => {
-        const posX = t.positionX ?? 100;
-        const posY = t.positionY ?? 100;
-        const detected = detectZoneForTable(posX, posY, t.shape, customZones);
-        return { ...t, positionX: posX, positionY: posY, zone: detected };
-      });
-      setLocalTables(synced);
+  // Helper to read local storage saved positions fallback
+  const getSavedPosition = (tId) => {
+    try {
+      const savedStr = localStorage.getItem('dinesync_saved_table_positions');
+      if (savedStr) {
+        const map = JSON.parse(savedStr);
+        return map[tId];
+      }
+    } catch {
+      // Ignore read errors
     }
-  }, [tables, hasUnsavedChanges, dragState, customZones]);
+    return null;
+  };
+
+  // Synchronize local table state when tables prop changes from backend/parent without snap-back
+  useEffect(() => {
+    setLocalTables((prevLocal) => {
+      return tables.map((t) => {
+        const tId = getTableId(t);
+        const savedPos = getSavedPosition(tId);
+        const existingLocal = prevLocal?.find((l) => getTableId(l) === tId);
+
+        const posX = existingLocal?.positionX ?? savedPos?.positionX ?? t.positionX ?? 100;
+        const posY = existingLocal?.positionY ?? savedPos?.positionY ?? t.positionY ?? 100;
+        const shape = existingLocal?.shape ?? savedPos?.shape ?? t.shape;
+        const zone = existingLocal?.zone ?? savedPos?.zone ?? t.zone;
+
+        const detected = detectZoneForTable(posX, posY, shape, customZones);
+
+        return {
+          ...t,
+          ...(existingLocal || {}),
+          positionX: posX,
+          positionY: posY,
+          shape: shape || 'Square',
+          zone: zone || detected,
+        };
+      });
+    });
+  }, [tables, customZones]);
 
   // Persist custom zones to localStorage whenever modified
   useEffect(() => {
@@ -198,7 +225,7 @@ export default function ArchitecturalFloorPlan({
   }, [customZones]);
 
   const filteredTables = localTables.filter((t) => {
-    if (selectedZone === 'All') return true;
+    if (selectedZone === 'All' || isEditMode) return true;
     const currentZone = t.zone || 'Unassigned / Open Floor';
     return currentZone === selectedZone;
   });
@@ -212,6 +239,8 @@ export default function ArchitecturalFloorPlan({
       for (let j = i + 1; j < filteredTables.length; j++) {
         const t1 = filteredTables[i];
         const t2 = filteredTables[j];
+        const t1Id = getTableId(t1);
+        const t2Id = getTableId(t2);
 
         const x1 = t1.positionX || 100;
         const y1 = t1.positionY || 100;
@@ -228,8 +257,8 @@ export default function ArchitecturalFloorPlan({
         const dy = Math.abs(y1 - y2);
 
         if (dx < (width1 / 2 + width2 / 2 - 12) && dy < (height1 / 2 + height2 / 2 - 12)) {
-          collidingSet.add(t1._id);
-          collidingSet.add(t2._id);
+          if (t1Id) collidingSet.add(t1Id);
+          if (t2Id) collidingSet.add(t2Id);
           collisionPairs.push(`Table ${t1.tableNumber} & Table ${t2.tableNumber}`);
         }
       }
@@ -273,13 +302,14 @@ export default function ArchitecturalFloorPlan({
     const processed = new Set();
 
     localTables.forEach((t) => {
-      if (processed.has(t._id)) return;
+      const tId = getTableId(t);
+      if (!tId || processed.has(tId)) return;
 
       if (t.mergedTables && t.mergedTables.length > 0) {
-        const groupTableIds = [t._id, ...t.mergedTables.map((st) => (typeof st === 'object' ? st._id : st))];
+        const groupTableIds = [tId, ...t.mergedTables.map((st) => (typeof st === 'object' ? getTableId(st) : String(st)))];
         groupTableIds.forEach((id) => processed.add(id));
 
-        const groupNodes = localTables.filter((node) => groupTableIds.includes(node._id));
+        const groupNodes = localTables.filter((node) => groupTableIds.includes(getTableId(node)));
         if (groupNodes.length > 1) {
           const minX = Math.min(...groupNodes.map((n) => n.positionX || 100)) - 15;
           const minY = Math.min(...groupNodes.map((n) => n.positionY || 100)) - 15;
@@ -292,7 +322,7 @@ export default function ArchitecturalFloorPlan({
           // Only render bounding box if merged tables are adjacent (<= 320px span) to avoid stray cross-zone line artifacts
           if (spanW <= 320 && spanH <= 240) {
             groups.push({
-              primaryId: t._id,
+              primaryId: tId,
               primaryNumber: t.tableNumber,
               tableCount: groupNodes.length,
               totalCap: groupNodes.reduce((sum, n) => sum + (n.capacity || 0), 0),
@@ -319,17 +349,25 @@ export default function ArchitecturalFloorPlan({
     const pointerX = e.clientX - canvasRect.left;
     const pointerY = e.clientY - canvasRect.top;
 
-    e.currentTarget.setPointerCapture(e.pointerId);
+    if (e.currentTarget && e.pointerId !== undefined) {
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId);
+      } catch {
+        // Fallback for pointer capture
+      }
+    }
 
     const startX = itemData.posX ?? itemData.positionX ?? 100;
     const startY = itemData.posY ?? itemData.positionY ?? 100;
 
+    const dragId = String(id);
+
     if (type === 'table') {
-      console.log(`[DRAG_START] Table ID: ${id} | Start Pos: (${startX}, ${startY})`);
+      console.log(`[DRAG_START] Table ID: ${dragId} | Start Pos: (${startX}, ${startY})`);
     }
 
     setDragState({
-      id,
+      id: dragId,
       type,
       pointerId: e.pointerId,
       startX: pointerX,
@@ -360,12 +398,12 @@ export default function ArchitecturalFloorPlan({
       const snapX = Math.max(10, Math.min(Math.round(rawX / 10) * 10, canvasRect.width - 120));
       const snapY = Math.max(45, Math.min(Math.round(rawY / 10) * 10, canvasRect.height - 80));
 
-      const targetTable = localTables.find((t) => t._id === dragState.id);
+      const targetTable = localTables.find((t) => getTableId(t) === String(dragState.id));
       const autoZone = detectZoneForTable(snapX, snapY, targetTable?.shape || 'Square', customZones);
 
       setLocalTables((prev) =>
         prev.map((t) =>
-          t._id === dragState.id
+          getTableId(t) === String(dragState.id)
             ? { ...t, positionX: snapX, positionY: snapY, zone: autoZone }
             : t
         )
@@ -440,13 +478,13 @@ export default function ArchitecturalFloorPlan({
 
       // Auto-save on table drop so position changes persist immediately
       if (wasTableDrag && onSaveLayout) {
-        const targetTable = localTables.find((t) => t._id === draggedId);
+        const targetTable = localTables.find((t) => getTableId(t) === String(draggedId));
         console.log(
           `[DRAG_END/DROP] Table ID: ${draggedId} | Drop Pos: (${targetTable?.positionX}, ${targetTable?.positionY})`
         );
 
         const layoutItems = localTables.map((t) => ({
-          _id: t._id,
+          _id: getTableId(t),
           positionX: t.positionX ?? 100,
           positionY: t.positionY ?? 100,
           shape: t.shape || 'Square',
@@ -457,16 +495,15 @@ export default function ArchitecturalFloorPlan({
           height: t.height || 90,
         }));
 
-        const draggedPayloadItem = layoutItems.find((item) => item._id === draggedId);
+        const draggedPayloadItem = layoutItems.find((item) => String(item._id) === String(draggedId));
         console.log(
           `[PAYLOAD_SENT] Payload item for Table ${draggedId}:`,
           draggedPayloadItem
         );
 
-        onSaveLayout(layoutItems)
+        onSaveLayout(layoutItems, true)
           .then(() => {
-            console.log(`[SAVE_SUCCESS] Save layout API call resolved for Table ID: ${draggedId}`);
-            setHasUnsavedChanges(false);
+            console.log(`[SAVE_SUCCESS] Auto-save background resolved for Table ID: ${draggedId}`);
           })
           .catch((err) => console.error('Auto-save table layout failed:', err));
       }
@@ -521,9 +558,9 @@ export default function ArchitecturalFloorPlan({
   const handleSavePositions = async () => {
     if (!onSaveLayout) return;
     const layoutItems = localTables.map((t) => ({
-      _id: t._id,
-      positionX: t.positionX || 100,
-      positionY: t.positionY || 100,
+      _id: getTableId(t),
+      positionX: t.positionX ?? 100,
+      positionY: t.positionY ?? 100,
       shape: t.shape || 'Square',
       zone: t.zone || 'Unassigned / Open Floor',
       isAccessible: Boolean(t.isAccessible),
@@ -531,6 +568,18 @@ export default function ArchitecturalFloorPlan({
       width: t.width || 90,
       height: t.height || 90,
     }));
+
+    // Cache saved position map locally so re-entering Edit Mode remembers exact layout positions
+    try {
+      const positionMap = layoutItems.reduce((acc, item) => {
+        acc[item._id] = { positionX: item.positionX, positionY: item.positionY, zone: item.zone, shape: item.shape };
+        return acc;
+      }, {});
+      localStorage.setItem('dinesync_saved_table_positions', JSON.stringify(positionMap));
+    } catch {
+      // Ignore cache write error
+    }
+
     await onSaveLayout(layoutItems);
     setHasUnsavedChanges(false);
     setIsEditMode(false);
@@ -538,7 +587,7 @@ export default function ArchitecturalFloorPlan({
 
   const handleShapeChange = (tableId, newShape) => {
     setLocalTables((prev) =>
-      prev.map((t) => (t._id === tableId ? { ...t, shape: newShape } : t))
+      prev.map((t) => (getTableId(t) === String(tableId) ? { ...t, shape: newShape } : t))
     );
     setHasUnsavedChanges(true);
   };
@@ -549,7 +598,7 @@ export default function ArchitecturalFloorPlan({
 
     setLocalTables((prev) =>
       prev.map((t) => {
-        if (t._id !== tableId) return t;
+        if (getTableId(t) !== String(tableId)) return t;
 
         if (targetZoneObj) {
           // Move table to center of target zone box
@@ -569,7 +618,7 @@ export default function ArchitecturalFloorPlan({
 
   const handleAccessibleToggle = (tableId, isAccessible) => {
     setLocalTables((prev) =>
-      prev.map((t) => (t._id === tableId ? { ...t, isAccessible } : t))
+      prev.map((t) => (getTableId(t) === String(tableId) ? { ...t, isAccessible } : t))
     );
     setHasUnsavedChanges(true);
   };
@@ -577,7 +626,7 @@ export default function ArchitecturalFloorPlan({
   // Node tap handler
   const handleTableNodeClick = (table) => {
     if (isEditMode) {
-      setActiveTable(activeTable?._id === table._id ? null : table);
+      setActiveTable(getTableId(activeTable) === getTableId(table) ? null : table);
     } else {
       if (onViewOrder) {
         onViewOrder(table);
@@ -636,41 +685,105 @@ export default function ArchitecturalFloorPlan({
   return (
     <div className="space-y-4 font-sans">
       {/* Top Header Bar: Service Mode Indicator, Zone Filters & Manager Controls */}
-      <div className="flex items-center justify-between gap-3 flex-wrap bg-card border border-border/60 p-3 rounded-2xl shadow-sm">
-        {/* Mode Toggle Switch: Live Service View vs Edit Layout */}
-        <div className="flex items-center bg-muted p-1 rounded-xl border border-border/60">
-          <Button
-            variant={!isEditMode ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => {
-              setIsEditMode(false);
-              setLocalTables(tables);
-              setHasUnsavedChanges(false);
-            }}
-            className={`h-8 text-xs font-extrabold rounded-lg gap-1.5 transition-all ${
-              !isEditMode ? 'bg-emerald-600 text-white shadow-sm' : 'text-muted-foreground'
-            }`}
-          >
-            <span className="h-2 w-2 rounded-full bg-emerald-300 animate-ping" />
-            Live Service Floor View
-          </Button>
-
-          {canManage && (
+      <div className="bg-card border border-border/60 p-3.5 rounded-2xl shadow-sm space-y-3">
+        {/* Top Row: Mode Toggle Switch & Manager Action Buttons */}
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          {/* Mode Toggle Switch: Live Service View vs Edit Layout */}
+          <div className="flex items-center h-10 bg-muted/70 p-1 rounded-2xl border border-border/60">
             <Button
-              variant={isEditMode ? 'default' : 'ghost'}
+              variant={!isEditMode ? 'default' : 'ghost'}
               size="sm"
-              onClick={() => setIsEditMode(true)}
-              className={`h-8 text-xs font-extrabold rounded-lg gap-1.5 transition-all ${
-                isEditMode ? 'bg-amber-600 text-white shadow-sm' : 'text-muted-foreground'
+              onClick={() => {
+                setIsEditMode(false);
+                setLocalTables(tables);
+                setHasUnsavedChanges(false);
+              }}
+              className={`h-8 text-xs font-bold rounded-xl gap-1.5 px-3.5 transition-all ${
+                !isEditMode ? 'bg-emerald-600 text-white shadow-sm' : 'text-muted-foreground'
               }`}
             >
-              <Move size={13} /> Edit Layout Mode
+              <span className="h-2 w-2 rounded-full bg-emerald-300 animate-ping" />
+              Live Service Floor View
             </Button>
+
+            {canManage && (
+              <Button
+                variant={isEditMode ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setIsEditMode(true)}
+                className={`h-8 text-xs font-bold rounded-xl gap-1.5 px-3.5 transition-all ${
+                  isEditMode ? 'bg-amber-600 text-white shadow-sm' : 'text-muted-foreground'
+                }`}
+              >
+                <Move size={14} /> Edit Layout Mode
+              </Button>
+            )}
+          </div>
+
+          {/* Manager Actions: Add Custom Zone & Save Layout (Edit mode only) */}
+          {isEditMode && canManage && (
+            <div className="flex items-center gap-2 flex-wrap">
+              {!isAddingZone ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsAddingZone(true)}
+                  className="h-10 text-xs rounded-2xl border-dashed border-sky-500/50 text-sky-600 dark:text-sky-400 gap-1.5 font-bold hover:bg-sky-500/10 px-4"
+                >
+                  <Plus size={14} /> Add Zone
+                </Button>
+              ) : (
+                <div className="flex items-center gap-1.5 h-10">
+                  <input
+                    type="text"
+                    placeholder="Zone Name..."
+                    value={newZoneName}
+                    onChange={(e) => setNewZoneName(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddZone()}
+                    className="h-10 text-xs bg-background border rounded-xl px-3 font-bold w-36 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                  />
+                  <Button size="sm" onClick={handleAddZone} className="h-10 text-xs bg-sky-600 text-white rounded-xl font-bold px-3">
+                    Add
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setIsAddingZone(false)} className="h-10 text-xs text-muted-foreground px-2">
+                    Cancel
+                  </Button>
+                </div>
+              )}
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setLocalTables(tables);
+                  setHasUnsavedChanges(false);
+                  setIsEditMode(false);
+                }}
+                className="h-10 text-xs rounded-2xl gap-1.5 font-bold px-4"
+              >
+                <RotateCcw size={14} /> Cancel
+              </Button>
+
+              <Button
+                variant="default"
+                size="sm"
+                onClick={handleSavePositions}
+                disabled={isSavingLayout}
+                className="h-10 text-xs rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 font-bold shadow-md shadow-emerald-600/20 px-5"
+              >
+                {isSavingLayout ? (
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                ) : (
+                  <Save size={14} />
+                )}
+                Save Layout
+              </Button>
+            </div>
           )}
         </div>
 
-        {/* Zone Filter Tabs */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+        {/* Bottom Row: Zone Filter Tabs */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none pt-2 border-t border-border/40">
           <span className="text-xs font-bold text-muted-foreground mr-1 flex items-center gap-1 shrink-0">
             <Compass size={14} className="text-primary" /> Filter Zone:
           </span>
@@ -680,77 +793,15 @@ export default function ArchitecturalFloorPlan({
               variant={selectedZone === zone ? 'default' : 'ghost'}
               size="sm"
               onClick={() => setSelectedZone(zone)}
-              className={`h-8 text-xs rounded-xl font-bold transition-all shrink-0 ${
-                selectedZone === zone
+              className={`h-7 text-xs rounded-xl font-bold transition-all shrink-0 ${selectedZone === zone
                   ? 'bg-primary text-primary-foreground shadow-sm'
                   : 'hover:bg-muted text-muted-foreground'
-              }`}
+                }`}
             >
               {zone}
             </Button>
           ))}
         </div>
-
-        {/* Manager Actions: Add Custom Zone & Save Layout (Edit mode only) */}
-        {isEditMode && canManage && (
-          <div className="flex items-center gap-2 ml-auto flex-wrap">
-            {!isAddingZone ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsAddingZone(true)}
-                className="h-8 text-xs rounded-xl border-dashed border-sky-500/50 text-sky-600 dark:text-sky-400 gap-1.5 font-bold"
-              >
-                <Plus size={14} /> Add Zone
-              </Button>
-            ) : (
-              <div className="flex items-center gap-1.5">
-                <input
-                  type="text"
-                  placeholder="Zone Name..."
-                  value={newZoneName}
-                  onChange={(e) => setNewZoneName(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleAddZone()}
-                  className="h-8 text-xs bg-background border rounded-lg px-2 font-bold w-32 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                />
-                <Button size="sm" onClick={handleAddZone} className="h-8 text-xs bg-sky-600 text-white rounded-lg font-bold">
-                  Add
-                </Button>
-                <Button size="sm" variant="ghost" onClick={() => setIsAddingZone(false)} className="h-8 text-xs text-muted-foreground">
-                  Cancel
-                </Button>
-              </div>
-            )}
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setLocalTables(tables);
-                setHasUnsavedChanges(false);
-                setIsEditMode(false);
-              }}
-              className="h-8 text-xs rounded-xl gap-1.5 font-bold"
-            >
-              <RotateCcw size={14} /> Cancel
-            </Button>
-
-            <Button
-              variant="default"
-              size="sm"
-              onClick={handleSavePositions}
-              disabled={isSavingLayout || !hasUnsavedChanges}
-              className="h-8 text-xs rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 font-bold shadow-md shadow-emerald-600/20"
-            >
-              {isSavingLayout ? (
-                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-              ) : (
-                <Save size={14} />
-              )}
-              Save Layout
-            </Button>
-          </div>
-        )}
       </div>
 
       {/* Collision Warning Banner with Auto-Unstack Action Button (Phase 3) */}
@@ -775,21 +826,11 @@ export default function ArchitecturalFloorPlan({
 
       {/* Edit Mode Active Banner */}
       {isEditMode && (
-        <div className="bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-300 text-xs px-4 py-2 rounded-xl flex items-center justify-between font-medium">
-          <span className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-amber-500 animate-ping" />
-            FREEFORM EDIT MODE ACTIVE — Drag tables into zone boxes to auto-assign floor zones, or position freely.
+        <div className="bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-300 text-xs px-4 py-2.5 rounded-xl flex items-center gap-2 font-medium shadow-xs">
+          <span className="h-2 w-2 rounded-full bg-amber-500 animate-ping shrink-0" />
+          <span>
+            <strong>FREEFORM EDIT MODE ACTIVE</strong> — Drag tables into zone boxes to auto-assign floor zones, or position freely.
           </span>
-          {hasUnsavedChanges && (
-            <Button
-              size="sm"
-              onClick={handleSavePositions}
-              disabled={isSavingLayout}
-              className="h-7 text-xs bg-amber-600 hover:bg-amber-700 text-white rounded-lg px-3 font-bold"
-            >
-              Save Now
-            </Button>
-          )}
         </div>
       )}
 
@@ -836,9 +877,8 @@ export default function ArchitecturalFloorPlan({
                   cursor: isEditMode ? 'grab' : 'default',
                   touchAction: 'none',
                 }}
-                className={`absolute border-2 border-dashed rounded-3xl p-3 backdrop-blur-xs transition-shadow ${colorTheme.value} ${
-                  isEditMode ? 'hover:border-solid hover:shadow-lg' : 'pointer-events-none'
-                }`}
+                className={`absolute border-2 border-dashed rounded-3xl p-3 backdrop-blur-xs transition-shadow ${colorTheme.value} ${isEditMode ? 'hover:border-solid hover:shadow-lg' : 'pointer-events-none'
+                  }`}
               >
                 {/* Zone Title Header */}
                 <div className="flex items-center justify-between pointer-events-auto">
@@ -902,9 +942,8 @@ export default function ArchitecturalFloorPlan({
                 cursor: isEditMode ? 'grab' : 'default',
                 touchAction: 'none',
               }}
-              className={`absolute min-h-[38px] px-3 py-1 rounded-full font-extrabold text-[11px] border backdrop-blur-md transition-shadow z-30 flex items-center gap-1.5 ${fix.color} ${
-                isEditMode ? 'ring-2 ring-amber-400/80 shadow-lg hover:scale-105' : ''
-              } ${dragState?.id === fix.id ? 'opacity-80 scale-110 shadow-2xl z-40' : ''}`}
+              className={`absolute min-h-[38px] px-3 py-1 rounded-full font-extrabold text-[11px] border backdrop-blur-md transition-shadow z-30 flex items-center gap-1.5 ${fix.color} ${isEditMode ? 'ring-2 ring-amber-400/80 shadow-lg hover:scale-105' : ''
+                } ${dragState?.id === fix.id ? 'opacity-80 scale-110 shadow-2xl z-40' : ''}`}
             >
               <span>{fix.icon}</span>
               <span>{fix.name}</span>
@@ -914,14 +953,15 @@ export default function ArchitecturalFloorPlan({
 
           {/* Render Table Nodes tied to Real-Time Table Session State Machine */}
           {filteredTables.map((t) => {
+            const tableId = getTableId(t);
             const posX = t.positionX || 100;
             const posY = t.positionY || 100;
             const shape = t.shape || 'Square';
             const theme = REALTIME_STATUS_THEMES[t.status] || REALTIME_STATUS_THEMES.Available;
-            const isSelected = activeTable?._id === t._id;
+            const isSelected = getTableId(activeTable) === tableId;
             const isOccupied = t.status === 'Occupied';
             const hasHost = Boolean(t.currentHostName);
-            const isColliding = collisions.set.has(t._id);
+            const isColliding = collisions.set.has(tableId);
             const isMerged = Boolean(t.mergedInto || (t.mergedTables && t.mergedTables.length > 0));
             const StatusIcon = theme.icon;
 
@@ -932,8 +972,8 @@ export default function ArchitecturalFloorPlan({
 
             return (
               <div
-                key={t._id}
-                onPointerDown={(e) => handlePointerDown(e, t._id, 'table', t)}
+                key={tableId}
+                onPointerDown={(e) => handlePointerDown(e, tableId, 'table', t)}
                 onClick={(e) => {
                   e.stopPropagation();
                   handleTableNodeClick(t);
@@ -945,11 +985,9 @@ export default function ArchitecturalFloorPlan({
                   minHeight: '44px',
                   touchAction: 'none',
                 }}
-                className={`absolute transition-all duration-150 flex flex-col items-center justify-center p-2 border-2 backdrop-blur-md ${shapeClasses} ${theme.nodeBg} ${theme.glow} ${
-                  isColliding ? 'ring-4 ring-rose-500 shadow-rose-500/50 animate-bounce z-40' : ''
-                } ${isMerged ? 'ring-2 ring-purple-400' : ''} ${isSelected ? 'ring-4 ring-primary scale-105 z-30' : 'z-20 hover:scale-105'} ${
-                  dragState?.id === t._id ? 'opacity-80 scale-110 shadow-2xl z-40' : ''
-                }`}
+                className={`absolute transition-all duration-150 flex flex-col items-center justify-center p-2 border-2 backdrop-blur-md ${shapeClasses} ${theme.nodeBg} ${theme.glow} ${isColliding ? 'ring-4 ring-rose-500 shadow-rose-500/50 animate-bounce z-40' : ''
+                  } ${isMerged ? 'ring-2 ring-purple-400' : ''} ${isSelected ? 'ring-4 ring-primary scale-105 z-30' : 'z-20 hover:scale-105'} ${dragState?.id === tableId ? 'opacity-80 scale-110 shadow-2xl z-40' : ''
+                  }`}
                 title={`${t.tableNumber} - ${theme.label} (${t.zone || 'Unassigned'})`}
               >
                 {/* Accurate Perimeter Seats */}
@@ -970,9 +1008,8 @@ export default function ArchitecturalFloorPlan({
 
                 {/* Host or Reserved Guest Name Badge */}
                 {(isOccupied || t.status === 'Reserved') && (hasHost || t.currentHostName) && (
-                  <div className={`mt-0.5 px-1.5 py-0.2 rounded font-black text-[9px] truncate max-w-[95px] ${
-                    t.status === 'Reserved' ? 'bg-cyan-400/25 text-cyan-300 border border-cyan-400/30' : 'bg-amber-400/20 text-amber-300'
-                  }`}>
+                  <div className={`mt-0.5 px-1.5 py-0.2 rounded font-black text-[9px] truncate max-w-[95px] ${t.status === 'Reserved' ? 'bg-cyan-400/25 text-cyan-300 border border-cyan-400/30' : 'bg-amber-400/20 text-amber-300'
+                    }`}>
                     {t.status === 'Reserved' ? '📅' : '👤'} {t.currentHostName || 'Reserved'}
                   </div>
                 )}
@@ -980,8 +1017,8 @@ export default function ArchitecturalFloorPlan({
             );
           })}
 
-          {/* Floating Real-time Status Legend Overlay (Cleanly bounded bottom-left) */}
-          <div className="absolute bottom-3 left-3 z-30 max-w-[260px]">
+          {/* Floating Real-time Status Legend Overlay (Cleanly bounded bottom-right) */}
+          <div className="absolute bottom-3 right-3 z-30 max-w-[260px]">
             <div className="bg-slate-900/95 backdrop-blur-md border border-slate-800 rounded-2xl shadow-2xl p-2.5 text-xs text-slate-200 transition-all">
               <button
                 onClick={() => setIsLegendOpen(!isLegendOpen)}
@@ -1028,60 +1065,63 @@ export default function ArchitecturalFloorPlan({
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5">
-            {localTables.map((t) => (
-              <div key={t._id} className="p-3 bg-muted/40 rounded-xl border border-border/40 space-y-2 text-xs">
-                <div className="flex items-center justify-between font-extrabold">
-                  <span className="flex items-center gap-1.5 truncate max-w-[170px]">
-                    <span className="truncate">Table {t.tableNumber}</span>
-                    <span className="text-[10px] px-1.5 py-0.2 rounded bg-primary/10 text-primary font-mono truncate max-w-[90px]">
-                      {t.zone || 'Unassigned'}
+            {localTables.map((t) => {
+              const tableId = getTableId(t);
+              return (
+                <div key={tableId} className="p-3 bg-muted/40 rounded-xl border border-border/40 space-y-2 text-xs">
+                  <div className="flex items-center justify-between font-extrabold">
+                    <span className="flex items-center gap-1.5 truncate max-w-[170px]">
+                      <span className="truncate">Table {t.tableNumber}</span>
+                      <span className="text-[10px] px-1.5 py-0.2 rounded bg-primary/10 text-primary font-mono truncate max-w-[90px]">
+                        {t.zone || 'Unassigned'}
+                      </span>
                     </span>
-                  </span>
-                  <span className="text-[10px] text-muted-foreground shrink-0">{t.capacity} Seats</span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="text-[10px] text-muted-foreground font-bold">Shape</label>
-                    <select
-                      value={t.shape || 'Square'}
-                      onChange={(e) => handleShapeChange(t._id, e.target.value)}
-                      className="w-full mt-0.5 text-xs bg-background border border-input rounded-lg p-1.5 font-bold"
-                    >
-                      {SHAPES.map((s) => (
-                        <option key={s.value} value={s.value}>{s.label}</option>
-                      ))}
-                    </select>
+                    <span className="text-[10px] text-muted-foreground shrink-0">{t.capacity} Seats</span>
                   </div>
 
-                  <div>
-                    <label className="text-[10px] text-muted-foreground font-bold">Floor Zone</label>
-                    <select
-                      value={t.zone || 'Unassigned / Open Floor'}
-                      onChange={(e) => handleZoneChange(t._id, e.target.value)}
-                      className="w-full mt-0.5 text-xs bg-background border border-input rounded-lg p-1.5 font-bold truncate"
-                    >
-                      {availableZoneNames.filter(z => z !== 'All').map((z) => (
-                        <option key={z} value={z}>{z}</option>
-                      ))}
-                    </select>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] text-muted-foreground font-bold">Shape</label>
+                      <select
+                        value={t.shape || 'Square'}
+                        onChange={(e) => handleShapeChange(tableId, e.target.value)}
+                        className="w-full mt-0.5 text-xs bg-background border border-input rounded-lg p-1.5 font-bold"
+                      >
+                        {SHAPES.map((s) => (
+                          <option key={s.value} value={s.value}>{s.label}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] text-muted-foreground font-bold">Floor Zone</label>
+                      <select
+                        value={t.zone || 'Unassigned / Open Floor'}
+                        onChange={(e) => handleZoneChange(tableId, e.target.value)}
+                        className="w-full mt-0.5 text-xs bg-background border border-input rounded-lg p-1.5 font-bold truncate"
+                      >
+                        {availableZoneNames.filter(z => z !== 'All').map((z) => (
+                          <option key={z} value={z}>{z}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Accessibility Toggle */}
+                  <div className="flex items-center justify-between pt-1 border-t border-border/40 text-[11px]">
+                    <label className="flex items-center gap-1.5 font-bold cursor-pointer text-muted-foreground hover:text-foreground">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(t.isAccessible)}
+                        onChange={(e) => handleAccessibleToggle(tableId, e.target.checked)}
+                        className="rounded border-border text-primary focus:ring-primary h-3.5 w-3.5"
+                      />
+                      <span>Wheelchair Accessible (♿)</span>
+                    </label>
                   </div>
                 </div>
-
-                {/* Accessibility Toggle */}
-                <div className="flex items-center justify-between pt-1 border-t border-border/40 text-[11px]">
-                  <label className="flex items-center gap-1.5 font-bold cursor-pointer text-muted-foreground hover:text-foreground">
-                    <input
-                      type="checkbox"
-                      checked={Boolean(t.isAccessible)}
-                      onChange={(e) => handleAccessibleToggle(t._id, e.target.checked)}
-                      className="rounded border-border text-primary focus:ring-primary h-3.5 w-3.5"
-                    />
-                    <span>Wheelchair Accessible (♿)</span>
-                  </label>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </Card>
       )}

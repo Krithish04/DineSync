@@ -1,17 +1,17 @@
 import { useState } from 'react';
-import { Pencil, Trash2, QrCode, Users, ClipboardList, LogOut, Eye, ChevronDown, User, Bell, CreditCard, Lock, ShieldAlert, CheckSquare, Square } from 'lucide-react';
+import { Pencil, Trash2, QrCode, Users, ClipboardList, LogOut, Eye, ChevronDown, User, CheckSquare, Square, MapPin } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
 const STATUS_OPTIONS = [
-  { value: 'Available', label: 'Available (Empty)', color: 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/30 dark:text-emerald-400' },
-  { value: 'Occupied', label: 'Occupied', color: 'bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/30 dark:text-amber-400' },
-  { value: 'Needs Attention', label: 'Needs Attention 🛎️', color: 'bg-rose-50 text-rose-800 border-rose-300 dark:bg-rose-950/30 dark:text-rose-400' },
-  { value: 'Bill Requested', label: 'Bill Requested 💳', color: 'bg-purple-50 text-purple-800 border-purple-300 dark:bg-purple-950/30 dark:text-purple-400' },
-  { value: 'Reserved', label: 'Reserved', color: 'bg-sky-50 text-sky-700 border-sky-300 dark:bg-sky-950/30 dark:text-sky-400' },
-  { value: 'Cleaning', label: 'Cleaning', color: 'bg-yellow-50 text-yellow-700 border-yellow-300 dark:bg-yellow-950/30 dark:text-yellow-400' },
-  { value: 'Maintenance', label: 'Maintenance', color: 'bg-rose-50 text-rose-700 border-rose-300 dark:bg-rose-950/30 dark:text-rose-400' },
-  { value: 'Inactive', label: 'Inactive', color: 'bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-400' },
+  { value: 'Available', label: 'Available (Empty)', dot: 'bg-emerald-500', color: 'bg-emerald-500/10 text-emerald-700 border-emerald-500/30 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/50' },
+  { value: 'Occupied', label: 'Occupied', dot: 'bg-amber-500', color: 'bg-amber-500/10 text-amber-800 border-amber-500/30 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/50' },
+  { value: 'Needs Attention', label: 'Needs Attention 🛎️', dot: 'bg-rose-500 animate-ping', color: 'bg-rose-500/10 text-rose-800 border-rose-500/30 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800/50' },
+  { value: 'Bill Requested', label: 'Bill Requested 💳', dot: 'bg-purple-500', color: 'bg-purple-500/10 text-purple-800 border-purple-500/30 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800/50' },
+  { value: 'Reserved', label: 'Reserved', dot: 'bg-sky-500', color: 'bg-sky-500/10 text-sky-700 border-sky-500/30 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-800/50' },
+  { value: 'Cleaning', label: 'Cleaning', dot: 'bg-yellow-500', color: 'bg-yellow-500/10 text-yellow-800 border-yellow-500/30 dark:bg-yellow-950/40 dark:text-yellow-300 dark:border-yellow-800/50' },
+  { value: 'Maintenance', label: 'Maintenance', dot: 'bg-rose-500', color: 'bg-rose-500/10 text-rose-700 border-rose-500/30 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800/50' },
+  { value: 'Inactive', label: 'Inactive', dot: 'bg-slate-400', color: 'bg-slate-500/10 text-slate-700 border-slate-500/30 dark:bg-slate-900/40 dark:text-slate-300 dark:border-slate-800/50' },
 ];
 
 const BORDER_STATUS_COLORS = {
@@ -26,10 +26,10 @@ const BORDER_STATUS_COLORS = {
 };
 
 const TYPE_COLORS = {
-  Indoor: 'bg-slate-100 text-slate-700 border border-slate-200/80 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700',
-  Outdoor: 'bg-emerald-50 text-emerald-700 border border-emerald-200/60 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/40',
-  VIP: 'bg-amber-50 text-amber-800 border border-amber-200/60 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/40',
-  Private: 'bg-purple-50 text-purple-700 border border-purple-200/60 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800/40',
+  Indoor: 'bg-slate-100 text-slate-700 border-slate-200/80 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700',
+  Outdoor: 'bg-emerald-50 text-emerald-700 border-emerald-200/60 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/40',
+  VIP: 'bg-amber-50 text-amber-800 border-amber-200/60 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/40',
+  Private: 'bg-purple-50 text-purple-700 border-purple-200/60 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800/40',
 };
 
 export default function TableCard({
@@ -98,14 +98,14 @@ export default function TableCard({
   return (
     <Card
       onClick={handleCardClick}
-      className={`relative overflow-hidden transition-all duration-200 border-l-4 hover:shadow-md cursor-pointer touch-manipulation min-h-[160px] ${
+      className={`group relative overflow-hidden transition-all duration-200 border border-border/60 border-l-4 hover:shadow-md cursor-pointer rounded-2xl bg-card ${
         BORDER_STATUS_COLORS[effectiveStatus] || 'border-l-emerald-500'
       } ${isSelected ? 'ring-2 ring-primary border-primary bg-primary/5' : ''}`}
     >
-      <CardContent className="p-4 space-y-3.5">
-        {/* Header - Title, Selection Checkbox, Type Badges & Top Action Icons */}
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex items-start gap-2.5">
+      <CardContent className="p-4 space-y-3">
+        {/* Header - Checkbox, Title & Action Toolbar */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-2.5 min-w-0">
             {(isSelectionMode || canManage) && onToggleSelect && (
               <button
                 type="button"
@@ -113,84 +113,48 @@ export default function TableCard({
                   e.stopPropagation();
                   onToggleSelect(table._id);
                 }}
-                className="mt-1 text-muted-foreground hover:text-primary transition-colors focus:outline-none"
+                className="text-muted-foreground hover:text-primary transition-colors focus:outline-none shrink-0"
                 title={isSelected ? 'Deselect table' : 'Select table for bulk action'}
               >
                 {isSelected ? (
                   <CheckSquare className="h-5 w-5 text-primary fill-primary/10" />
                 ) : (
-                  <Square className="h-5 w-5 text-muted-foreground/60" />
+                  <Square className="h-5 w-5 text-muted-foreground/50" />
                 )}
               </button>
             )}
 
-            <div>
-              <h4 className="font-display text-lg font-bold text-foreground flex items-center gap-1.5 flex-wrap">
+            <div className="min-w-0">
+              <h4 className="font-sans text-base font-bold text-foreground flex items-center gap-1.5 truncate">
                 <span>Table {table.tableNumber}</span>
                 {cleanTableName && (
-                  <span className="text-xs font-normal text-muted-foreground/80 italic truncate max-w-[140px]" title={cleanTableName}>
+                  <span className="text-xs font-normal text-muted-foreground italic truncate max-w-[120px]" title={cleanTableName}>
                     ({cleanTableName})
                   </span>
                 )}
-                {table.isAccessible && <span className="text-sm" title="Wheelchair Accessible">♿</span>}
+                {table.isAccessible && <span className="text-xs" title="Wheelchair Accessible">♿</span>}
               </h4>
-              <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
-                <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase ${
-                  TYPE_COLORS[table.type] || 'bg-muted text-muted-foreground'
-                }`}>
-                  {table.type}
-                </span>
-                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground bg-muted/50 rounded-md px-2 py-0.5 border border-border/40">
-                  <Users className="h-3 w-3" />
-                  {table.mergedTables && table.mergedTables.length > 0
-                    ? `${table.capacity + table.mergedTables.reduce((sum, st) => sum + (st.capacity || 0), 0)} Seats (Group)`
-                    : `${table.capacity} Seats`}
-                </span>
-
-                {/* Zone Badge */}
-                {table.zone && (
-                  <span className="inline-flex items-center text-[10px] font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 rounded-md px-2 py-0.5 border border-slate-200 dark:border-slate-700">
-                    📍 {table.zone}
-                  </span>
-                )}
-
-                {/* Secondary Merged Table Badge */}
-                {table.mergedInto && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-purple-600 bg-purple-500/10 border border-purple-500/20 rounded-md px-2 py-0.5">
-                    Merged → Table #{table.mergedInto.tableNumber || 'Primary'}
-                  </span>
-                )}
-
-                {/* Primary Seating Group Badge */}
-                {table.mergedTables && table.mergedTables.length > 0 && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-purple-600 bg-purple-500/10 border border-purple-500/20 rounded-md px-2 py-0.5">
-                    {table.mergedTables.length + 1} Tables Merged
-                  </span>
-                )}
-              </div>
             </div>
           </div>
 
-          {/* Top-Right Action Toolbar */}
-          <div className="flex items-center gap-0.5 shrink-0 bg-muted/40 p-1 rounded-xl border border-border/40">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 min-w-[32px] text-muted-foreground hover:text-primary rounded-lg touch-manipulation"
+          {/* Top-Right Minimal Action Toolbar */}
+          <div className="flex items-center gap-1 shrink-0 bg-muted/40 p-1 rounded-xl border border-border/50">
+            <button
+              type="button"
+              className="p-1.5 text-muted-foreground/70 hover:text-primary hover:bg-background rounded-lg transition-colors"
               onClick={(e) => {
                 e.stopPropagation();
                 onQrClick(table);
               }}
-              title="View QR Code & Target Link"
+              title="View QR Code"
             >
               <QrCode className="h-4 w-4" />
-            </Button>
+            </button>
             {canManage && (
               <>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 min-w-[32px] text-muted-foreground hover:text-foreground rounded-lg touch-manipulation"
+                <button
+                  type="button"
+                  className="p-1.5 text-muted-foreground/70 hover:text-foreground hover:bg-background rounded-lg transition-colors"
                   onClick={(e) => {
                     e.stopPropagation();
                     onEdit(table);
@@ -198,11 +162,10 @@ export default function TableCard({
                   title="Edit Table"
                 >
                   <Pencil className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 min-w-[32px] text-muted-foreground hover:text-destructive rounded-lg touch-manipulation"
+                </button>
+                <button
+                  type="button"
+                  className="p-1.5 text-muted-foreground/70 hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
                   onClick={(e) => {
                     e.stopPropagation();
                     onDelete(table);
@@ -210,15 +173,51 @@ export default function TableCard({
                   title="Delete Table"
                 >
                   <Trash2 className="h-4 w-4" />
-                </Button>
+                </button>
               </>
             )}
           </div>
         </div>
 
-        {/* Middle Section (Only rendered if host or notes exist) */}
+        {/* Inline Badges Row */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-bold tracking-wide uppercase rounded-md border whitespace-nowrap ${
+            TYPE_COLORS[table.type] || 'bg-muted text-muted-foreground border-border/40'
+          }`}>
+            {table.type}
+          </span>
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium text-muted-foreground bg-muted/50 rounded-md border border-border/40 whitespace-nowrap">
+            <Users className="h-3 w-3" />
+            {table.mergedTables && table.mergedTables.length > 0
+              ? `${table.capacity + table.mergedTables.reduce((sum, st) => sum + (st.capacity || 0), 0)} Seats (Group)`
+              : `${table.capacity} Seats`}
+          </span>
+
+          {/* Zone Badge */}
+          {table.zone && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-sky-950/40 rounded-md border border-sky-200/60 dark:border-sky-800/40 whitespace-nowrap">
+              <MapPin className="h-3 w-3 text-sky-500" /> {table.zone}
+            </span>
+          )}
+
+          {/* Secondary Merged Table Badge */}
+          {table.mergedInto && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold text-purple-600 bg-purple-500/10 border border-purple-500/20 rounded-md whitespace-nowrap">
+              Merged → Table #{table.mergedInto.tableNumber || 'Primary'}
+            </span>
+          )}
+
+          {/* Primary Seating Group Badge */}
+          {table.mergedTables && table.mergedTables.length > 0 && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold text-purple-600 bg-purple-500/10 border border-purple-500/20 rounded-md whitespace-nowrap">
+              {table.mergedTables.length + 1} Tables Merged
+            </span>
+          )}
+        </div>
+
+        {/* Middle Section (Host or notes) */}
         {hasMiddleContent && (
-          <div className="border-t border-border/40 pt-2.5 text-xs space-y-1">
+          <div className="border-t border-border/40 pt-2 text-xs space-y-1">
             {table.status === 'Occupied' && table.currentHostName && (
               <div className="flex items-center gap-1.5 text-orange-700 dark:text-orange-300 font-medium">
                 <User className="h-3.5 w-3.5 shrink-0 text-orange-500" />
@@ -235,16 +234,16 @@ export default function TableCard({
         )}
 
         {/* Footer Actions & Status Dropdown */}
-        <div className="flex items-center justify-between border-t border-border/40 pt-3 gap-2 flex-wrap">
-          {/* Status Dropdown Indicator */}
-          <div className="relative shrink-0 min-w-[130px]">
+        <div className="flex items-center justify-between border-t border-border/40 pt-2.5 gap-2 flex-wrap">
+          {/* Status Dropdown Pill */}
+          <div className="relative shrink-0 min-w-[140px]">
             {canManage ? (
               <div className="relative">
                 <select
                   value={table.status}
                   onChange={handleStatusUpdate}
                   disabled={isUpdatingStatus}
-                  className={`w-full appearance-none rounded-xl border pl-3 pr-7 py-2 text-xs font-bold cursor-pointer transition-colors focus:outline-none focus:ring-1 focus:ring-ring min-h-[44px] ${
+                  className={`w-full appearance-none rounded-xl border pl-3 pr-7 py-1.5 text-xs font-bold cursor-pointer transition-colors focus:outline-none focus:ring-1 focus:ring-ring ${
                     currentStatusObj.color
                   }`}
                 >
@@ -260,7 +259,8 @@ export default function TableCard({
                 )}
               </div>
             ) : (
-              <span className={`inline-flex items-center rounded-xl border px-3 py-2 text-xs font-bold min-h-[44px] ${currentStatusObj.color}`}>
+              <span className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-bold ${currentStatusObj.color}`}>
+                <span className={`h-2 w-2 rounded-full ${currentStatusObj.dot}`} />
                 {table.status}
               </span>
             )}
@@ -276,7 +276,7 @@ export default function TableCard({
                   e.stopPropagation();
                   onUnmerge(table);
                 }}
-                className="h-10 text-xs font-bold text-purple-600 border-purple-300 bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/40 dark:border-purple-900/50 gap-1 px-3 rounded-xl min-h-[40px] touch-manipulation"
+                className="h-8 text-xs font-bold text-purple-600 border-purple-300 bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/40 dark:border-purple-900/50 gap-1 px-2.5 rounded-xl"
                 title="Unmerge tables back to independent status"
               >
                 <span>Unmerge Group</span>
@@ -291,7 +291,7 @@ export default function TableCard({
                   e.stopPropagation();
                   onViewOrder(table);
                 }}
-                className="h-10 text-xs font-semibold text-primary border-primary/30 bg-primary/5 hover:bg-primary/10 gap-1.5 px-3 rounded-xl min-h-[40px] touch-manipulation"
+                className="h-8 text-xs font-semibold text-primary border-primary/30 bg-primary/5 hover:bg-primary/10 gap-1.5 px-2.5 rounded-xl"
                 title="View Current Table Orders"
               >
                 <Eye size={14} />
@@ -308,7 +308,7 @@ export default function TableCard({
                   handleForceLogout();
                 }}
                 disabled={isUpdatingStatus}
-                className="h-10 text-xs font-semibold text-rose-600 border-rose-200 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/30 dark:border-rose-900/50 gap-1.5 px-3 rounded-xl min-h-[40px] touch-manipulation"
+                className="h-8 text-xs font-semibold text-rose-600 border-rose-200 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/30 dark:border-rose-900/50 gap-1.5 px-2.5 rounded-xl"
                 title="Force Logout Diner & Empty Table"
               >
                 <LogOut size={14} />

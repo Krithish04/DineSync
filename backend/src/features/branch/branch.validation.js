@@ -86,6 +86,36 @@ const createBranchStaffSchema = z.object({
   role: z.enum(['staff', 'chef']).optional().default('staff'),
 });
 
+// --- Create Owner Manager (Multi-Branch) ---
+const createOwnerManagerSchema = z.object({
+  name: z.string().trim().min(2, 'Name must be at least 2 characters').max(100),
+  email: z.string().trim().toLowerCase().email('Please provide a valid email address'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+  phone: z.string().trim().max(20).optional().or(z.literal('')),
+  branchIds: z.array(z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid branch id')).min(1, 'At least one branch must be assigned'),
+});
+
+// --- Create Manager Scoped Staff ---
+const createScopedStaffSchema = z.object({
+  name: z.string().trim().min(2, 'Name must be at least 2 characters').max(100),
+  email: z.string().trim().toLowerCase().email('Please provide a valid email address'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+  phone: z.string().trim().max(20).optional().or(z.literal('')),
+  branchId: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid branch id'),
+  designation: z.string().trim().optional(),
+  department: z.string().trim().optional(),
+});
+
+// --- Create Manager Scoped Kitchen ---
+const createScopedKitchenSchema = z.object({
+  name: z.string().trim().min(2, 'Name must be at least 2 characters').max(100),
+  email: z.string().trim().toLowerCase().email('Please provide a valid email address'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+  phone: z.string().trim().max(20).optional().or(z.literal('')),
+  branchId: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid branch id'),
+  kitchenStation: z.string().trim().optional(),
+});
+
 module.exports = {
   createBranchSchema,
   updateBranchSchema,
@@ -96,4 +126,7 @@ module.exports = {
   updateBranchStatusSchema,
   createBranchManagerSchema,
   createBranchStaffSchema,
+  createOwnerManagerSchema,
+  createScopedStaffSchema,
+  createScopedKitchenSchema,
 };

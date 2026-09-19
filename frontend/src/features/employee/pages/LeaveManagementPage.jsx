@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Plus, CheckCircle2, XCircle, Search } from 'lucide-react';
+import { Plus, CheckCircle2, XCircle, Search, X } from 'lucide-react';
 import RestaurantLayout from '@/features/restaurant/components/RestaurantLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -172,7 +172,17 @@ export default function LeaveManagementPage() {
       {showApplyModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-background border rounded-lg shadow-xl w-full max-w-md animate-in fade-in zoom-in-95 duration-150">
-            <div className="p-4 border-b bg-muted/20 font-bold text-sm">Apply Leave for Employee</div>
+            <div className="flex items-center justify-between p-4 border-b bg-muted/20">
+              <h2 className="font-bold text-sm text-foreground">Apply Leave for Employee</h2>
+              <button
+                type="button"
+                onClick={() => { setShowApplyModal(false); setSelectedEmployeeId(''); }}
+                className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors"
+                aria-label="Close modal"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
             <div className="p-4 space-y-4">
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-foreground">Select Employee *</label>

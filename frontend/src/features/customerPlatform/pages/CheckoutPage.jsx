@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Table as TableIcon, CheckCircle2, ShieldCheck, UtensilsCrossed } from 'lucide-react';
+import { ArrowRight, Table as TableIcon, CheckCircle2, ShieldCheck, UtensilsCrossed, Clock } from 'lucide-react';
 import CustomerLayout from '../components/CustomerLayout';
 import CustomerAuthModal from '../components/CustomerAuthModal';
 import { Button } from '@/components/ui/button';
@@ -28,8 +28,10 @@ export default function CheckoutPage() {
     isViewOnly,
     isInactiveTable,
     tableStatus,
+    operatingStatus,
   } = useCartStore();
 
+  const isClosed = Boolean(operatingStatus?.isClosed);
   const customer = useCustomerAuthStore((state) => state.customer);
   const isAuthenticated = Boolean(customer || tableHost);
 
@@ -99,6 +101,10 @@ export default function CheckoutPage() {
 
   const handlePlaceOrder = async (e) => {
     if (e) e.preventDefault();
+    if (isClosed) {
+      setError(`Cannot place order: ${operatingStatus?.statusMessage || 'Restaurant is currently closed.'}`);
+      return;
+    }
     if (isInactive) {
       setError(`Table ${tableNumber ? `#${tableNumber}` : ''} is currently inactive and cannot place active table orders. Please contact restaurant staff.`);
       return;
@@ -197,6 +203,22 @@ export default function CheckoutPage() {
           </div>
         )}
 
+        {isClosed && (
+          <div className="bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-400 rounded-xl p-3.5 text-xs flex items-center gap-3 shadow-xs animate-in fade-in duration-200">
+            <div className="p-2 rounded-lg bg-rose-500/20 text-rose-600 dark:text-rose-400 shrink-0">
+              <Clock size={20} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <span className="font-bold block text-sm text-rose-900 dark:text-rose-200">
+                Restaurant is Currently Closed
+              </span>
+              <span className="text-xs text-rose-700/90 dark:text-rose-300/90 font-medium block mt-0.5">
+                {operatingStatus?.statusMessage || "The kitchen is not accepting orders at this time."}
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Continuous Loop Banner Info */}
         <div className="bg-muted/40 border border-border rounded-2xl p-4 flex items-center gap-3 text-xs">
           <div className="p-2.5 rounded-xl bg-primary/10 text-primary shrink-0">
@@ -218,17 +240,21 @@ export default function CheckoutPage() {
           </div>
           <Button
             type="submit"
-            disabled={isSubmitting || isViewOnly}
-            className="gap-2 text-sm sm:text-base h-12 px-6 font-bold rounded-xl active:scale-[0.99] touch-manipulation"
+            disabled={isSubmitting || isViewOnly || isClosed}
+            className={`gap-2 text-sm sm:text-base h-12 px-6 font-bold rounded-xl active:scale-[0.99] touch-manipulation ${
+              isClosed ? 'bg-muted text-muted-foreground border border-border cursor-not-allowed opacity-80' : ''
+            }`}
           >
             <span>
-              {isSubmitting
+              {isClosed
+                ? 'Restaurant is Closed'
+                : isSubmitting
                 ? 'Sending to Kitchen...'
                 : !isAuthenticated
                 ? 'Sign In & Send Order'
                 : 'Send Order to Kitchen'}
             </span>
-            <ArrowRight size={18} />
+            {!isClosed && <ArrowRight size={18} />}
           </Button>
         </div>
       </form>

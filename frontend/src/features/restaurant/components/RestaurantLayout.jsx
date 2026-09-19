@@ -24,6 +24,7 @@ import {
   Shield,
   FileCheck,
   History,
+  KeyRound,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -60,6 +61,7 @@ const NAV_GROUPS = [
     roles: ['owner', 'manager', 'super_admin'],
     items: [
       { to: '/restaurant/admin/branches', label: 'Multi-Branch', icon: Building2, roles: ['owner', 'super_admin'] },
+      { to: '/restaurant/manage-logins', label: 'Account & Credentials', icon: KeyRound, roles: ['owner', 'manager'] },
       { to: '/restaurant/profile', label: 'Profile', icon: Settings, roles: ['owner'] },
       { to: '/restaurant/subscription', label: 'Subscription Plan', icon: CreditCard, roles: ['owner', 'super_admin'] },
       { to: '/restaurant/gst', label: 'GST Config', icon: FileCheck, roles: ['owner'] },
@@ -133,13 +135,23 @@ export default function RestaurantLayout({ title, description, children }) {
           const list = Array.isArray(res) ? res : res?.branches || res?.items || [];
           setAvailableBranches(list);
           setBranches(list);
+
+          const isAdmin = ['owner', 'super_admin'].includes(role);
+          if (!isAdmin) {
+            const userBranchId = user?.branch?._id || user?.branch || user?.assignedBranch;
+            if (userBranchId) {
+              setSelectedBranchId(String(userBranchId));
+            } else if (list.length > 0 && (!selectedBranchId || selectedBranchId === 'all')) {
+              setSelectedBranchId(String(list[0]._id));
+            }
+          }
         })
         .catch(() => {
           setAvailableBranches([]);
           setBranches([]);
         });
     }
-  }, [restaurantId, role, setBranches]);
+  }, [restaurantId, role, setBranches, user, selectedBranchId, setSelectedBranchId]);
 
   const handleLogout = async () => {
     try {
@@ -322,23 +334,6 @@ export default function RestaurantLayout({ title, description, children }) {
           </div>
 
           <div className="flex items-center gap-3 shrink-0">
-            {availableBranches.length > 0 && (
-              <div className="flex items-center gap-2 bg-muted/40 border border-border px-3 py-1 rounded-lg">
-                <Building2 className="h-4 w-4 text-primary shrink-0" />
-                <select
-                  value={selectedBranchId}
-                  onChange={(e) => setSelectedBranchId(e.target.value)}
-                  className="bg-transparent text-xs font-semibold text-foreground focus:outline-none cursor-pointer pr-1"
-                >
-                  <option value="all">🏢 All Branches (Chain View)</option>
-                  {availableBranches.map((b) => (
-                    <option key={b._id} value={b._id}>
-                      📍 {b.branchName || b.name} ({b.branchCode || 'Branch'})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
             <NotificationBell />
             <Button variant="outline" size="sm" onClick={() => navigate(dashboardTarget)} className="text-xs font-semibold shadow-xs">
               Back to Dashboard

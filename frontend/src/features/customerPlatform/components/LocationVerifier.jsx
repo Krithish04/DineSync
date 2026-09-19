@@ -13,6 +13,7 @@ export default function LocationVerifier({ tableNumber }) {
     restaurantCoords,
     allowedRadiusMeters,
     setLocationStatus,
+    operatingStatus,
   } = useCartStore();
 
   const [isChecking, setIsChecking] = useState(false);
@@ -74,7 +75,7 @@ export default function LocationVerifier({ tableNumber }) {
     });
   };
 
-  if (isDismissed) return null;
+  if (isDismissed || operatingStatus?.isClosed) return null;
 
   return (
     <div className="space-y-2">

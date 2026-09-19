@@ -7,6 +7,8 @@ import KpiCard from '../components/KpiCard';
 import ChartWidget from '../components/ChartWidget';
 import ReportFilters from '../components/ReportFilters';
 import ExportToolbar from '../components/ExportToolbar';
+import useBranchStore from '@/store/branch.store';
+import BranchContextBadge from '@/features/restaurant/components/BranchContextBadge';
 import * as reportsApi from '../api/reports.api';
 
 const today = new Date();
@@ -14,7 +16,17 @@ const defaultStart = new Date(today.getFullYear(), today.getMonth(), 1).toISOStr
 const defaultEnd = today.toISOString().slice(0, 10);
 
 export default function SalesReportPage() {
-  const restaurantId = useAuthStore((s) => s.restaurant?._id);
+  const { user, restaurant } = useAuthStore();
+  const restaurantId = restaurant?._id;
+  const selectedBranchId = useBranchStore((s) => s.selectedBranchId);
+
+  const role = user?.role || 'manager';
+  const isAdmin = ['owner', 'super_admin'].includes(role);
+  const userBranchId = user?.branch?._id || user?.branch || user?.assignedBranch;
+  const effectiveBranch = !isAdmin
+    ? (userBranchId || (selectedBranchId !== 'all' ? selectedBranchId : undefined))
+    : (selectedBranchId !== 'all' ? selectedBranchId : undefined);
+  const branchParam = effectiveBranch ? String(effectiveBranch) : undefined;
 
   const [filters, setFilters] = useState({ startDate: defaultStart, endDate: defaultEnd, groupBy: 'day' });
   const [summary, setSummary] = useState(null);
@@ -32,6 +44,7 @@ export default function SalesReportPage() {
       startDate: filters.startDate,
       endDate: filters.endDate,
       groupBy: filters.groupBy,
+      branch: branchParam,
     };
     try {
       const [summaryRes, catRes, itemRes, hourlyRes] = await Promise.all([
@@ -49,7 +62,7 @@ export default function SalesReportPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [restaurantId, filters]);
+  }, [restaurantId, filters, branchParam]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -78,6 +91,7 @@ export default function SalesReportPage() {
   return (
     <RestaurantLayout title="Sales Reports" description="Detailed revenue, order, and product analytics.">
       <div className="space-y-6 max-w-full">
+        <BranchContextBadge />
         {/* Filters */}
         <ReportFilters
           filters={filters}

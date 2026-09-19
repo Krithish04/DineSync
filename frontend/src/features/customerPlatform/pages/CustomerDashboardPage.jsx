@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, ShoppingBag, Award, ChevronRight, Utensils, ShieldCheck, Clock, LogOut, Calendar } from 'lucide-react';
+import { User, ShoppingBag, Award, ChevronRight, Utensils, ShieldCheck, Clock, LogOut, Calendar, CheckCircle2 } from 'lucide-react';
 import CustomerLayout from '../components/CustomerLayout';
 import NoOrderExitModal from '../components/NoOrderExitModal';
 import { Button } from '@/components/ui/button';
@@ -19,10 +19,18 @@ export default function CustomerDashboardPage() {
   const [reservations, setReservations] = useState([]);
   const [isLoading, setIsLoading] = useState(Boolean(token));
   const [error, setError] = useState('');
-  const [isExitModalOpen, setIsExitModalOpen] = useState(false);
+  const signOutHost = useCartStore((state) => state.signOutHost);
+  const tableId = useCartStore((state) => state.tableId);
+  const [showThankYouToast, setShowThankYouToast] = useState(false);
 
   const handleSignOut = () => {
-    setIsExitModalOpen(true);
+    if (tableId && orders && orders.length > 0) {
+      setIsExitModalOpen(true);
+    } else {
+      if (signOutHost) signOutHost();
+      clearCustomerSession();
+      setShowThankYouToast(true);
+    }
   };
 
   const loadCustomerData = useCallback(async () => {
@@ -94,6 +102,24 @@ export default function CustomerDashboardPage() {
   return (
     <CustomerLayout title="Diner Profile & Orders">
       <div className="space-y-4">
+        {showThankYouToast && (
+          <div className="bg-emerald-600 text-white px-4 py-3 text-xs flex items-center justify-between shadow-md rounded-xl animate-in slide-in-from-top duration-200">
+            <div className="flex items-center gap-2.5">
+              <CheckCircle2 size={18} className="shrink-0 text-white" />
+              <div>
+                <p className="font-bold text-sm leading-snug">Signed Out Successfully</p>
+                <p className="text-xs text-emerald-100 leading-tight">Thank you for visiting!</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowThankYouToast(false)}
+              className="text-white/80 hover:text-white font-bold text-base px-2 py-1"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         {/* User Profile Banner */}
         <div className="bg-card border border-border rounded-xl p-4 flex items-center justify-between gap-3 shadow-xs">
           <div className="flex items-center gap-3 min-w-0 flex-1">

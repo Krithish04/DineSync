@@ -11,6 +11,8 @@ import useCartStore from '../store/cart.store';
 export default function ItemModifierSheet({ item, isOpen, onClose }) {
   const addItem = useCartStore((state) => state.addItem);
   const isViewOnly = useCartStore((state) => state.isViewOnly);
+  const operatingStatus = useCartStore((state) => state.operatingStatus);
+  const isClosed = Boolean(operatingStatus?.isClosed);
 
   const [quantity, setQuantity] = useState(1);
   const [selectedModifiers, setSelectedModifiers] = useState({});
@@ -285,12 +287,16 @@ export default function ItemModifierSheet({ item, isOpen, onClose }) {
           {/* Add to Order CTA Button */}
           <Button
             onClick={handleAddToCart}
-            disabled={isViewOnly}
-            className="flex-1 h-12 min-h-[44px] rounded-2xl text-xs font-bold gap-2 shadow-md hover:shadow-lg transition-all active:scale-[0.99] touch-manipulation"
+            disabled={isViewOnly || isClosed}
+            className={`flex-1 h-12 min-h-[44px] rounded-2xl text-xs font-bold gap-2 shadow-md hover:shadow-lg transition-all active:scale-[0.99] touch-manipulation ${
+              isClosed ? 'bg-muted text-muted-foreground border border-border cursor-not-allowed opacity-80' : ''
+            }`}
           >
             <ShoppingBag size={16} />
-            <span>Add to Order</span>
-            <span className="ml-auto font-display text-sm font-bold">₹{totalPrice.toLocaleString('en-IN')}</span>
+            <span>{isClosed ? 'Restaurant is Closed' : 'Add to Order'}</span>
+            {!isClosed && (
+              <span className="ml-auto font-display text-sm font-bold">₹{totalPrice.toLocaleString('en-IN')}</span>
+            )}
           </Button>
         </div>
       </div>

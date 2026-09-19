@@ -12,12 +12,13 @@ const ROLES = Object.freeze({
   MANAGER: 'manager',
   STAFF: 'staff',
   CHEF: 'chef',
+  KITCHEN: 'kitchen',
   CUSTOMER: 'customer',
 });
 
 const ROLE_VALUES = Object.values(ROLES);
 
 // Roles that must always belong to a restaurant (tenant) document.
-const TENANT_SCOPED_ROLES = [ROLES.OWNER, ROLES.MANAGER, ROLES.STAFF, ROLES.CHEF, ROLES.CUSTOMER];
+const TENANT_SCOPED_ROLES = [ROLES.OWNER, ROLES.MANAGER, ROLES.STAFF, ROLES.CHEF, ROLES.KITCHEN, ROLES.CUSTOMER];
 
 module.exports = { ROLES, ROLE_VALUES, TENANT_SCOPED_ROLES };

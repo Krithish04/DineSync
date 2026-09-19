@@ -10,8 +10,17 @@ import AlertCard from '../components/AlertCard';
 import * as notificationApi from '../api/notification.api';
 
 export default function NotificationCenterPage() {
-  const restaurantId = useAuthStore((s) => s.restaurant?._id);
+  const { user, restaurant } = useAuthStore();
+  const restaurantId = restaurant?._id;
   const selectedBranchId = useBranchStore((s) => s.selectedBranchId);
+
+  const role = user?.role || 'manager';
+  const isAdmin = ['owner', 'super_admin'].includes(role);
+  const userBranchId = user?.branch?._id || user?.branch || user?.assignedBranch;
+  const effectiveBranch = !isAdmin
+    ? (userBranchId || (selectedBranchId !== 'all' ? selectedBranchId : undefined))
+    : (selectedBranchId !== 'all' ? selectedBranchId : undefined);
+  const branchParam = effectiveBranch ? String(effectiveBranch) : undefined;
 
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -24,7 +33,6 @@ export default function NotificationCenterPage() {
     if (!restaurantId) return;
     setIsLoading(true);
     setError('');
-    const branchParam = selectedBranchId && selectedBranchId !== 'all' ? selectedBranchId : undefined;
     try {
       const data = await notificationApi.listNotifications(restaurantId, {
         priority: priorityFilter || undefined,
@@ -39,7 +47,7 @@ export default function NotificationCenterPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [restaurantId, priorityFilter, categoryFilter, selectedBranchId]);
+  }, [restaurantId, priorityFilter, categoryFilter, branchParam]);
 
   useEffect(() => { loadData(); }, [loadData]);
 

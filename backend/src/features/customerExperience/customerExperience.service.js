@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const mongoose = require('mongoose');
 const MenuItem = require('../menu/menuItem.model');
 const Category = require('../category/category.model');
 const Order = require('../order/order.model');
@@ -7,11 +8,13 @@ const TableSession = require('../table/tableSession.model');
 const TableSessionAudit = require('../table/tableSessionAudit.model');
 const Customer = require('../customer/customer.model');
 const Reservation = require('../reservation/reservation.model');
-const Feedback = require('../customer/feedback.model');
+const Restaurant = require('../tenant/tenant.model');
 const ApiError = require('../../utils/ApiError');
+const { evaluateOperatingStatus } = require('../../utils/schedule.util');
 const socketConfig = require('../../config/socket.config');
 const redisConfig = require('../../config/redis.config');
 const aiService = require('../ai/ai.service');
+const { decryptQrToken } = require('../../utils/encryption.util');
 
 // ==========================================
 // 1. RESOLVE QR CODE TARGET & CONTEXT
@@ -20,18 +23,38 @@ const resolveQrCode = async (restaurantId, { tableId, type }) => {
   let table = null;
   let activeSession = null;
 
+  // Handle encrypted QR token resolution
+  if (tableId && typeof tableId === 'string' && tableId.startsWith('enc_')) {
+    const decrypted = decryptQrToken(tableId);
+    if (!decrypted) {
+      throw ApiError.badRequest('Invalid or tampered QR code token.');
+    }
+    if (typeof decrypted === 'object') {
+      if (decrypted.tableId) tableId = decrypted.tableId;
+      if (decrypted.restaurantId && (!restaurantId || restaurantId === 'general' || restaurantId === 'undefined' || restaurantId === 'null')) {
+        restaurantId = decrypted.restaurantId;
+      }
+    } else if (typeof decrypted === 'string') {
+      tableId = decrypted;
+    }
+  }
+
   if (tableId) {
+    if (!mongoose.Types.ObjectId.isValid(tableId)) {
+      throw ApiError.badRequest('Invalid table identifier.');
+    }
+
     const tableQuery = { _id: tableId, isDeleted: false };
-    if (restaurantId && restaurantId !== 'undefined' && restaurantId !== 'null') {
+    if (restaurantId && restaurantId !== 'undefined' && restaurantId !== 'null' && restaurantId !== 'general') {
       tableQuery.restaurant = restaurantId;
     }
 
     table = await Table.findOne(tableQuery)
-      .populate('restaurant', 'name logo currency');
+      .populate('restaurant', 'name logo openingHours currency');
 
     if (table && table.mergedInto) {
       const primaryTable = await Table.findOne({ _id: table.mergedInto, isDeleted: false })
-        .populate('restaurant', 'name logo currency');
+        .populate('restaurant', 'name logo openingHours currency');
       if (primaryTable) {
         table = primaryTable;
       }
@@ -43,11 +66,17 @@ const resolveQrCode = async (restaurantId, { tableId, type }) => {
     }
   }
 
-  if (!table && (!restaurantId || restaurantId === 'undefined')) {
-    throw ApiError.notFound('Invalid or expired QR code.');
+  let defaultRestaurant = null;
+  if (!restaurantId || restaurantId === 'undefined' || restaurantId === 'null' || restaurantId === 'general') {
+    defaultRestaurant = await Restaurant.findOne({ isActive: { $ne: false } }).select('name logo openingHours currency').lean();
+    if (defaultRestaurant) {
+      restaurantId = defaultRestaurant._id;
+    }
   }
 
   const isInactive = table ? (!table.isActive || table.status === 'Inactive') : false;
+  const restaurantObj = table?.restaurant || defaultRestaurant;
+  const operatingStatus = evaluateOperatingStatus(restaurantObj?.openingHours || []);
 
   return {
     restaurantId,
@@ -65,7 +94,8 @@ const resolveQrCode = async (restaurantId, { tableId, type }) => {
       isActive: table.isActive,
       currentHostName: activeSession ? activeSession.hostName : table.currentHostName,
     } : null,
-    restaurant: table?.restaurant || null,
+    restaurant: restaurantObj || null,
+    operatingStatus,
     type: type || (table ? 'table' : 'digital_menu'),
   };
 };
@@ -74,8 +104,16 @@ const resolveQrCode = async (restaurantId, { tableId, type }) => {
 // 2. GET PUBLIC DIGITAL MENU & CATEGORIES
 // ==========================================
 const getPublicMenu = async (restaurantId, { categoryId, dietary, search, isPopular, isFeatured }) => {
-  const categoryQuery = { restaurant: restaurantId, isActive: true };
-  const itemQuery = { restaurant: restaurantId, isAvailable: true, isDeleted: false };
+  let targetRestId = restaurantId;
+  if (!targetRestId || targetRestId === 'general' || targetRestId === 'undefined' || targetRestId === 'null') {
+    const defaultRest = await Restaurant.findOne({ isActive: { $ne: false } }).select('_id').lean();
+    if (defaultRest) {
+      targetRestId = defaultRest._id;
+    }
+  }
+
+  const categoryQuery = { restaurant: targetRestId, isActive: true };
+  const itemQuery = { restaurant: targetRestId, isAvailable: true, isDeleted: false };
 
   if (categoryId) itemQuery.category = categoryId;
   if (dietary) itemQuery.dietaryType = dietary;
@@ -89,16 +127,21 @@ const getPublicMenu = async (restaurantId, { categoryId, dietary, search, isPopu
     ];
   }
 
-  const [categories, items, aiRecs] = await Promise.all([
+  const [categories, items, aiRecs, restaurant] = await Promise.all([
     Category.find(categoryQuery).sort({ displayOrder: 1, name: 1 }).lean(),
     MenuItem.find(itemQuery).populate('category', 'name').sort({ name: 1 }).lean(),
-    aiService.getSmartMenuRecommendations(restaurantId).catch(() => null),
+    aiService.getSmartMenuRecommendations(targetRestId).catch(() => null),
+    Restaurant.findById(targetRestId).select('name logo openingHours currency').lean(),
   ]);
+
+  const operatingStatus = evaluateOperatingStatus(restaurant?.openingHours || []);
 
   return {
     categories,
     items,
     aiRecommendations: aiRecs?.best_selling_items || [],
+    restaurant: restaurant || null,
+    operatingStatus,
   };
 };
 
@@ -182,6 +225,15 @@ const getActiveTableSession = async (restaurantId, tableId, callerHostToken = nu
 // ==========================================
 const placeCustomerOrder = async (restaurantId, payload, authenticatedUserId = null) => {
   const { tableId, sessionId: providedSessionId, hostToken: providedHostToken, items, customerName, customerPhone, notes, orderType } = payload;
+
+  // Validate Restaurant Opening Hours
+  const restaurant = await Restaurant.findById(restaurantId).select('openingHours').lean();
+  if (restaurant?.openingHours && restaurant.openingHours.length > 0) {
+    const status = evaluateOperatingStatus(restaurant.openingHours);
+    if (status.isClosed) {
+      throw ApiError.badRequest(`Cannot place order: ${status.statusMessage}`);
+    }
+  }
 
   let activeSession = null;
   if (tableId) {

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import { User, Phone, ShieldCheck, ArrowRight, Lock, KeyRound, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import useCartStore from '../store/cart.store';
@@ -10,8 +11,17 @@ import * as customerApi from '../api/customerPlatform.api';
  * Authenticates diner with Phone & OTP for profile, order history, and loyalty tracking.
  */
 export default function CustomerAuthModal({ isOpen, onClose, onSuccess, pendingItem }) {
-  const { loginTableHost, tableNumber, tableId, restaurantId, activeTableSessions } = useCartStore();
+  const { restaurantId: paramRestId } = useParams();
+  const { loginTableHost, tableNumber, tableId, restaurantId, activeTableSessions, operatingStatus } = useCartStore();
   const setCustomerSession = useCustomerAuthStore((state) => state.setCustomerSession);
+
+  if (operatingStatus?.isClosed) return null;
+
+  const targetRestaurantId = (paramRestId && paramRestId !== 'null' && paramRestId.length === 24)
+    ? paramRestId
+    : (restaurantId && restaurantId !== 'null' && restaurantId.length === 24)
+    ? restaurantId
+    : 'general';
 
   const [step, setStep] = useState('phone'); // 'phone' | 'otp'
   const [name, setName] = useState('');
@@ -53,7 +63,7 @@ export default function CustomerAuthModal({ isOpen, onClose, onSuccess, pendingI
 
     setIsSending(true);
     try {
-      const res = await customerApi.sendCustomerOtp(restaurantId, { phone: cleanPhone });
+      const res = await customerApi.sendCustomerOtp(targetRestaurantId, { phone: cleanPhone });
       if (res?.devOtp) {
         setDevOtpHint(res.devOtp);
         setOtp(res.devOtp);
@@ -86,7 +96,7 @@ export default function CustomerAuthModal({ isOpen, onClose, onSuccess, pendingI
 
     const cleanPhone = phone.replace(/\D/g, '');
     try {
-      const res = await customerApi.verifyCustomerOtp(restaurantId, {
+      const res = await customerApi.verifyCustomerOtp(targetRestaurantId, {
         phone: cleanPhone,
         code: otp,
         fullName: name.trim() || undefined,

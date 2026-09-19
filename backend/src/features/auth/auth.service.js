@@ -229,8 +229,38 @@ const login = async ({ email, password, restaurantSlug }) => {
   await user.save({ validateBeforeSave: false });
   const t3 = performance.now();
 
+  // Fetch assigned branches if manager
+  let assignedBranchIds = [];
+  if (user.role === ROLES.MANAGER) {
+    try {
+      const ManagerBranch = require('../branch/managerBranch.model');
+      const mBranches = await ManagerBranch.find({ manager: user._id });
+      assignedBranchIds = mBranches.map((mb) => mb.branch);
+    } catch (_) {
+      // Non-blocking
+    }
+  }
+
+  // Create AuthLog entry for login
+  try {
+    const AuthLog = require('./authLog.model');
+    await AuthLog.create({
+      user: user._id,
+      userEmail: user.email,
+      userName: user.name,
+      role: user.role,
+      restaurant: user.restaurant || (restaurant ? restaurant._id : null),
+      branch: user.branch || null,
+      assignedBranches: assignedBranchIds,
+      eventType: 'login',
+      loginAt: new Date(),
+    });
+  } catch (logErr) {
+    // Non-blocking log error fallback
+  }
+
   // Auto clock-in employee on POS/KDS login if staff account
-  if (user.restaurant && ['staff', 'chef', 'manager'].includes(user.role)) {
+  if (user.restaurant && ['staff', 'chef', 'kitchen', 'manager'].includes(user.role)) {
     try {
       const employeeService = require('../employee/employee.service');
       await employeeService.handlePosLoginClockIn(user.restaurant, user._id);
@@ -240,17 +270,78 @@ const login = async ({ email, password, restaurantSlug }) => {
   }
   const t4 = performance.now();
 
+  const safeUser = user.toSafeObject();
+  if (assignedBranchIds.length > 0) {
+    safeUser.assignedBranches = assignedBranchIds;
+  }
+
   const token = signToken({
     id: user._id.toString(),
     role: user.role,
     restaurantId: user.restaurant ? user.restaurant.toString() : null,
+    branchId: user.branch ? user.branch.toString() : null,
+    assignedBranches: assignedBranchIds.map((b) => b.toString()),
   });
   const t5 = performance.now();
 
   // eslint-disable-next-line no-console
   console.log(`[PROFILE login] Total: ${(t5 - t0).toFixed(2)}ms | FindUser: ${(t1 - t0).toFixed(2)}ms | BcryptCompare: ${(t2 - t1).toFixed(2)}ms | SaveUser: ${(t3 - t2).toFixed(2)}ms | AutoClockIn: ${(t4 - t3).toFixed(2)}ms | TokenSign: ${(t5 - t4).toFixed(2)}ms`);
 
-  return { user: user.toSafeObject(), restaurant, token };
+  return { user: safeUser, restaurant, token };
+};
+
+/**
+ * Handles user logout: records logout timestamp and session duration in AuthLog.
+ */
+const logoutUser = async (userId, ipAddress = null, userAgent = null) => {
+  if (!userId) return;
+  const AuthLog = require('./authLog.model');
+  const now = new Date();
+
+  try {
+    const openLog = await AuthLog.findOne({
+      user: userId,
+      logoutAt: null,
+    }).sort({ createdAt: -1 });
+
+    let duration = null;
+    let loginTime = now;
+    if (openLog) {
+      loginTime = openLog.loginAt;
+      duration = Math.max(0, Math.round((now.getTime() - new Date(loginTime).getTime()) / 1000));
+      openLog.logoutAt = now;
+      openLog.sessionDurationSeconds = duration;
+      await openLog.save();
+    }
+
+    const userObj = await User.findById(userId);
+    if (userObj) {
+      let assignedBranchIds = [];
+      if (userObj.role === ROLES.MANAGER) {
+        const ManagerBranch = require('../branch/managerBranch.model');
+        const mBranches = await ManagerBranch.find({ manager: userObj._id });
+        assignedBranchIds = mBranches.map((mb) => mb.branch);
+      }
+
+      await AuthLog.create({
+        user: userObj._id,
+        userEmail: userObj.email,
+        userName: userObj.name,
+        role: userObj.role,
+        restaurant: userObj.restaurant,
+        branch: userObj.branch || null,
+        assignedBranches: assignedBranchIds,
+        eventType: 'logout',
+        loginAt: loginTime,
+        logoutAt: now,
+        sessionDurationSeconds: duration || 0,
+        ipAddress,
+        userAgent,
+      });
+    }
+  } catch (err) {
+    // Non-blocking logging failure
+  }
 };
 
 /**
@@ -452,6 +543,7 @@ module.exports = {
   verifyEmail,
   resendOtp,
   login,
+  logoutUser,
   forgotPassword,
   resetPassword,
   getCurrentUser,

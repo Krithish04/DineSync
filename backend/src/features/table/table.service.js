@@ -3,6 +3,7 @@ const Table = require('./table.model');
 const ApiError = require('../../utils/ApiError');
 const env = require('../../config/env.config');
 const socketConfig = require('../../config/socket.config');
+const { encryptQrToken } = require('../../utils/encryption.util');
 
 /**
  * Loads a table by ID and verifies it belongs to the given restaurant tenant.
@@ -17,7 +18,7 @@ const getTableOrFail = async (restaurantId, tableId) => {
 };
 
 /**
- * Creates a new dining table with a sleek short QR URL: /t/:tableId
+ * Creates a new dining table with an encrypted QR URL: /t/:token
  */
 const createTable = async (restaurantId, payload) => {
   // 1. Check for duplicate table number within the restaurant (among active tables)
@@ -41,8 +42,9 @@ const createTable = async (restaurantId, payload) => {
   // 2. Generate a pre-allocated table ID for the QR code target URL
   const tableId = new mongoose.Types.ObjectId();
 
-  // 3. Construct the short QR target URL (/t/:tableId)
-  const targetMenuUrl = `${env.CLIENT_URL}/t/${tableId}`;
+  // 3. Construct encrypted short QR target URL (/t/:token)
+  const qrToken = encryptQrToken({ tableId: tableId.toString(), restaurantId: restaurantId.toString() });
+  const targetMenuUrl = `${env.CLIENT_URL}/t/${qrToken}`;
 
   // 4. Create Table document
   const table = await Table.create({
@@ -133,8 +135,9 @@ const updateTable = async (restaurantId, tableId, updates) => {
     }
   }
 
-  // Ensure short QR URL format (/t/:tableId)
-  updates.qrCode = `${env.CLIENT_URL}/t/${tableId}`;
+  // Ensure encrypted short QR URL format (/t/:token)
+  const qrToken = encryptQrToken({ tableId: tableId.toString(), restaurantId: restaurantId.toString() });
+  updates.qrCode = `${env.CLIENT_URL}/t/${qrToken}`;
 
   // Synchronize isActive and status
   if (updates.isActive === false) {

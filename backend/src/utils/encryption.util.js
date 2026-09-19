@@ -72,8 +72,66 @@ const maskValue = (value, visibleSuffixLength = 4) => {
   return 'X'.repeat(maskedLength) + str.slice(-visibleSuffixLength);
 };
 
+/**
+ * Encrypts payload object or string (e.g. { tableId, restaurantId }) into a URL-safe token.
+ * Token format: "enc_<base64url(iv + authTag + encryptedData)>"
+ */
+const encryptQrToken = (data) => {
+  if (!data) return '';
+  const payloadStr = typeof data === 'object' ? JSON.stringify(data) : String(data);
+  const key = getEncryptionKey();
+  const iv = crypto.randomBytes(IV_LENGTH);
+  const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
+
+  const encryptedBuf = Buffer.concat([cipher.update(payloadStr, 'utf8'), cipher.final()]);
+  const authTagBuf = cipher.getAuthTag();
+
+  const combined = Buffer.concat([iv, authTagBuf, encryptedBuf]);
+  const base64Url = combined.toString('base64url');
+
+  return `enc_${base64Url}`;
+};
+
+/**
+ * Decrypts a URL-safe token "enc_<base64url(...)>".
+ * Returns parsed object or raw string. Returns null if invalid or corrupt.
+ */
+const decryptQrToken = (token) => {
+  if (!token || typeof token !== 'string' || !token.startsWith('enc_')) {
+    return null;
+  }
+
+  try {
+    const base64Url = token.slice(4);
+    const combined = Buffer.from(base64Url, 'base64url');
+    if (combined.length < 32) return null;
+
+    const iv = combined.subarray(0, 16);
+    const authTag = combined.subarray(16, 32);
+    const encryptedBuf = combined.subarray(32);
+
+    const key = getEncryptionKey();
+    const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
+    decipher.setAuthTag(authTag);
+
+    const decryptedBuf = Buffer.concat([decipher.update(encryptedBuf), decipher.final()]);
+    const decryptedStr = decryptedBuf.toString('utf8');
+
+    try {
+      return JSON.parse(decryptedStr);
+    } catch {
+      return decryptedStr;
+    }
+  } catch (error) {
+    return null;
+  }
+};
+
 module.exports = {
   encrypt,
   decrypt,
   maskValue,
+  encryptQrToken,
+  decryptQrToken,
 };
+

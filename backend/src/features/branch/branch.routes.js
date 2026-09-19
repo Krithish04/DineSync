@@ -11,6 +11,9 @@ const {
   updateBranchStatusSchema,
   createBranchManagerSchema,
   createBranchStaffSchema,
+  createOwnerManagerSchema,
+  createScopedStaffSchema,
+  createScopedKitchenSchema,
 } = require('./branch.validation');
 const { protect, authorize, enforceTenantIsolation } = require('../../middlewares/auth.middleware');
 const { ROLES } = require('../../constants/roles.constant');
@@ -24,6 +27,18 @@ const canManageCritical = authorize(ROLES.SUPER_ADMIN, ROLES.OWNER);
 // All branch routes require authentication + tenant isolation (a user can
 // only manage branches of their own restaurant, unless they're super_admin).
 router.use(protect, enforceTenantIsolation);
+
+// --- Owner Capabilities: Manager Accounts & Activity Logs ---
+router.post('/owner-managers', canManageCritical, validateBody(createOwnerManagerSchema), branchController.createOwnerManager);
+router.get('/owner-managers', canManageCritical, branchController.listOwnerManagers);
+router.get('/owner-logs/managers', canManageCritical, branchController.getOwnerManagerLogs);
+router.get('/owner-logs/branch/:branchId', canManageCritical, branchController.getOwnerBranchLogs);
+
+// --- Manager Capabilities: Staff & Kitchen Accounts & Scoped Activity Logs ---
+router.post('/scoped-staff', canManage, validateBody(createScopedStaffSchema), branchController.createManagerScopedStaff);
+router.post('/scoped-kitchen', canManage, validateBody(createScopedKitchenSchema), branchController.createManagerScopedKitchen);
+router.get('/scoped-accounts', canManage, branchController.listManagerScopedAccounts);
+router.get('/scoped-logs', canManage, branchController.getManagerScopedLogs);
 
 // --- Add Branch / List Branches ---
 router

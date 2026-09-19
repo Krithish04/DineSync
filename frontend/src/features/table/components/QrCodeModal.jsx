@@ -8,8 +8,8 @@ export default function QrCodeModal({ table, onClose }) {
 
   if (!table) return null;
 
-  // Short QR code URL format (/t/:tableId)
-  const shortQrUrl = `${window.location.origin}/t/${table._id}`;
+  // Encrypted QR code URL format (/t/:token) from backend table model or fallback
+  const shortQrUrl = table.qrCode || `${window.location.origin}/t/${table._id}`;
 
   // Generate high-density QR Code image source URL (350x350px, PNG)
   const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=350x350&data=${encodeURIComponent(

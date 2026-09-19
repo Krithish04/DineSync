@@ -12,7 +12,10 @@ export default function ReservationFormPage() {
   const isEditMode = !!reservationId;
   const navigate = useNavigate();
 
-  const restaurantId = useAuthStore((state) => state.restaurant?._id);
+  const restaurantId = useAuthStore((state) => {
+    const r = state.restaurant || state.user?.restaurant || state.user?.restaurantId;
+    return typeof r === 'object' && r ? r._id : r;
+  });
   const userRole = useAuthStore((state) => state.user?.role);
   const canManage = ['super_admin', 'owner', 'manager'].includes(userRole);
 
@@ -73,7 +76,7 @@ export default function ReservationFormPage() {
 
   return (
     <RestaurantLayout
-      title="Restaurant Management"
+      title="Reservation Management"
       description="Create or edit seat bookings and check table overlaps."
     >
       <Card className="max-w-3xl">

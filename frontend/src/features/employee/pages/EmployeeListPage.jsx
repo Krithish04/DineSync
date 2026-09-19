@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, X } from 'lucide-react';
 import RestaurantLayout from '@/features/restaurant/components/RestaurantLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -55,7 +55,17 @@ function EmployeeFormModal({ initialData, onSubmit, onCancel, isSaving }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="bg-background border rounded-lg shadow-xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-        <div className="p-4 border-b bg-muted/20 font-bold text-sm">{isEdit ? 'Edit Employee Profile' : 'Register New Employee'}</div>
+        <div className="flex items-center justify-between p-4 border-b bg-muted/20">
+          <h2 className="font-bold text-sm text-foreground">{isEdit ? 'Edit Employee Profile' : 'Register New Employee'}</h2>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors"
+            aria-label="Close modal"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
         <form onSubmit={handleSubmit} className="p-4 space-y-4 max-h-[70vh] overflow-y-auto">
           {err && <div className="rounded border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">{err}</div>}
 

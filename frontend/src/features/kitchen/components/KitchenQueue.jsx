@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import KitchenTicketCard from './KitchenTicketCard';
 import { Button } from '@/components/ui/button';
-import { Layers } from 'lucide-react';
+import { Layers, CheckCircle2 } from 'lucide-react';
 
 export default function KitchenQueue({
   title,
@@ -38,39 +38,41 @@ export default function KitchenQueue({
     <div
       onDragOver={handleDragOver}
       onDrop={handleDrop}
-      className="flex flex-col bg-muted/40 border border-border rounded-2xl min-h-[580px] overflow-hidden shadow-xs"
+      className="flex flex-col bg-muted/30 border border-border rounded-2xl min-h-[520px] overflow-hidden shadow-xs transition-all"
     >
       {/* Column Header */}
-      <div className="p-4 border-b border-border bg-card/80 flex justify-between items-center shrink-0">
-        <span className="text-base font-extrabold text-foreground tracking-tight font-display">{title}</span>
-        <span className="text-sm font-extrabold font-mono px-3 py-1 rounded-full bg-primary/10 text-primary border border-primary/20">
+      <div className="px-3 py-2 border-b border-border/70 bg-card flex justify-between items-center shrink-0">
+        <span className="text-sm sm:text-base font-extrabold font-sans text-foreground tracking-tight">{title}</span>
+        <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
           {tickets.length} Ticket{tickets.length !== 1 ? 's' : ''}
         </span>
       </div>
 
       {/* Tickets Scroll area */}
-      <div className="flex-1 overflow-y-auto p-3.5 space-y-3.5 min-h-[200px]">
-        {visibleTickets.map((t, idx) => (
-          <KitchenTicketCard
-            key={t._id}
-            ticket={t}
-            queuePosition={idx + 1}
-            onStatusChange={onStatusChange}
-            onItemStatusChange={onItemStatusChange}
-            onSelectTicket={onSelectTicket}
-            isDraggable={!isReadOnly}
-            isReadOnly={isReadOnly}
-            isPeakMode={isPeakMode}
-          />
-        ))}
+      <div className="flex-1 overflow-y-auto p-2.5 space-y-2.5">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-2.5">
+          {visibleTickets.map((t, idx) => (
+            <KitchenTicketCard
+              key={t._id}
+              ticket={t}
+              queuePosition={idx + 1}
+              onStatusChange={onStatusChange}
+              onItemStatusChange={onItemStatusChange}
+              onSelectTicket={onSelectTicket}
+              isDraggable={!isReadOnly}
+              isReadOnly={isReadOnly}
+              isPeakMode={isPeakMode}
+            />
+          ))}
+        </div>
 
         {!isExpanded && hiddenCount > 0 && (
           <Button
             variant="outline"
             onClick={() => setIsExpanded(true)}
-            className="w-full py-4 text-sm font-extrabold border-dashed border-primary/50 text-primary hover:bg-primary/10 rounded-2xl flex items-center justify-center gap-2 min-h-[52px]"
+            className="w-full py-2 text-xs font-bold border-dashed border-primary/40 text-primary hover:bg-primary/10 rounded-xl flex items-center justify-center gap-1.5 h-9"
           >
-            <Layers size={18} /> +{hiddenCount} More Queued Tickets (Tap to Focus Expand)
+            <Layers size={14} /> +{hiddenCount} More Queued Tickets (Expand)
           </Button>
         )}
 
@@ -78,15 +80,19 @@ export default function KitchenQueue({
           <Button
             variant="ghost"
             onClick={() => setIsExpanded(false)}
-            className="w-full text-xs font-bold text-muted-foreground hover:text-foreground py-2"
+            className="w-full text-[11px] font-bold text-muted-foreground hover:text-foreground h-7"
           >
             ▲ Collapse Focus View
           </Button>
         )}
 
         {tickets.length === 0 && (
-          <div className="h-full flex items-center justify-center text-center py-12 text-muted-foreground/35 select-none">
-            <p className="text-xs font-semibold italic">Queue is empty</p>
+          <div className="flex flex-col items-center justify-center text-center py-12 px-4 text-muted-foreground/60 select-none space-y-2 my-auto">
+            <div className="h-10 w-10 rounded-full bg-card border border-border/70 flex items-center justify-center text-emerald-500 shadow-2xs">
+              <CheckCircle2 size={20} />
+            </div>
+            <p className="text-xs font-bold text-foreground">Queue is Clear</p>
+            <p className="text-[11px] text-muted-foreground max-w-[200px]">No tickets currently in {title.toLowerCase()}.</p>
           </div>
         )}
       </div>

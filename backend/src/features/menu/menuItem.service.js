@@ -2,6 +2,7 @@ const MenuItem = require('./menuItem.model');
 const Category = require('../category/category.model');
 const Restaurant = require('../tenant/tenant.model');
 const ApiError = require('../../utils/ApiError');
+const { getCache, setCache, clearCachePattern } = require('../../config/redis.config');
 
 /**
  * Helper to validate & sanitize kitchenStation against restaurant's configured settings
@@ -50,6 +51,8 @@ const createMenuItem = async (restaurantId, payload) => {
     restaurant: restaurantId,
   });
 
+  await clearCachePattern(`menu:${restaurantId}:*`);
+
   return menuItem;
 };
 
@@ -58,7 +61,9 @@ const createMenuItem = async (restaurantId, payload) => {
  */
 const listMenuItems = async (
   restaurantId,
-  {
+  params = {}
+) => {
+  const {
     page = 1,
     limit = 20,
     search = '',
@@ -69,8 +74,14 @@ const listMenuItems = async (
     isRecommended,
     sortBy = 'name',
     sortOrder = 'asc',
-  } = {}
-) => {
+  } = params;
+
+  const cacheKey = `menu:${restaurantId}:list:${JSON.stringify(params)}`;
+  const cached = await getCache(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
   const query = { restaurant: restaurantId };
 
   if (search) {
@@ -116,7 +127,7 @@ const listMenuItems = async (
     MenuItem.countDocuments(query),
   ]);
 
-  return {
+  const response = {
     items,
     pagination: {
       page,
@@ -125,12 +136,22 @@ const listMenuItems = async (
       totalPages: Math.ceil(total / limit),
     },
   };
+
+  await setCache(cacheKey, response, 3600);
+
+  return response;
 };
 
 /**
  * Fetches a single menu item.
  */
 const getMenuItem = async (restaurantId, menuItemId) => {
+  const cacheKey = `menu:${restaurantId}:item:${menuItemId}`;
+  const cached = await getCache(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
   const menuItem = await MenuItem.findOne({ _id: menuItemId, restaurant: restaurantId }).populate(
     'category',
     'name isActive'
@@ -139,6 +160,8 @@ const getMenuItem = async (restaurantId, menuItemId) => {
   if (!menuItem) {
     throw ApiError.notFound('Menu item not found.');
   }
+
+  await setCache(cacheKey, menuItem, 3600);
 
   return menuItem;
 };
@@ -184,6 +207,8 @@ const updateMenuItem = async (restaurantId, menuItemId, updates) => {
   // Populate category field for the updated document returned
   await menuItem.populate('category', 'name isActive');
 
+  await clearCachePattern(`menu:${restaurantId}:*`);
+
   return menuItem;
 };
 
@@ -195,6 +220,7 @@ const deleteMenuItem = async (restaurantId, menuItemId) => {
   if (result.deletedCount === 0) {
     throw ApiError.notFound('Menu item not found.');
   }
+  await clearCachePattern(`menu:${restaurantId}:*`);
 };
 
 module.exports = {

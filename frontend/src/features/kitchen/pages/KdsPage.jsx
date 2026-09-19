@@ -38,6 +38,7 @@ export default function KdsPage() {
     hasVisualFlashSignal,
     isPeakMode,
     isPeakModeAuto,
+    manualPeakOverride,
     togglePeakMode,
     atRiskCount,
     lateCount,
@@ -109,17 +110,17 @@ export default function KdsPage() {
         )}
 
         {/* Station, SLA & Control Header Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-3 bg-card p-4 sm:p-5 rounded-3xl border-2 border-border shadow-md">
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-card p-3.5 sm:p-4 rounded-2xl border border-border/80 shadow-xs">
           {/* Station Tabs */}
-          <div className="flex items-center gap-2.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none max-w-full">
+          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none max-w-full">
             {(stations || []).map((station) => (
               <button
                 key={station}
                 onClick={() => setSelectedStation(station)}
-                className={`px-5 py-2.5 text-base font-black rounded-2xl shrink-0 transition-all min-h-[48px] touch-manipulation flex items-center justify-center border-2 ${
+                className={`h-10 px-4 text-xs sm:text-sm font-bold rounded-xl shrink-0 transition-all touch-manipulation flex items-center justify-center border ${
                   selectedStation === station
-                    ? 'bg-primary text-primary-foreground border-primary shadow-lg scale-[1.02]'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted border-transparent'
+                    ? 'bg-primary text-primary-foreground border-primary shadow-xs font-extrabold'
+                    : 'bg-card text-muted-foreground hover:text-foreground hover:bg-muted/50 border-border/80'
                 }`}
               >
                 {station}
@@ -128,45 +129,44 @@ export default function KdsPage() {
           </div>
 
           {/* SLA Badges & Toggles */}
-          <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
+          <div className="flex items-center gap-2 shrink-0 flex-wrap">
             {/* Stock Tracking Drawer Toggle */}
             <Button
               size="sm"
               variant="outline"
               onClick={() => setIsStockDrawerOpen(true)}
-              className="h-12 px-4 text-sm font-black gap-2 rounded-2xl border-2 border-primary/40 text-primary bg-primary/10 hover:bg-primary/20 touch-manipulation min-h-[48px]"
+              className="h-10 px-3.5 text-xs font-bold gap-1.5 rounded-xl border-primary/30 text-primary bg-primary/10 hover:bg-primary/20 touch-manipulation cursor-pointer"
               title="Kitchen Stock Tracking & Auto-86 Controls"
             >
-              <Package className="h-5 w-5" /> Stock & Auto-86
+              <Package className="h-4 w-4" /> Stock & Auto-86
             </Button>
 
             {/* SLA Priority Summary Badges */}
-            <div className="flex items-center gap-2 bg-muted p-1.5 rounded-2xl border-2 border-border">
-              <span className="text-xs sm:text-sm font-black text-emerald-800 dark:text-emerald-200 px-3 py-1.5 bg-emerald-500/20 rounded-xl border border-emerald-500/40">
-                ✓ SLA Active
-              </span>
-              {atRiskCount > 0 && (
-                <span className="text-xs sm:text-sm font-black text-amber-900 dark:text-amber-100 px-3 py-1.5 bg-amber-500/25 rounded-xl border border-amber-500/50">
-                  ⚠️ {atRiskCount} At Risk
-                </span>
-              )}
-              {lateCount > 0 && (
-                <span className="text-xs sm:text-sm font-black text-rose-900 dark:text-rose-100 px-3 py-1.5 bg-rose-500/25 rounded-xl border border-rose-500/50 animate-pulse">
-                  🚨 {lateCount} Late
-                </span>
-              )}
+            <div className="h-10 px-3.5 text-xs font-bold rounded-xl border border-emerald-500/30 text-emerald-800 dark:text-emerald-200 bg-emerald-500/10 flex items-center justify-center gap-1.5 shrink-0">
+              ✓ SLA Active
             </div>
+            {atRiskCount > 0 && (
+              <div className="h-10 px-3.5 text-xs font-bold rounded-xl border border-amber-500/40 text-amber-900 dark:text-amber-100 bg-amber-500/20 flex items-center justify-center gap-1.5 shrink-0">
+                ⚠️ {atRiskCount} At Risk
+              </div>
+            )}
+            {lateCount > 0 && (
+              <div className="h-10 px-3.5 text-xs font-bold rounded-xl border border-rose-500/40 text-rose-900 dark:text-rose-100 bg-rose-500/20 animate-pulse flex items-center justify-center gap-1.5 shrink-0">
+                🚨 {lateCount} Late
+              </div>
+            )}
 
             {/* Peak Mode Toggle */}
             <Button
               size="sm"
               variant={isPeakMode ? 'default' : 'outline'}
               onClick={togglePeakMode}
-              className={`h-12 px-4 text-sm font-black gap-2 rounded-2xl touch-manipulation min-h-[48px] ${
-                isPeakMode ? 'bg-amber-600 hover:bg-amber-700 text-white shadow-md' : 'border-2 border-border'
+              className={`h-10 px-3.5 text-xs font-bold gap-1.5 rounded-xl touch-manipulation cursor-pointer ${
+                isPeakMode ? 'bg-amber-600 hover:bg-amber-700 text-white shadow-xs border-amber-600' : 'border-border bg-card hover:bg-muted text-foreground'
               }`}
+              title="Click to toggle Peak Mode between Auto detection and Manual override"
             >
-              <Zap className="h-5 w-5" /> Peak Mode {isPeakMode ? 'ON' : 'OFF'}
+              <Zap className="h-4 w-4" /> Peak Mode {manualPeakOverride === null ? `Auto (${isPeakMode ? 'ON' : 'OFF'})` : `Manual (${isPeakMode ? 'ON' : 'OFF'})`}
             </Button>
 
             {/* Sound Mute Toggle */}
@@ -174,14 +174,14 @@ export default function KdsPage() {
               size="sm"
               variant={isMuted ? 'destructive' : 'outline'}
               onClick={toggleMute}
-              className={`h-12 px-4 text-sm font-black gap-2 rounded-2xl border-2 touch-manipulation min-h-[48px] ${
+              className={`h-10 px-3.5 text-xs font-bold gap-1.5 rounded-xl touch-manipulation cursor-pointer ${
                 isMuted
-                  ? 'bg-rose-500/20 text-rose-600 border-rose-500/50 hover:bg-rose-500/30'
-                  : 'border-emerald-500/40 text-emerald-600 bg-emerald-500/10 hover:bg-emerald-500/20'
+                  ? 'bg-rose-500/15 text-rose-600 border-rose-500/30 hover:bg-rose-500/25'
+                  : 'border-emerald-500/30 text-emerald-600 bg-emerald-500/10 hover:bg-emerald-500/20'
               }`}
               title={isMuted ? 'Chime Muted (Visual Alerts Active)' : 'Chime Unmuted (Sound Alert Active)'}
             >
-              {isMuted ? <VolumeX className="h-5 w-5 text-rose-600" /> : <Volume2 className="h-5 w-5 text-emerald-600" />}
+              {isMuted ? <VolumeX className="h-4 w-4 text-rose-600" /> : <Volume2 className="h-4 w-4 text-emerald-600" />}
               <span>{isMuted ? 'Muted' : 'Chime'}</span>
             </Button>
 
@@ -189,18 +189,18 @@ export default function KdsPage() {
               size="sm"
               variant="outline"
               onClick={() => playKitchenAlertSound()}
-              className="h-12 px-4 text-sm gap-2 border-2 border-amber-500/40 text-amber-900 dark:text-amber-200 bg-amber-500/15 hover:bg-amber-500/25 font-black rounded-2xl touch-manipulation min-h-[48px]"
+              className="h-10 px-3.5 text-xs font-bold gap-1.5 border-amber-500/30 text-amber-800 dark:text-amber-200 bg-amber-500/10 hover:bg-amber-500/20 rounded-xl touch-manipulation cursor-pointer"
               title="Test Kitchen Order Bell Sound"
             >
-              <BellRing className="h-5 w-5 text-amber-600" /> Bell
+              <BellRing className="h-4 w-4 text-amber-600" /> Bell
             </Button>
           </div>
         </div>
 
         {/* Status Filter Bar */}
-        <div className="flex items-center gap-2.5 overflow-x-auto pb-1 scrollbar-none">
-          <span className="text-xs sm:text-sm font-black text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 shrink-0 mr-1">
-            <Filter size={16} /> Filter Tickets:
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+          <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 shrink-0 mr-1">
+            <Filter size={15} /> Filter Tickets:
           </span>
           {[
             { id: 'all', label: 'All Tickets' },
@@ -211,10 +211,10 @@ export default function KdsPage() {
             <button
               key={filter.id}
               onClick={() => setStatusFilter(filter.id)}
-              className={`px-4 py-2.5 text-sm font-black rounded-2xl shrink-0 transition-all border-2 min-h-[48px] touch-manipulation ${
+              className={`h-10 px-4 text-xs sm:text-sm font-extrabold rounded-xl shrink-0 transition-all border touch-manipulation ${
                 statusFilter === filter.id
-                  ? 'bg-primary text-primary-foreground border-primary shadow-md font-black scale-[1.02]'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted border-transparent'
+                  ? 'bg-primary text-primary-foreground border-primary shadow-xs'
+                  : 'bg-card text-muted-foreground hover:text-foreground hover:bg-muted/50 border-border/80'
               }`}
             >
               {filter.label}
@@ -230,82 +230,64 @@ export default function KdsPage() {
 
         {/* Top KPI Metrics Bar */}
         {!isLoading && stats && (
-          <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
-            <Card className="border-l-8 border-l-amber-500 shadow-sm rounded-2xl">
-              <CardContent className="p-4 flex items-center justify-between text-xs">
+          <div className="grid gap-2 grid-cols-2 lg:grid-cols-4">
+            <Card className="border border-border/80 border-l-4 border-l-amber-500 shadow-2xs rounded-xl bg-card">
+              <CardContent className="p-2.5 sm:p-3 flex items-center justify-between text-xs">
                 <div>
-                  <span className="font-extrabold text-muted-foreground uppercase tracking-wider text-[11px]">
+                  <span className="font-extrabold text-muted-foreground uppercase tracking-wider text-[10px]">
                     Preparing Tickets
                   </span>
-                  <p className="text-2xl sm:text-3xl font-extrabold font-mono text-foreground mt-0.5">{stats.preparingTickets || 0}</p>
+                  <p className="text-2xl sm:text-3xl font-black font-sans text-foreground tracking-tight mt-0.5">{stats.preparingTickets || 0}</p>
                 </div>
-                <div className="h-10 w-10 rounded-2xl bg-amber-500/15 text-amber-600 flex items-center justify-center">
-                  <Play className="h-5 w-5" />
+                <div className="h-8 w-8 rounded-lg bg-amber-500/15 text-amber-600 flex items-center justify-center shrink-0">
+                  <Play className="h-4 w-4" />
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="border-l-8 border-l-purple-500 shadow-sm rounded-2xl">
-              <CardContent className="p-4 flex items-center justify-between text-xs">
+            <Card className="border border-border/80 border-l-4 border-l-purple-500 shadow-2xs rounded-xl bg-card">
+              <CardContent className="p-2.5 sm:p-3 flex items-center justify-between text-xs">
                 <div>
-                  <span className="font-extrabold text-muted-foreground uppercase tracking-wider text-[11px]">
+                  <span className="font-extrabold text-muted-foreground uppercase tracking-wider text-[10px]">
                     Ready For Pickup
                   </span>
-                  <p className="text-2xl sm:text-3xl font-extrabold font-mono text-foreground mt-0.5">{stats.readyTickets || 0}</p>
+                  <p className="text-2xl sm:text-3xl font-black font-sans text-foreground tracking-tight mt-0.5">{stats.readyTickets || 0}</p>
                 </div>
-                <div className="h-10 w-10 rounded-2xl bg-purple-500/15 text-purple-600 flex items-center justify-center">
-                  <CheckSquare className="h-5 w-5" />
+                <div className="h-8 w-8 rounded-lg bg-purple-500/15 text-purple-600 flex items-center justify-center shrink-0">
+                  <CheckSquare className="h-4 w-4" />
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="border-l-8 border-l-rose-500 shadow-sm rounded-2xl">
-              <CardContent className="p-4 flex items-center justify-between text-xs">
+            <Card className="border border-border/80 border-l-4 border-l-rose-500 shadow-2xs rounded-xl bg-card">
+              <CardContent className="p-2.5 sm:p-3 flex items-center justify-between text-xs">
                 <div>
-                  <span className="font-extrabold text-muted-foreground uppercase tracking-wider text-[11px]">
+                  <span className="font-extrabold text-muted-foreground uppercase tracking-wider text-[10px]">
                     Delayed / Overdue
                   </span>
-                  <p className="text-2xl sm:text-3xl font-extrabold font-mono text-foreground mt-0.5">{stats.delayedTickets || 0}</p>
+                  <p className="text-2xl sm:text-3xl font-black font-sans text-foreground tracking-tight mt-0.5">{stats.delayedTickets || 0}</p>
                 </div>
-                <div className="h-10 w-10 rounded-2xl bg-rose-500/15 text-rose-600 flex items-center justify-center">
-                  <AlertOctagon className="h-5 w-5" />
+                <div className="h-8 w-8 rounded-lg bg-rose-500/15 text-rose-600 flex items-center justify-center shrink-0">
+                  <AlertOctagon className="h-4 w-4" />
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="border-l-8 border-l-blue-500 shadow-sm rounded-2xl">
-              <CardContent className="p-4 flex items-center justify-between text-xs">
+            <Card className="border border-border/80 border-l-4 border-l-blue-500 shadow-2xs rounded-xl bg-card">
+              <CardContent className="p-2.5 sm:p-3 flex items-center justify-between text-xs">
                 <div>
-                  <span className="font-extrabold text-muted-foreground uppercase tracking-wider text-[11px]">
+                  <span className="font-extrabold text-muted-foreground uppercase tracking-wider text-[10px]">
                     Avg Prep Duration
                   </span>
-                  <p className="text-2xl sm:text-3xl font-extrabold font-mono text-foreground mt-0.5">
+                  <p className="text-2xl sm:text-3xl font-black font-sans text-foreground tracking-tight mt-0.5">
                     {stats.averagePrepTimeMinutes ? `${stats.averagePrepTimeMinutes}m` : '0m'}
                   </p>
                 </div>
-                <div className="h-10 w-10 rounded-2xl bg-blue-500/15 text-blue-600 flex items-center justify-center">
-                  <Clock className="h-5 w-5" />
+                <div className="h-8 w-8 rounded-lg bg-blue-500/15 text-blue-600 flex items-center justify-center shrink-0">
+                  <Clock className="h-4 w-4" />
                 </div>
               </CardContent>
             </Card>
-          </div>
-        )}
-
-        {/* Phase 1 One-Glance Lead Ticket Hero Section */}
-        {!isLoading && leadTicket && (
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400 font-black text-sm uppercase tracking-wider pl-1">
-              <Flame className="h-5 w-5 animate-pulse" />
-              <span>1-Second Glance Priority Focus (Lead Ticket)</span>
-            </div>
-            <KitchenTicketCard
-              ticket={leadTicket}
-              onStatusChange={handleStatusChange}
-              onItemStatusChange={handleItemStatusChange}
-              onSelectTicket={(t) => setSelectedTicketForDetail(t)}
-              isLeadTicket={true}
-              isPeakMode={isPeakMode}
-            />
           </div>
         )}
 

@@ -514,25 +514,6 @@ export default function MenuListPage() {
 
             <div className="relative">
               <select
-                value={branchFilter}
-                onChange={(e) => {
-                  setBranchFilter(e.target.value);
-                  setPage(1);
-                }}
-                className="flex h-10 w-full appearance-none rounded-md border border-input bg-background px-3 py-2 pr-9 text-sm text-foreground shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              >
-                <option value="all">All Branches</option>
-                {branches.map((b) => (
-                  <option key={b._id} value={b._id}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
-              <Filter className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            </div>
-
-            <div className="relative">
-              <select
                 value={`${sortBy}-${sortOrder}`}
                 onChange={(e) => {
                   const [field, order] = e.target.value.split('-');

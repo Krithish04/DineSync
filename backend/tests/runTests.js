@@ -73,6 +73,7 @@ async function main() {
   await runSuite('Kitchen Orchestrator Unit Tests', './unit/kitchenOrchestrator.test.js');
   await runSuite('Kitchen AI Throttling & Ceiling Tests', './unit/kitchenThrottling.test.js');
   await runSuite('Redis Table Lock & Rate Limiter Tests', './unit/redisTableLockAndOtp.test.js');
+  await runSuite('Redis Cache Integration Tests', './unit/redisCache.test.js');
   await runSuite('Express Trust Proxy & Rate Limiter Tests', './unit/trustProxyAndRateLimit.test.js');
   await runSuite('Reservation Reconciliation Tests', './unit/reservationReconciliation.test.js');
   await runSuite('Guest History Personalization & Privacy Tests', './unit/guestHistoryPersonalization.test.js');
@@ -81,6 +82,7 @@ async function main() {
   await runSuite('Super Admin Multi-Tenant & Impersonation Tests', './unit/superAdminMultiTenant.test.js');
   await runSuite('Restaurant Owner Registration & Subscription Mandate Tests', './unit/restaurantOwnerRegistrationSubscription.test.js');
   await runSuite('Branch Entity & 3-Tier Account Hierarchy Tests', './unit/branchHierarchyAndDataIsolation.test.js');
+  await runSuite('Role-Based Account & AuthLog Tests', './unit/roleAccountAndAuthLog.test.js');
   await runSuite('Payroll Foundation (Phase 1 & 2) Tests', './payrollFoundation.test.js');
   await runSuite('API & Integration Tests', './integration/api.test.js');
 

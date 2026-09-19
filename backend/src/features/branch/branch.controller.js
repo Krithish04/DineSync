@@ -114,6 +114,49 @@ const listBranchUsers = asyncHandler(async (req, res) => {
   return new ApiResponse(200, { users }, 'Branch user accounts fetched successfully').send(res);
 });
 
+const createOwnerManager = asyncHandler(async (req, res) => {
+  const manager = await branchService.createOwnerManager(req.params.restaurantId, req.body, req.user);
+  return new ApiResponse(201, { manager }, 'Manager account created and branches assigned successfully').send(res);
+});
+
+const listOwnerManagers = asyncHandler(async (req, res) => {
+  const managers = await branchService.listOwnerManagers(req.params.restaurantId);
+  return new ApiResponse(200, { managers }, 'Restaurant managers fetched successfully').send(res);
+});
+
+const getOwnerManagerLogs = asyncHandler(async (req, res) => {
+  const logs = await branchService.getOwnerManagerLogs(req.params.restaurantId);
+  return new ApiResponse(200, { logs }, 'Manager activity logs fetched successfully').send(res);
+});
+
+const getOwnerBranchLogs = asyncHandler(async (req, res) => {
+  const { branchId } = req.params;
+  const { accountType } = req.query;
+  const logs = await branchService.getOwnerBranchLogs(req.params.restaurantId, branchId, accountType);
+  return new ApiResponse(200, { logs }, 'Branch activity logs fetched successfully').send(res);
+});
+
+const createManagerScopedStaff = asyncHandler(async (req, res) => {
+  const staff = await branchService.createManagerScopedStaff(req.params.restaurantId, req.body, req.user);
+  return new ApiResponse(201, { staff }, 'Staff account created successfully').send(res);
+});
+
+const createManagerScopedKitchen = asyncHandler(async (req, res) => {
+  const kitchen = await branchService.createManagerScopedKitchen(req.params.restaurantId, req.body, req.user);
+  return new ApiResponse(201, { kitchen }, 'Kitchen account created successfully').send(res);
+});
+
+const listManagerScopedAccounts = asyncHandler(async (req, res) => {
+  const accounts = await branchService.listManagerScopedAccounts(req.params.restaurantId, req.query, req.user);
+  return new ApiResponse(200, { accounts }, 'Accounts fetched successfully').send(res);
+});
+
+const getManagerScopedLogs = asyncHandler(async (req, res) => {
+  const { role, branchId } = req.query;
+  const logs = await branchService.getManagerScopedLogs(req.params.restaurantId, role, branchId, req.user);
+  return new ApiResponse(200, { logs }, 'Activity logs fetched successfully').send(res);
+});
+
 module.exports = {
   createBranch,
   getBranchDashboardSummary,
@@ -130,5 +173,13 @@ module.exports = {
   createBranchManager,
   createBranchStaff,
   listBranchUsers,
+  createOwnerManager,
+  listOwnerManagers,
+  getOwnerManagerLogs,
+  getOwnerBranchLogs,
+  createManagerScopedStaff,
+  createManagerScopedKitchen,
+  listManagerScopedAccounts,
+  getManagerScopedLogs,
 };
 

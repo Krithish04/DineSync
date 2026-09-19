@@ -135,11 +135,14 @@ const createAndSendOtp = async ({ email = null, phone = null, restaurantId = nul
     }, ttlSeconds);
   }
 
+  const mongoose = require('mongoose');
+  const validRestaurantId = (restaurantId && restaurantId !== 'null' && restaurantId !== 'undefined' && mongoose.Types.ObjectId.isValid(restaurantId)) ? restaurantId : null;
+
   // Store in MongoDB for durable record & audit
   await Otp.create({
     email: cleanEmail,
     phone: cleanPhone,
-    restaurant: restaurantId || null,
+    restaurant: validRestaurantId,
     purpose,
     codeHash,
     expiresAt,

@@ -43,6 +43,10 @@ class ApiError extends Error {
     return new ApiError(409, message);
   }
 
+  static tooManyRequests(message = 'Too Many Requests') {
+    return new ApiError(429, message);
+  }
+
   static internal(message = 'Internal Server Error') {
     return new ApiError(500, message);
   }

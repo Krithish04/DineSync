@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Grid, List } from 'lucide-react';
 import RestaurantLayout from '@/features/restaurant/components/RestaurantLayout';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import Loader from '@/components/common/Loader';
@@ -10,9 +10,17 @@ import CalendarView from '../components/CalendarView';
 import useAuthStore from '@/features/auth/store/auth.store';
 import * as reservationApi from '../api/reservation.api';
 import * as tableApi from '@/features/table/api/table.api';
+import ReservationHeader from '../components/ReservationHeader';
 
 export default function ReservationCalendarPage() {
-  const restaurantId = useAuthStore((state) => state.restaurant?._id);
+  const restaurantId = useAuthStore((state) => {
+    if (state.restaurant?._id) return state.restaurant._id.toString();
+    if (typeof state.restaurant === 'string') return state.restaurant;
+    if (state.user?.restaurant?._id) return state.user.restaurant._id.toString();
+    if (typeof state.user?.restaurant === 'string') return state.user.restaurant;
+    if (state.user?.restaurantId) return state.user.restaurantId.toString();
+    return null;
+  });
   const navigate = useNavigate();
 
   const [viewMode, setViewMode] = useState('day'); // 'day' or 'week'
@@ -83,25 +91,24 @@ export default function ReservationCalendarPage() {
 
   return (
     <RestaurantLayout
-      title="Restaurant Management"
-      description="Visual grid scheduling interface for reservations and tables."
+      title="Reservation Management"
+      description="View, filter, create, and manage dining table bookings."
     >
-      <Card className="w-full">
-        <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 space-y-0 pb-4">
-          <div>
-            <CardTitle>Reservations Sheet</CardTitle>
-            <CardDescription>Visual hourly sheet centered on dining tables or calendar days.</CardDescription>
+      <div className="space-y-6">
+        <ReservationHeader
+          activeView="calendar"
+          title="Reservations Sheet"
+          description="Visual hourly sheet centered on dining tables or calendar days."
+        />
+
+        {error && (
+          <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            {error}
           </div>
-          <div className="flex gap-2">
-            <Button size="xs" variant="outline" onClick={() => navigate('/restaurant/reservations/list')} className="h-8">
-              <List className="h-4 w-4 mr-1.5" /> List View
-            </Button>
-            <Button size="xs" variant="outline" onClick={() => navigate('/restaurant/reservations/dashboard')} className="h-8">
-              <Grid className="h-4 w-4 mr-1.5" /> Dashboard
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-6">
+        )}
+
+        <Card className="w-full">
+          <CardContent className="pt-6 space-y-6">
           {/* Controls bar */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-border/40 pb-4">
             {/* Date shift & Picker */}
@@ -162,7 +169,8 @@ export default function ReservationCalendarPage() {
             />
           )}
         </CardContent>
-      </Card>
+        </Card>
+      </div>
     </RestaurantLayout>
   );
 }

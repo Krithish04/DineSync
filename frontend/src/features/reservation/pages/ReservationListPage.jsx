@@ -10,9 +10,17 @@ import ReservationCard from '../components/ReservationCard';
 import useAuthStore from '@/features/auth/store/auth.store';
 import useSocketStore from '@/store/socket.store';
 import * as reservationApi from '../api/reservation.api';
+import ReservationHeader from '../components/ReservationHeader';
 
 export default function ReservationListPage() {
-  const restaurantId = useAuthStore((state) => state.restaurant?._id);
+  const restaurantId = useAuthStore((state) => {
+    if (state.restaurant?._id) return state.restaurant._id.toString();
+    if (typeof state.restaurant === 'string') return state.restaurant;
+    if (state.user?.restaurant?._id) return state.user.restaurant._id.toString();
+    if (typeof state.user?.restaurant === 'string') return state.user.restaurant;
+    if (state.user?.restaurantId) return state.user.restaurantId.toString();
+    return null;
+  });
   const userRole = useAuthStore((state) => state.user?.role);
   const connectSocket = useSocketStore((state) => state.connect);
   const socket = useSocketStore((state) => state.socket);
@@ -49,6 +57,7 @@ export default function ReservationListPage() {
 
   // Load reservations
   const loadReservations = useCallback(async () => {
+    if (!restaurantId) return;
     setIsLoading(true);
     setError('');
     try {
@@ -62,9 +71,10 @@ export default function ReservationListPage() {
       if (selectedDate) params.date = selectedDate;
 
       const res = await reservationApi.listReservations(restaurantId, params);
-      setReservations(res.items || []);
-      setPagination(res.pagination || null);
+      setReservations(res?.items || []);
+      setPagination(res?.pagination || null);
     } catch (err) {
+      console.error('Failed to load reservations:', err);
       setError(err.response?.data?.message || 'Failed to load reservations.');
     } finally {
       setIsLoading(false);
@@ -119,31 +129,27 @@ export default function ReservationListPage() {
       title="Reservation Management"
       description="View, filter, create, and manage dining table bookings."
     >
-      <Card className="w-full">
-        <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 space-y-0">
-          <div>
-            <CardTitle>Bookings &amp; Guest List</CardTitle>
-            <CardDescription>Filter reservations by status, date, or search customer details.</CardDescription>
-          </div>
-          {canManage && (
-            <Button size="sm" onClick={() => navigate('/restaurant/reservations/new')}>
-              <Plus className="mr-1.5 h-4 w-4" /> Book Table
-            </Button>
-          )}
-        </CardHeader>
-        <CardContent>
-          {/* Notifications */}
-          {error && (
-            <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              {error}
-            </div>
-          )}
-          {success && (
-            <div className="mb-4 rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-sm text-primary">
-              {success}
-            </div>
-          )}
+      <div className="space-y-6">
+        <ReservationHeader
+          activeView="list"
+          title="Bookings & Guest List"
+          description="Filter reservations by status, date, or search customer details."
+        />
 
+        {/* Notifications */}
+        {error && (
+          <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            {error}
+          </div>
+        )}
+        {success && (
+          <div className="rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-sm text-primary">
+            {success}
+          </div>
+        )}
+
+        <Card className="w-full">
+          <CardContent className="pt-6">
           {/* Filter Bar */}
           <div className="mb-6 grid gap-4 grid-cols-1 sm:grid-cols-3">
             <div className="relative">
@@ -250,7 +256,8 @@ export default function ReservationListPage() {
             </div>
           )}
         </CardContent>
-      </Card>
+        </Card>
+      </div>
     </RestaurantLayout>
   );
 }

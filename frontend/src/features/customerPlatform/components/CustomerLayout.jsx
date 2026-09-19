@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
-import { ShoppingBag, Menu as MenuIcon, User, Star, Lock, LogOut, CheckCircle2, ChevronRight, UserCheck, ShieldCheck, Receipt, Award, Bell, Clock } from 'lucide-react';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { ShoppingBag, Menu as MenuIcon, User, Star, Lock, LogOut, CheckCircle2, ChevronRight, UserCheck, ShieldCheck, Receipt, Award, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import useCartStore from '../store/cart.store';
 import useCustomerAuthStore from '../store/customerAuth.store';
@@ -18,6 +18,17 @@ import * as customerApi from '../api/customerPlatform.api';
  */
 export default function CustomerLayout({ title, children }) {
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const isTableOrderingRoute = location.pathname.startsWith('/menu') ||
+    location.pathname.startsWith('/table') ||
+    location.pathname.startsWith('/order') ||
+    location.pathname.startsWith('/checkout') ||
+    location.pathname.startsWith('/cart');
+
+  const isReservationRoute = location.pathname.startsWith('/book') ||
+    location.pathname.includes('/reservation') ||
+    location.pathname.includes('/reservations');
 
   const {
     itemCount = 0,
@@ -50,10 +61,22 @@ export default function CustomerLayout({ title, children }) {
 
   const { customer, clearCustomerSession } = useCustomerAuthStore();
   const [showSignOutToast, setShowSignOutToast] = useState(false);
+  const [showReservationSignOutToast, setShowReservationSignOutToast] = useState(false);
+
+  useEffect(() => {
+    if (showReservationSignOutToast) {
+      const timer = setTimeout(() => {
+        setShowReservationSignOutToast(false);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [showReservationSignOutToast]);
 
   const activeSessionHostName = tableId && activeTableSessions[tableId]?.hostName;
   const activeName = customer?.fullName || tableHost?.name || null;
   const hasOrdersToReview = (placedOrders && placedOrders.length > 0) || (sessionOrderSummary && sessionOrderSummary.length > 0);
+
+  const operatingStatus = useCartStore((s) => s.operatingStatus);
 
   // Auto-connect to Socket.IO restaurant tenant room
   useEffect(() => {
@@ -61,6 +84,18 @@ export default function CustomerLayout({ title, children }) {
       connectSocket(restaurantId);
     }
   }, [restaurantId, connectSocket]);
+
+  // Fetch restaurant operating status on load if missing
+  useEffect(() => {
+    if (!restaurantId || operatingStatus) return;
+    customerApi.getPublicMenu(restaurantId)
+      .then((data) => {
+        if (data?.operatingStatus) {
+          useCartStore.getState().setOperatingStatus(data.operatingStatus);
+        }
+      })
+      .catch(() => null);
+  }, [restaurantId, operatingStatus]);
 
   // Fetch real active table session from backend on load
   useEffect(() => {
@@ -110,6 +145,7 @@ export default function CustomerLayout({ title, children }) {
 
   const [pendingItemForAuth, setPendingItemForAuth] = useState(null);
   const [incomingAccessRequest, setIncomingAccessRequest] = useState(null);
+  const [incomingHostTransferRequest, setIncomingHostTransferRequest] = useState(null);
   const [accessRequestStatus, setAccessRequestStatus] = useState(null); // null | 'pending' | 'approved' | 'denied'
   const [accessRequestMessage, setAccessRequestMessage] = useState('');
 
@@ -301,6 +337,10 @@ export default function CustomerLayout({ title, children }) {
   const handleSignOutClick = async () => {
     if (placedOrders && placedOrders.length > 0) {
       setIsPaymentModalOpen(true);
+    } else if (isReservationRoute || !isTableOrderingRoute || !tableId) {
+      signOutHost();
+      clearCustomerSession();
+      setShowReservationSignOutToast(true);
     } else {
       setIsNoOrderExitModalOpen(true);
     }
@@ -361,6 +401,61 @@ export default function CustomerLayout({ title, children }) {
     }
   };
 
+  const handleApproveHostTransfer = async () => {
+    if (!incomingHostTransferRequest) return;
+    try {
+      await customerApi.respondHostTransfer(restaurantId, tableId, {
+        requestId: incomingHostTransferRequest.requestId,
+        requesterPhone: incomingHostTransferRequest.requesterPhone,
+        decision: 'approve',
+      });
+    } catch {
+      /* non-fatal */
+    } finally {
+      setIncomingHostTransferRequest(null);
+    }
+  };
+
+  const handleDenyHostTransfer = async () => {
+    if (!incomingHostTransferRequest) return;
+    try {
+      await customerApi.respondHostTransfer(restaurantId, tableId, {
+        requestId: incomingHostTransferRequest.requestId,
+        requesterPhone: incomingHostTransferRequest.requesterPhone,
+        decision: 'deny',
+      });
+    } catch {
+      /* non-fatal */
+    } finally {
+      setIncomingHostTransferRequest(null);
+    }
+  };
+
+  const handleRequestHostTransferSubmit = async (overridePhone = null, overrideName = null) => {
+    const myPhone = overridePhone || customer?.phoneNumber || tableHost?.phone;
+    const myName = overrideName || activeName || customer?.fullName || 'Guest';
+
+    if (!myPhone) {
+      setAuthSuccessCallback(() => (verifiedInfo) => {
+        handleRequestHostTransferSubmit(verifiedInfo.phone, verifiedInfo.name);
+      });
+      setIsAuthModalOpen(true);
+      return;
+    }
+
+    setAccessRequestStatus('pending');
+    setAccessRequestMessage('Host Transfer request sent to current Host...');
+    try {
+      await customerApi.requestHostTransfer(restaurantId, tableId, {
+        requesterPhone: myPhone,
+        requesterName: myName,
+      });
+    } catch (err) {
+      setAccessRequestStatus('denied');
+      setAccessRequestMessage(err.response?.data?.message || 'Failed to send Host Transfer request.');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-muted/20 flex flex-col pb-44 sm:pb-28">
       {/* Mobile Top App Header */}
@@ -370,41 +465,43 @@ export default function CustomerLayout({ title, children }) {
             DineSync <span className="text-foreground">AI</span>
           </span>
           <span className="text-[10px] font-semibold text-muted-foreground flex items-center gap-1.5">
-            {tableNumber ? (
+            {isTableOrderingRoute && tableNumber ? (
               <span className="text-primary font-bold">Table #{tableNumber}</span>
             ) : (
               <span>{orderType || 'Dine-In Storefront'}</span>
             )}
 
-            {/* Role Badge Indicator */}
-            {tableHost && tableHost.phone ? (
-              <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/15 text-amber-600 border border-amber-500/30 flex items-center gap-0.5">
-                <Star size={9} className="fill-amber-500 text-amber-500" /> Host
+            {/* Operating Hours Status Badge */}
+            {operatingStatus?.isClosed ? (
+              <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-rose-500/15 text-rose-600 border border-rose-500/30 flex items-center gap-0.5" title={operatingStatus.statusMessage}>
+                <Clock size={9} /> Closed
               </span>
-            ) : isCoOrderer ? (
-              <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/15 text-emerald-600 border border-emerald-500/30 flex items-center gap-0.5">
-                <UserCheck size={9} /> Co-Orderer
-              </span>
-            ) : isViewOnly ? (
-              <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-slate-500/15 text-slate-600 border border-slate-500/30 flex items-center gap-0.5">
-                <Lock size={9} /> View-Only
+            ) : operatingStatus?.isOpen ? (
+              <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/15 text-emerald-600 border border-emerald-500/30 flex items-center gap-0.5" title={operatingStatus.formattedHours}>
+                <Clock size={9} /> Open
               </span>
             ) : null}
+
+            {/* Role Badge Indicator (Table Ordering Flow Only) */}
+            {isTableOrderingRoute && (
+              tableHost && tableHost.phone ? (
+                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/15 text-amber-600 border border-amber-500/30 flex items-center gap-0.5">
+                  <Star size={9} className="fill-amber-500 text-amber-500" /> Host
+                </span>
+              ) : isCoOrderer ? (
+                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/15 text-emerald-600 border border-emerald-500/30 flex items-center gap-0.5">
+                  <UserCheck size={9} /> Co-Orderer
+                </span>
+              ) : isViewOnly ? (
+                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-slate-500/15 text-slate-600 border border-slate-500/30 flex items-center gap-0.5">
+                  <Lock size={9} /> View-Only
+                </span>
+              ) : null
+            )}
           </span>
         </div>
 
         <div className="flex items-center gap-2.5 shrink-0 pr-0.5">
-          <button
-            type="button"
-            onClick={handleCallStaff}
-            disabled={isCallingStaff}
-            className="w-[34px] h-[34px] min-w-[34px] min-h-[34px] rounded-full bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 border border-amber-500/30 flex items-center justify-center transition-all active:scale-95 touch-manipulation"
-            title="Call Staff / Help"
-            aria-label="Call Staff / Help"
-          >
-            <Bell size={16} className="text-amber-600 animate-pulse shrink-0" />
-          </button>
-
           {activeName ? (
             <button
               type="button"
@@ -429,8 +526,8 @@ export default function CustomerLayout({ title, children }) {
         </div>
       </header>
 
-      {/* HOST INCOMING ACCESS REQUEST PROMPT (NON-BLOCKING BANNER) */}
-      {incomingAccessRequest && (
+      {/* HOST INCOMING ACCESS REQUEST PROMPT (NON-BLOCKING BANNER - TABLE ORDERING ONLY) */}
+      {isTableOrderingRoute && incomingAccessRequest && (
         <div className="bg-primary/10 border-b border-primary/30 px-3.5 py-2.5 flex items-center justify-between text-xs animate-in slide-in-from-top duration-200">
           <div className="flex items-center gap-2 pr-2">
             <UserCheck size={16} className="text-primary shrink-0 animate-pulse" />
@@ -449,8 +546,8 @@ export default function CustomerLayout({ title, children }) {
         </div>
       )}
 
-      {/* HOST INCOMING HOST TRANSFER PROMPT */}
-      {incomingHostTransferRequest && (
+      {/* HOST INCOMING HOST TRANSFER PROMPT (TABLE ORDERING ONLY) */}
+      {isTableOrderingRoute && incomingHostTransferRequest && (
         <div className="bg-amber-500/15 border-b border-amber-500/30 px-3.5 py-2.5 flex items-center justify-between text-xs animate-in slide-in-from-top duration-200">
           <div className="flex items-center gap-2 pr-2">
             <UserCheck size={16} className="text-amber-600 shrink-0 animate-pulse" />
@@ -479,8 +576,8 @@ export default function CustomerLayout({ title, children }) {
         </div>
       )}
 
-      {/* VIEW-ONLY MODE INFORMATIONAL BANNER */}
-      {isViewOnly && !isCoOrderer && (
+      {/* VIEW-ONLY MODE INFORMATIONAL BANNER (TABLE ORDERING ONLY) */}
+      {isTableOrderingRoute && isViewOnly && !isCoOrderer && !operatingStatus?.isClosed && (
         <div className="bg-amber-500/10 border-b border-amber-500/30 px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs text-amber-900 dark:text-amber-200">
           <div className="flex items-center gap-2 pr-2">
             <Lock size={15} className="shrink-0 text-amber-600 animate-pulse" />
@@ -524,7 +621,7 @@ export default function CustomerLayout({ title, children }) {
       )}
 
       {/* HOST ACCESS REQUEST NON-MODAL FLOATING BANNER TOAST */}
-      {incomingAccessRequest && (
+      {isTableOrderingRoute && incomingAccessRequest && (
         <div className="fixed top-4 right-4 sm:right-6 z-50 max-w-md w-[calc(100%-2rem)] bg-card border-2 border-primary/40 rounded-2xl shadow-2xl p-4 animate-in slide-in-from-top-4 duration-300">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-start gap-2.5">
@@ -591,6 +688,26 @@ export default function CustomerLayout({ title, children }) {
               ✕
             </button>
           </div>
+        </div>
+      )}
+
+      {/* CLEAN RESERVATION SIGN OUT THANK YOU TOAST (NO MODAL, NO FEEDBACK SURVEY) */}
+      {showReservationSignOutToast && (
+        <div className="bg-emerald-600 text-white px-4 py-3 text-xs flex items-center justify-between shadow-md animate-in slide-in-from-top duration-200">
+          <div className="flex items-center gap-2.5">
+            <CheckCircle2 size={18} className="shrink-0 text-white" />
+            <div>
+              <p className="font-bold text-sm leading-snug">Signed Out Successfully</p>
+              <p className="text-xs text-emerald-100 leading-tight">Thank you for visiting!</p>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowReservationSignOutToast(false)}
+            className="text-white/80 hover:text-white font-bold text-base px-2 py-1"
+            aria-label="Close thank you note"
+          >
+            ✕
+          </button>
         </div>
       )}
 

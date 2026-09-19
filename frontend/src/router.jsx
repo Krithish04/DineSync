@@ -6,7 +6,20 @@ import Unauthorized from '@/components/common/Unauthorized';
 import Loader from '@/components/common/Loader';
 
 const lazyLoad = (importFn) => {
-  const Component = lazy(importFn);
+  const Component = lazy(async () => {
+    try {
+      const module = await importFn();
+      sessionStorage.removeItem('retry_dynamic_import');
+      return module;
+    } catch (error) {
+      const pageRefreshed = sessionStorage.getItem('retry_dynamic_import');
+      if (!pageRefreshed) {
+        sessionStorage.setItem('retry_dynamic_import', 'true');
+        window.location.reload();
+      }
+      throw error;
+    }
+  });
   return (props) => (
     <Suspense fallback={<Loader />}>
       <Component {...props} />
@@ -26,6 +39,7 @@ const DashboardPage = lazyLoad(() => import('@/features/dashboard/pages/Dashboar
 const RestaurantProfilePage = lazyLoad(() => import('@/features/restaurant/pages/RestaurantProfilePage'));
 const AdminBranchDashboardPage = lazyLoad(() => import('@/features/restaurant/pages/AdminBranchDashboardPage'));
 const TenantSubscriptionPage = lazyLoad(() => import('@/features/restaurant/pages/TenantSubscriptionPage'));
+const AccountProvisioningPage = lazyLoad(() => import('@/features/restaurant/pages/AccountProvisioningPage'));
 
 const RestaurantSettingsPage = lazyLoad(() => import('@/features/restaurant/pages/RestaurantSettingsPage'));
 const GstSettingsPage = lazyLoad(() => import('@/features/restaurant/pages/GstSettingsPage'));
@@ -151,10 +165,6 @@ const router = createBrowserRouter([
     children: [
       {
         path: '/kds',
-        element: <KdsPage />,
-      },
-      {
-        path: '/restaurant/kitchen',
         element: <KdsPage />,
       },
     ],
@@ -306,20 +316,16 @@ const router = createBrowserRouter([
         path: '/restaurant/reports/scheduled',
         element: <ScheduledReportsPage />,
       },
-      {
-        path: '/restaurant/notifications/center',
-        element: <NotificationCenterPage />,
-      },
-      {
-        path: '/restaurant/notifications/settings',
-        element: <NotificationSettingsPage />,
-      },
     ],
   },
   {
-    /* Owner & Manager Shared Operations: Employees/Payroll, Executive BI, Feedback Insights, Alert Center */
+    /* Owner & Manager Shared Operations: Employees/Payroll, Alert Center & Notification Center */
     element: <ProtectedRoute allowedRoles={['super_admin', 'owner', 'manager']} />,
     children: [
+      {
+        path: '/restaurant/manage-logins',
+        element: <AccountProvisioningPage />,
+      },
       {
         path: '/restaurant/employees/dashboard',
         element: <EmployeeDashboardPage />,
@@ -351,6 +357,14 @@ const router = createBrowserRouter([
       {
         path: '/restaurant/notifications/alerts',
         element: <AlertDashboardPage />,
+      },
+      {
+        path: '/restaurant/notifications/center',
+        element: <NotificationCenterPage />,
+      },
+      {
+        path: '/restaurant/notifications/settings',
+        element: <NotificationSettingsPage />,
       },
     ],
   },

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Search, Plus, FileSpreadsheet, Pencil, Trash2, ShieldAlert, BadgeAlert } from 'lucide-react';
+import { Search, Plus, FileSpreadsheet, Pencil, Trash2, ShieldAlert, BadgeAlert, X } from 'lucide-react';
 import RestaurantLayout from '@/features/restaurant/components/RestaurantLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -73,10 +73,18 @@ function IngredientModal({ suppliers = [], initialData = null, onSubmit, onCance
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="bg-background border rounded-lg shadow-xl w-full max-w-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-        <div className="p-4 border-b border-border bg-muted/20">
+        <div className="flex items-center justify-between p-4 border-b border-border bg-muted/20">
           <h4 className="font-bold text-sm text-foreground">
             {isEditMode ? `Edit Ingredient: ${form.ingredientName}` : 'Add New Ingredient'}
           </h4>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors"
+            aria-label="Close modal"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
 
         <form onSubmit={handleFormSubmit} className="p-4 space-y-4 max-h-[480px] overflow-y-auto">

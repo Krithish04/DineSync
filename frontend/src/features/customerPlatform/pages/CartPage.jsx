@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { ShoppingBag, ArrowRight, Trash2, Plus, Minus, Gift } from 'lucide-react';
+import { ShoppingBag, ArrowRight, Trash2, Plus, Minus, Gift, Clock } from 'lucide-react';
 import CustomerLayout from '../components/CustomerLayout';
 import CouponSelector from '../components/CouponSelector';
 import { Button } from '@/components/ui/button';
@@ -24,8 +24,10 @@ export default function CartPage() {
     getDiscount,
     getGrandTotal,
     tableNumber,
+    operatingStatus,
   } = useCartStore();
 
+  const isClosed = Boolean(operatingStatus?.isClosed);
   const hasContext = Boolean(restaurantId && tableId);
 
   if (!hasContext) {
@@ -64,6 +66,22 @@ export default function CartPage() {
             + Add More Items
           </Button>
         </div>
+
+        {isClosed && (
+          <div className="bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-400 rounded-xl p-3.5 text-xs flex items-center gap-3 shadow-xs animate-in fade-in duration-200">
+            <div className="p-2 rounded-lg bg-rose-500/20 text-rose-600 dark:text-rose-400 shrink-0">
+              <Clock size={20} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <span className="font-bold block text-sm text-rose-900 dark:text-rose-200">
+                Restaurant is Currently Closed
+              </span>
+              <span className="text-xs text-rose-700/90 dark:text-rose-300/90 font-medium block mt-0.5">
+                {operatingStatus?.statusMessage || "The kitchen is closed. You cannot checkout or place orders right now."}
+              </span>
+            </div>
+          </div>
+        )}
 
         {items.length === 0 ? (
           <div className="bg-card border border-border rounded-2xl p-8 text-center space-y-4 shadow-sm animate-in fade-in zoom-in-95 duration-150">
@@ -180,10 +198,13 @@ export default function CartPage() {
 
             <Button
               onClick={() => navigate('/menu/checkout')}
-              className="w-full h-12 text-sm sm:text-base font-bold gap-2 rounded-2xl shadow-lg active:scale-[0.99] touch-manipulation"
+              disabled={isClosed}
+              className={`w-full h-12 text-sm sm:text-base font-bold gap-2 rounded-2xl shadow-lg active:scale-[0.99] touch-manipulation ${
+                isClosed ? 'bg-muted text-muted-foreground border border-border cursor-not-allowed opacity-80' : ''
+              }`}
             >
-              <span>Proceed to Checkout</span>
-              <ArrowRight size={18} />
+              <span>{isClosed ? 'Restaurant is Closed' : 'Proceed to Checkout'}</span>
+              {!isClosed && <ArrowRight size={18} />}
             </Button>
           </>
         )}

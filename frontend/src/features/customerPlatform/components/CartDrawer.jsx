@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { X, Trash2, Plus, Minus, ArrowRight, Tag, Gift, ShoppingBag } from 'lucide-react';
+import { X, Trash2, Plus, Minus, ArrowRight, Tag, Gift, ShoppingBag, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import useCartStore from '../store/cart.store';
 
@@ -19,10 +19,12 @@ export default function CartDrawer({ isOpen, onClose }) {
     getGrandTotal,
     tableNumber,
     orderType,
+    operatingStatus,
   } = useCartStore();
 
   const isViewOnly = useCartStore((s) => s.isViewOnly);
   const activeSessionHostName = useCartStore((s) => s.activeSessionHostName);
+  const isClosed = Boolean(operatingStatus?.isClosed);
 
   if (!isOpen) return null;
 
@@ -146,7 +148,16 @@ export default function CartDrawer({ isOpen, onClose }) {
               </div>
             </div>
 
-            {isViewOnly ? (
+            {isClosed ? (
+              <div className="bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-400 rounded-xl p-3 text-xs space-y-1 text-center font-medium">
+                <p className="font-bold flex items-center justify-center gap-1">
+                  <Clock size={14} /> Restaurant is Closed
+                </p>
+                <p className="text-[11px] text-rose-600 dark:text-rose-400">
+                  {operatingStatus?.statusMessage || 'The kitchen is closed right now. Orders cannot be placed.'}
+                </p>
+              </div>
+            ) : isViewOnly ? (
               <div className="bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300 rounded-xl p-3 text-xs space-y-1 text-center font-medium">
                 <p className="font-bold">View-Only Mode Active</p>
                 <p className="text-[11px] text-amber-600 dark:text-amber-400">

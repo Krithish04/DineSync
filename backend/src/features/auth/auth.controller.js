@@ -48,6 +48,9 @@ const login = asyncHandler(async (req, res) => {
 });
 
 const logout = asyncHandler(async (req, res) => {
+  if (req.user && req.user._id) {
+    await authService.logoutUser(req.user._id, req.ip, req.headers['user-agent']);
+  }
   clearTokenCookie(res);
   return new ApiResponse(200, null, 'Logged out successfully').send(res);
 });

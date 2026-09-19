@@ -35,6 +35,9 @@ const useCartStore = create(
       appliedCoupon: null, // { code, discountAmount }
       loyaltyPointsRedeemed: 0,
 
+      operatingStatus: null, // { isOpen, isClosed, statusMessage, formattedHours }
+      setOperatingStatus: (operatingStatus) => set({ operatingStatus }),
+
       // Customer Table Host & Session Locking State
       sessionId: null,
       hostToken: null,
@@ -229,7 +232,7 @@ const useCartStore = create(
 
       addItem: (menuItem, quantity = 1, selectedModifiers = [], instructions = '') =>
         set((state) => {
-          if (state.isViewOnly || state.isInactiveTable || state.userLocation.isOutside) return state; // Lock ordering only for users outside geofence
+          if (state.isViewOnly || state.isInactiveTable || state.userLocation.isOutside || state.operatingStatus?.isClosed) return state; // Lock ordering when closed or outside geofence
 
           const modifierTotal = selectedModifiers.reduce((s, m) => s + (m.price || 0), 0);
           const unitPrice = menuItem.price + modifierTotal;

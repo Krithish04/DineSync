@@ -1,9 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { RotateCcw, Plus, Sparkles } from 'lucide-react';
+import { RotateCcw, Plus, Sparkles, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import useCartStore from '../store/cart.store';
 import * as customerApi from '../api/customerPlatform.api';
 
 export default function OrderItAgainSection({ restaurantId, phone, onAddToCart }) {
+  const operatingStatus = useCartStore((s) => s.operatingStatus);
+  const isClosed = Boolean(operatingStatus?.isClosed);
   const [history, setHistory] = useState(null);
   const [loading, setLoading] = useState(false);
 
@@ -77,11 +80,16 @@ export default function OrderItAgainSection({ restaurantId, phone, onAddToCart }
             <Button
               size="sm"
               variant="secondary"
+              disabled={isClosed}
               onClick={() => onAddToCart && onAddToCart(item)}
-              className="h-8 px-2.5 text-xs font-semibold gap-1 rounded-lg shrink-0 bg-primary/10 text-primary hover:bg-primary hover:text-white transition-all"
+              className={`h-8 px-2.5 text-xs font-semibold gap-1 rounded-lg shrink-0 transition-all ${
+                isClosed
+                  ? 'bg-muted text-muted-foreground border border-border cursor-not-allowed opacity-70'
+                  : 'bg-primary/10 text-primary hover:bg-primary hover:text-white'
+              }`}
             >
-              <Plus size={14} />
-              <span>Add</span>
+              {isClosed ? <Clock size={12} /> : <Plus size={14} />}
+              <span>{isClosed ? 'Closed' : 'Add'}</span>
             </Button>
           </div>
         ))}

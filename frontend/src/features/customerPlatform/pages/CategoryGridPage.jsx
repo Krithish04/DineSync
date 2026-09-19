@@ -74,7 +74,7 @@ export default function CategoryGridPage() {
       setIsLoading(true);
       setHasError(false);
       try {
-        const data = await customerApi.getPublicMenu(effectiveRestId);
+        const data = await customerApi.getPublicMenu(effectiveRestId || 'general');
 
         if (!isMounted) return;
 
@@ -137,14 +137,6 @@ export default function CategoryGridPage() {
   const handleViewFullMenu = () => {
     navigate('/menu/browse', { state: { fromCategories: true } });
   };
-
-  if (!hasContext) {
-    return (
-      <CustomerLayout title="Digital Menu">
-        <QrCodeRequiredCard message="Please scan your table's QR code to view our live digital menu and explore categories." />
-      </CustomerLayout>
-    );
-  }
 
   return (
     <CustomerLayout>

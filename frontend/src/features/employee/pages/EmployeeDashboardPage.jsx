@@ -5,6 +5,7 @@ import RestaurantLayout from '@/features/restaurant/components/RestaurantLayout'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Loader from '@/components/common/Loader';
+import useAuthStore from '@/features/auth/store/auth.store';
 import useBranchStore from '@/store/branch.store';
 import BranchContextBadge from '@/features/restaurant/components/BranchContextBadge';
 import * as employeeApi from '../api/employee.api';

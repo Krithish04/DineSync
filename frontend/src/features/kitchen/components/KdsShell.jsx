@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { ChefHat, Maximize, Minimize, LogOut } from 'lucide-react';
+import { ChefHat, Maximize, Minimize, LogOut, LayoutDashboard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import useAuthStore from '@/features/auth/store/auth.store';
 import * as authApi from '@/features/auth/api/auth.api';
@@ -36,7 +36,7 @@ export default function KdsShell({ socketConnected, isFullscreen, onToggleFullsc
       <header className="h-16 border-b border-border bg-card sticky top-0 z-40 flex items-center justify-between px-4 sm:px-6 shadow-xs">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
-            <span className="font-display text-xl sm:text-2xl font-extrabold text-primary tracking-tight">
+            <span className="font-sans text-xl sm:text-2xl font-black text-primary tracking-tight">
               DineSync <span className="text-foreground">AI</span>
             </span>
             <span className="text-xs font-bold px-2.5 py-1 rounded-full border bg-amber-500/10 text-amber-600 border-amber-500/20 flex items-center gap-1.5">
@@ -71,11 +71,23 @@ export default function KdsShell({ socketConnected, isFullscreen, onToggleFullsc
             </span>
           )}
 
+          {['owner', 'manager', 'super_admin'].includes(user?.role?.toLowerCase()) && (
+            <Button
+              size="sm"
+              variant="default"
+              onClick={() => navigate('/restaurant/dashboard')}
+              className="h-10 px-3.5 text-xs font-bold gap-1.5 rounded-xl shadow-xs cursor-pointer"
+            >
+              <LayoutDashboard className="h-4 w-4" />
+              <span>Back to Dashboard</span>
+            </Button>
+          )}
+
           <Button
             size="sm"
             variant="outline"
             onClick={onToggleFullscreen}
-            className="h-10 px-3 text-xs font-bold gap-1.5 rounded-xl border-border hover:bg-muted touch-manipulation min-h-[40px]"
+            className="h-10 px-3 text-xs font-bold gap-1.5 rounded-xl border-border hover:bg-muted touch-manipulation min-h-[40px] cursor-pointer"
             title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
           >
             {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
@@ -86,7 +98,7 @@ export default function KdsShell({ socketConnected, isFullscreen, onToggleFullsc
             size="sm"
             variant="outline"
             onClick={handleLogout}
-            className="h-10 px-3 text-xs font-bold text-destructive hover:bg-destructive/10 border-destructive/20 gap-1.5 rounded-xl touch-manipulation min-h-[40px]"
+            className="h-10 px-3 text-xs font-bold text-destructive hover:bg-destructive/10 border-destructive/20 gap-1.5 rounded-xl touch-manipulation min-h-[40px] cursor-pointer"
             title="Log out"
           >
             <LogOut className="h-4 w-4" />

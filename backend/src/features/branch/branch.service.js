@@ -511,6 +511,246 @@ const listBranchUsers = async (restaurantId, branchId) => {
   return users;
 };
 
+/**
+ * Owner creates a Manager account assigned to one or more branches (M:N mapping).
+ */
+const createOwnerManager = async (restaurantId, { name, email, password, phone, branchIds }, requestingUser) => {
+  if (!branchIds || !Array.isArray(branchIds) || branchIds.length === 0) {
+    throw ApiError.badRequest('At least one branch must be assigned to the manager.');
+  }
+
+  // Verify all branchIds belong to the restaurant
+  const validBranches = await Branch.find({ _id: { $in: branchIds }, restaurant: restaurantId });
+  if (validBranches.length !== branchIds.length) {
+    throw ApiError.badRequest('One or more selected branches do not belong to this restaurant.');
+  }
+
+  const existing = await User.findOne({ email, restaurant: restaurantId });
+  if (existing) {
+    throw ApiError.conflict('A user with this email already exists in this restaurant.');
+  }
+
+  const managerUser = await User.create({
+    name,
+    email,
+    password,
+    phone: phone || '',
+    role: ROLES.MANAGER,
+    restaurant: restaurantId,
+    branch: branchIds[0], // primary branch context
+    isEmailVerified: true,
+    isActive: true,
+  });
+
+  // Create ManagerBranch M:N mappings
+  const ManagerBranch = require('./managerBranch.model');
+  const mappings = branchIds.map((bId) => ({
+    restaurant: restaurantId,
+    manager: managerUser._id,
+    branch: bId,
+    assignedBy: requestingUser?._id || null,
+  }));
+  await ManagerBranch.insertMany(mappings);
+
+  const safeManager = managerUser.toSafeObject();
+  safeManager.assignedBranches = validBranches;
+
+  return safeManager;
+};
+
+/**
+ * Lists all Managers for an Owner with populated multi-branch assignments.
+ */
+const listOwnerManagers = async (restaurantId) => {
+  const ManagerBranch = require('./managerBranch.model');
+  const managers = await User.find({ restaurant: restaurantId, role: ROLES.MANAGER })
+    .select('-password')
+    .sort({ name: 1 });
+
+  const managerIds = managers.map((m) => m._id);
+  const mappings = await ManagerBranch.find({ manager: { $in: managerIds } })
+    .populate('branch', 'name code status address contact');
+
+  const mappingMap = new Map();
+  mappings.forEach((m) => {
+    const key = m.manager.toString();
+    if (!mappingMap.has(key)) mappingMap.set(key, []);
+    if (m.branch) mappingMap.get(key).push(m.branch);
+  });
+
+  return managers.map((m) => {
+    const obj = m.toObject();
+    obj.assignedBranches = mappingMap.get(m._id.toString()) || [];
+    return obj;
+  });
+};
+
+/**
+ * Gets Manager activity logs for Owner dashboard.
+ */
+const getOwnerManagerLogs = async (restaurantId) => {
+  const AuthLog = require('../auth/authLog.model');
+  const logs = await AuthLog.find({ restaurant: restaurantId, role: ROLES.MANAGER })
+    .populate('branch', 'name code')
+    .populate('assignedBranches', 'name code')
+    .sort({ createdAt: -1 })
+    .limit(100);
+  return logs;
+};
+
+/**
+ * Drilldown into a specific branch's Staff or Kitchen activity logs (Owner view).
+ */
+const getOwnerBranchLogs = async (restaurantId, branchId, accountType) => {
+  const AuthLog = require('../auth/authLog.model');
+  const targetRoles = accountType === 'kitchen' ? [ROLES.KITCHEN, ROLES.CHEF] : [ROLES.STAFF];
+  const logs = await AuthLog.find({
+    restaurant: restaurantId,
+    branch: branchId,
+    role: { $in: targetRoles },
+  })
+    .populate('branch', 'name code')
+    .sort({ createdAt: -1 })
+    .limit(100);
+  return logs;
+};
+
+/**
+ * Helper to get a Manager's assigned branch IDs.
+ */
+const getManagerAssignedBranchIds = async (managerId) => {
+  const ManagerBranch = require('./managerBranch.model');
+  const mappings = await ManagerBranch.find({ manager: managerId }).select('branch');
+  return mappings.map((m) => m.branch.toString());
+};
+
+/**
+ * Creates a Staff account scoped to a manager's assigned branch.
+ */
+const createManagerScopedStaff = async (restaurantId, { name, email, password, phone, branchId, designation, department }, requestingUser) => {
+  if (requestingUser.role === ROLES.MANAGER) {
+    const assignedBranchIds = await getManagerAssignedBranchIds(requestingUser._id);
+    if (!assignedBranchIds.includes(branchId.toString())) {
+      throw ApiError.forbidden('You are not assigned to manage this branch.');
+    }
+  }
+
+  await getBranchOrFail(restaurantId, branchId);
+
+  const existing = await User.findOne({ email, restaurant: restaurantId });
+  if (existing) {
+    throw ApiError.conflict('A user with this email already exists in this restaurant.');
+  }
+
+  const staffUser = await User.create({
+    name,
+    email,
+    password,
+    phone: phone || '',
+    role: ROLES.STAFF,
+    restaurant: restaurantId,
+    branch: branchId,
+    isEmailVerified: true,
+    isActive: true,
+  });
+
+  return staffUser.toSafeObject();
+};
+
+/**
+ * Creates a Kitchen account scoped to a manager's assigned branch.
+ */
+const createManagerScopedKitchen = async (restaurantId, { name, email, password, phone, branchId, kitchenStation }, requestingUser) => {
+  if (requestingUser.role === ROLES.MANAGER) {
+    const assignedBranchIds = await getManagerAssignedBranchIds(requestingUser._id);
+    if (!assignedBranchIds.includes(branchId.toString())) {
+      throw ApiError.forbidden('You are not assigned to manage this branch.');
+    }
+  }
+
+  await getBranchOrFail(restaurantId, branchId);
+
+  const existing = await User.findOne({ email, restaurant: restaurantId });
+  if (existing) {
+    throw ApiError.conflict('A user with this email already exists in this restaurant.');
+  }
+
+  const kitchenUser = await User.create({
+    name,
+    email,
+    password,
+    phone: phone || '',
+    role: ROLES.KITCHEN,
+    restaurant: restaurantId,
+    branch: branchId,
+    isEmailVerified: true,
+    isActive: true,
+  });
+
+  return kitchenUser.toSafeObject();
+};
+
+/**
+ * Lists Staff & Kitchen accounts scoped to a Manager's assigned branches.
+ */
+const listManagerScopedAccounts = async (restaurantId, { branchId, role }, requestingUser) => {
+  let targetBranchIds = [];
+  if (requestingUser.role === ROLES.MANAGER) {
+    targetBranchIds = await getManagerAssignedBranchIds(requestingUser._id);
+    if (branchId && !targetBranchIds.includes(branchId.toString())) {
+      throw ApiError.forbidden('You do not have access to this branch.');
+    }
+    if (branchId) targetBranchIds = [branchId];
+  } else if (branchId) {
+    targetBranchIds = [branchId];
+  }
+
+  const filter = { restaurant: restaurantId };
+  if (targetBranchIds.length > 0) {
+    filter.branch = { $in: targetBranchIds };
+  }
+  if (role) {
+    filter.role = role === 'kitchen' ? { $in: [ROLES.KITCHEN, ROLES.CHEF] } : role;
+  } else {
+    filter.role = { $in: [ROLES.STAFF, ROLES.KITCHEN, ROLES.CHEF] };
+  }
+
+  const users = await User.find(filter)
+    .populate('branch', 'name code')
+    .select('-password')
+    .sort({ role: 1, name: 1 });
+  return users;
+};
+
+/**
+ * Retrieves activity logs for Staff or Kitchen accounts scoped to Manager's assigned branches.
+ */
+const getManagerScopedLogs = async (restaurantId, targetRole, queryBranchId, requestingUser) => {
+  let targetBranchIds = [];
+  if (requestingUser.role === ROLES.MANAGER) {
+    targetBranchIds = await getManagerAssignedBranchIds(requestingUser._id);
+    if (queryBranchId && !targetBranchIds.includes(queryBranchId.toString())) {
+      throw ApiError.forbidden('You do not have access to logs for this branch.');
+    }
+    if (queryBranchId) targetBranchIds = [queryBranchId];
+  } else if (queryBranchId) {
+    targetBranchIds = [queryBranchId];
+  }
+
+  const roleFilter = targetRole === 'kitchen' ? [ROLES.KITCHEN, ROLES.CHEF] : [ROLES.STAFF];
+  const filter = { restaurant: restaurantId, role: { $in: roleFilter } };
+  if (targetBranchIds.length > 0) {
+    filter.branch = { $in: targetBranchIds };
+  }
+
+  const AuthLog = require('../auth/authLog.model');
+  const logs = await AuthLog.find(filter)
+    .populate('branch', 'name code')
+    .sort({ createdAt: -1 })
+    .limit(100);
+  return logs;
+};
+
 module.exports = {
   createBranch,
   getBranchDashboardSummary,
@@ -527,5 +767,13 @@ module.exports = {
   createBranchManager,
   createBranchStaff,
   listBranchUsers,
+  createOwnerManager,
+  listOwnerManagers,
+  getOwnerManagerLogs,
+  getOwnerBranchLogs,
+  createManagerScopedStaff,
+  createManagerScopedKitchen,
+  listManagerScopedAccounts,
+  getManagerScopedLogs,
 };
 

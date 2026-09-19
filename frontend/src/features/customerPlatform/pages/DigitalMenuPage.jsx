@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Search, Filter, AlertTriangle } from 'lucide-react';
+import { Search, Filter, AlertTriangle, Clock, Sparkles } from 'lucide-react';
 import CustomerLayout from '../components/CustomerLayout';
 import CustomerMenuCard from '../components/CustomerMenuCard';
 import CategoryTabs from '../components/CategoryTabs';
@@ -16,7 +16,6 @@ import OrderItAgainSection from '../components/OrderItAgainSection';
 import useCustomerAuthStore from '../store/customerAuth.store';
 import TableReservationLockModal from '../components/TableReservationLockModal';
 import QrCodeRequiredCard from '../components/QrCodeRequiredCard';
-import { Sparkles } from 'lucide-react';
 
 export default function DigitalMenuPage() {
   const [searchParams] = useSearchParams();
@@ -32,6 +31,8 @@ export default function DigitalMenuPage() {
   const isInactiveTable = useCartStore((s) => s.isInactiveTable || s.tableStatus === 'Inactive');
   const tableNumber = useCartStore((s) => s.tableNumber);
   const addItem = useCartStore((s) => s.addItem);
+  const setOperatingStatus = useCartStore((s) => s.setOperatingStatus);
+  const operatingStatus = useCartStore((s) => s.operatingStatus);
   const { phone } = useCustomerAuthStore();
 
   const handleAddFavoriteToCart = (favItem) => {
@@ -86,10 +87,9 @@ export default function DigitalMenuPage() {
   }, [promptAuth, tableHost, isViewOnly, isInactiveTable]);
 
   const loadMenu = useCallback(async () => {
-    if (!restaurantId) return;
     setIsLoading(true);
     try {
-      const data = await customerApi.getPublicMenu(restaurantId, {
+      const data = await customerApi.getPublicMenu(restaurantId || 'general', {
         branchId,
         categoryId: selectedCategory !== 'all' ? selectedCategory : undefined,
         dietary: dietaryFilter || undefined,
@@ -98,22 +98,17 @@ export default function DigitalMenuPage() {
       setCategories(data.categories || []);
       setItems(data.items || []);
       setAiRecs(data.aiRecommendations || []);
+      if (data.operatingStatus) {
+        setOperatingStatus(data.operatingStatus);
+      }
     } catch {
       /* non-fatal */
     } finally {
       setIsLoading(false);
     }
-  }, [restaurantId, branchId, selectedCategory, dietaryFilter, debouncedSearchQuery]);
+  }, [restaurantId, branchId, selectedCategory, dietaryFilter, debouncedSearchQuery, setOperatingStatus]);
 
   useEffect(() => { loadMenu(); }, [loadMenu]);
-
-  if (!hasContext) {
-    return (
-      <CustomerLayout title="Digital Menu">
-        <QrCodeRequiredCard message="Please scan your table's QR code to view our live digital menu and place orders." />
-      </CustomerLayout>
-    );
-  }
 
   // Include all items in the main list of selected categories (including Chef Recommendations & AI Picks)
   const mainListItems = items;
@@ -131,6 +126,23 @@ export default function DigitalMenuPage() {
       )}
 
       <div className="space-y-3">
+        {/* Restaurant Closed Banner (Conditional) */}
+        {operatingStatus?.isClosed && (
+          <div className="bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-400 rounded-xl p-3.5 text-xs flex items-center gap-3 shadow-xs animate-in fade-in duration-200">
+            <div className="p-2 rounded-lg bg-rose-500/20 text-rose-600 dark:text-rose-400 shrink-0">
+              <Clock size={20} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <span className="font-bold block text-sm text-rose-900 dark:text-rose-200">
+                Restaurant is Currently Closed
+              </span>
+              <span className="text-xs text-rose-700/90 dark:text-rose-300/90 font-medium block mt-0.5">
+                {operatingStatus.statusMessage || "The kitchen is closed and not taking orders right now."}
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Inactive Table Banner (Conditional) */}
         {isInactiveTable && (
           <div className="bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 rounded-xl p-3 text-xs flex items-center gap-2.5">

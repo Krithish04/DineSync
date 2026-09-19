@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const asyncHandler = require('../../utils/asyncHandler');
 const ApiResponse = require('../../utils/ApiResponse');
 const ApiError = require('../../utils/ApiError');
@@ -9,10 +10,19 @@ const { signToken } = require('../../utils/jwt.util');
 const { ROLES } = require('../../constants/roles.constant');
 
 /**
+ * Helper to validate restaurant ObjectId
+ */
+const getValidRestaurantId = (rawId) => {
+  if (!rawId || rawId === 'null' || rawId === 'undefined') return null;
+  return mongoose.Types.ObjectId.isValid(rawId) ? rawId : null;
+};
+
+/**
  * Sends a 6-digit OTP code to the provided phone number.
  */
 const sendCustomerOtp = asyncHandler(async (req, res) => {
-  const restaurantId = req.params.restaurantId || req.body.restaurantId;
+  const rawRestId = req.params.restaurantId || req.body.restaurantId;
+  const restaurantId = getValidRestaurantId(rawRestId);
   const { phone, tableId } = req.body;
 
   if (!phone || phone.replace(/\D/g, '').length < 10) {
@@ -50,7 +60,8 @@ const sendCustomerOtp = asyncHandler(async (req, res) => {
  * Verifies OTP code, finds or creates Customer record, and returns signed JWT token.
  */
 const verifyCustomerOtp = asyncHandler(async (req, res) => {
-  const restaurantId = req.params.restaurantId || req.body.restaurantId;
+  const rawRestId = req.params.restaurantId || req.body.restaurantId;
+  const restaurantId = getValidRestaurantId(rawRestId);
   const { phone, code, fullName, tableId } = req.body;
 
   if (!phone || !code) {
@@ -79,17 +90,21 @@ const verifyCustomerOtp = asyncHandler(async (req, res) => {
   });
 
   // Find or create customer document for this restaurant + phone (including restoring soft-deleted accounts)
-  let customer = await Customer.findOne({
-    restaurant: restaurantId,
-    phoneNumber: cleanPhone,
-  });
+  const customerQuery = { phoneNumber: cleanPhone };
+  if (restaurantId) {
+    customerQuery.restaurant = restaurantId;
+  }
+  let customer = await Customer.findOne(customerQuery);
 
   if (!customer) {
-    customer = await Customer.create({
-      restaurant: restaurantId,
+    const customerPayload = {
       phoneNumber: cleanPhone,
       fullName: fullName && fullName.trim() ? fullName.trim() : 'Guest',
-    });
+    };
+    if (restaurantId) {
+      customerPayload.restaurant = restaurantId;
+    }
+    customer = await Customer.create(customerPayload);
   } else {
     let needsSave = false;
     if (customer.isDeleted) {

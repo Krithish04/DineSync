@@ -1,6 +1,7 @@
 const Restaurant = require('./tenant.model');
 const ApiError = require('../../utils/ApiError');
 const { ROLES } = require('../../constants/roles.constant');
+const { getCache, setCache, clearCachePattern } = require('../../config/redis.config');
 
 /**
  * Loads a restaurant by id and enforces that the requesting user either is a
@@ -21,12 +22,20 @@ const getById = async (id, requestingUser) => {
 };
 
 const getPublicBySlug = async (slug) => {
+  const cacheKey = `tenant:slug:${slug}`;
+  const cached = await getCache(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
   const restaurant = await Restaurant.findOne({ slug, isActive: true }).select(
     'name slug description address phone email website cuisine logoUrl coverImageUrl socialLinks openingHours'
   );
   if (!restaurant) {
     throw ApiError.notFound(`No active restaurant found for tenant "${slug}"`);
   }
+
+  await setCache(cacheKey, restaurant, 3600);
   return restaurant;
 };
 
@@ -46,13 +55,21 @@ const deactivate = async (id, requestingUser) => {
   const restaurant = await getById(id, requestingUser);
   restaurant.isActive = false;
   await restaurant.save();
+  await clearCachePattern(`tenant:${id}:*`);
+  await clearCachePattern('tenant:slug:*');
   return restaurant;
 };
 
 // --- Profile ---
 const getProfile = async (id, requestingUser) => {
+  const cacheKey = `tenant:${id}:profile`;
+  const cached = await getCache(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
   const restaurant = await getById(id, requestingUser);
-  return {
+  const profile = {
     name: restaurant.name,
     slug: restaurant.slug,
     description: restaurant.description,
@@ -65,6 +82,9 @@ const getProfile = async (id, requestingUser) => {
     coverImageUrl: restaurant.coverImageUrl,
     socialLinks: restaurant.socialLinks,
   };
+
+  await setCache(cacheKey, profile, 3600);
+  return profile;
 };
 
 const updateProfile = async (id, updates, requestingUser) => {
@@ -94,6 +114,8 @@ const updateProfile = async (id, updates, requestingUser) => {
   });
 
   await restaurant.save();
+  await clearCachePattern(`tenant:${id}:*`);
+  await clearCachePattern('tenant:slug:*');
   return getProfile(id, requestingUser);
 };
 
@@ -101,11 +123,19 @@ const DEFAULT_STATIONS = ['Main Kitchen', 'Tandoor', 'Bar', 'Dessert', 'Beverage
 
 // --- Settings ---
 const getSettings = async (id, requestingUser) => {
+  const cacheKey = `tenant:${id}:settings`;
+  const cached = await getCache(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
   const restaurant = await getById(id, requestingUser);
   if (!restaurant.settings.kitchenStations || restaurant.settings.kitchenStations.length === 0) {
     restaurant.settings.kitchenStations = DEFAULT_STATIONS;
     await restaurant.save();
   }
+
+  await setCache(cacheKey, restaurant.settings, 3600);
   return restaurant.settings;
 };
 
@@ -151,6 +181,8 @@ const updateSettings = async (id, updates, requestingUser) => {
     settingsObj.fallbackStation = fallbackStation;
   }
 
+  await clearCachePattern(`tenant:${id}:*`);
+
   // Real-time broadcast to connected KDS, Kitchen Dashboard, and Staff clients
   try {
     const socketConfig = require('../../config/socket.config');
@@ -173,6 +205,7 @@ const updateGst = async (id, updates, requestingUser) => {
   const restaurant = await getById(id, requestingUser);
   restaurant.gst = { ...restaurant.gst.toObject(), ...updates };
   await restaurant.save();
+  await clearCachePattern(`tenant:${id}:*`);
   return restaurant.gst;
 };
 
@@ -186,6 +219,8 @@ const updateOpeningHours = async (id, openingHours, requestingUser) => {
   const restaurant = await getById(id, requestingUser);
   restaurant.openingHours = openingHours;
   await restaurant.save();
+  await clearCachePattern(`tenant:${id}:*`);
+  await clearCachePattern('tenant:slug:*');
   return restaurant.openingHours;
 };
 

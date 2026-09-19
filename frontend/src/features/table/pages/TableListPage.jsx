@@ -67,9 +67,9 @@ export default function TableListPage() {
     return () => clearTimeout(handler);
   }, [search]);
 
-  // Load tables
-  const loadTables = useCallback(async () => {
-    setIsLoading(true);
+  // Load tables (supports silent background fetch to avoid component unmount/loader flashes)
+  const loadTables = useCallback(async (isSilent = false) => {
+    if (!isSilent) setIsLoading(true);
     setError('');
     try {
       const params = {
@@ -81,12 +81,38 @@ export default function TableListPage() {
       if (selectedStatusFilter !== 'all') params.status = selectedStatusFilter;
 
       const res = await tableApi.listTables(restaurantId, params);
-      setTables(res.items || []);
+      let items = res.items || [];
+
+      // Merge cached floor positions if available
+      try {
+        const savedStr = localStorage.getItem('dinesync_saved_table_positions');
+        if (savedStr) {
+          const map = JSON.parse(savedStr);
+          items = items.map((t) => {
+            const tId = String(t._id || t.id);
+            const saved = map[tId];
+            if (saved) {
+              return {
+                ...t,
+                positionX: saved.positionX ?? t.positionX,
+                positionY: saved.positionY ?? t.positionY,
+                zone: saved.zone || t.zone,
+                shape: saved.shape || t.shape,
+              };
+            }
+            return t;
+          });
+        }
+      } catch {
+        // Ignore cache merge error
+      }
+
+      setTables(items);
       setPagination(res.pagination || null);
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to load restaurant tables.');
+      if (!isSilent) setError(err.response?.data?.message || 'Failed to load restaurant tables.');
     } finally {
-      setIsLoading(false);
+      if (!isSilent) setIsLoading(false);
     }
   }, [restaurantId, page, limit, searchDebounced, selectedStatusFilter, viewMode]);
 
@@ -108,11 +134,11 @@ export default function TableListPage() {
           prev.map((t) => (String(t._id) === targetId ? { ...t, status: newStatus } : t))
         );
       }
-      loadTables();
+      loadTables(true);
     };
 
     const handleLayoutUpdate = () => {
-      loadTables();
+      loadTables(true); // Silent update — preserves canvas mount & prevents snap-back/loader flash!
     };
 
     socket.on('table:updated', handleTableUpdate);
@@ -243,29 +269,31 @@ export default function TableListPage() {
   };
 
   // Save bulk layout positions from drag-and-drop architectural editor
-  const handleSaveLayout = async (layoutItems) => {
-    setIsSavingLayout(true);
+  const handleSaveLayout = async (layoutItems, isBackground = false) => {
+    if (!isBackground) setIsSavingLayout(true);
+
+    // Optimistically update parent tables state immediately to prevent snap-back
+    setTables((prev) =>
+      prev.map((t) => {
+        const tId = String(t._id || t.id);
+        const updated = layoutItems.find((item) => String(item._id || item.id) === tId);
+        return updated ? { ...t, ...updated } : t;
+      })
+    );
+
     try {
       console.log('[PARENT_SAVE_START] Sending bulkUpdateTableLayout API call...');
       const res = await tableApi.bulkUpdateTableLayout(restaurantId, layoutItems);
       console.log('[PARENT_SAVE_RESPONSE] Backend API response:', res);
-
-      // Optimistically update tables state in TableListPage so parent tables state matches saved layout
-      setTables((prev) =>
-        prev.map((t) => {
-          const updated = layoutItems.find((item) => String(item._id) === String(t._id));
-          return updated ? { ...t, ...updated } : t;
-        })
-      );
-
-      setSuccess('Floor plan layout saved successfully!');
-      await loadTables();
-      console.log('[PARENT_RELOAD_COMPLETE] loadTables finished after layout save.');
-      setTimeout(() => setSuccess(''), 3000);
+      if (!isBackground) {
+        setSuccess('Floor plan layout saved successfully!');
+        setTimeout(() => setSuccess(''), 3000);
+      }
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to save floor plan layout.');
+      if (!isBackground) setError(err.response?.data?.message || 'Failed to save floor plan layout.');
+      loadTables(true); // Re-fetch silently on error to revert state
     } finally {
-      setIsSavingLayout(false);
+      if (!isBackground) setIsSavingLayout(false);
     }
   };
 
@@ -414,19 +442,19 @@ export default function TableListPage() {
     >
       <>
         <Card className="w-full">
-          <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 space-y-0">
+          <CardHeader className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 space-y-0">
             <div>
               <CardTitle>Tables &amp; Architectural Floor Plan</CardTitle>
               <CardDescription>Design restaurant floor layout, monitor dining seating in real-time, and download QR codes.</CardDescription>
             </div>
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap shrink-0">
               {/* Layout View Toggle Mode */}
-              <div className="flex items-center bg-muted/60 p-1 rounded-xl border border-border/50">
+              <div className="flex items-center h-10 bg-muted/70 p-1 rounded-2xl border border-border/60 shrink-0">
                 <Button
                   variant={viewMode === 'floorplan' ? 'default' : 'ghost'}
                   size="sm"
                   onClick={() => setViewMode('floorplan')}
-                  className="h-8 text-xs font-semibold rounded-lg gap-1.5"
+                  className="h-8 text-xs font-bold rounded-xl gap-1.5 px-3.5"
                 >
                   <Map size={14} /> Architectural Map
                 </Button>
@@ -434,21 +462,30 @@ export default function TableListPage() {
                   variant={viewMode === 'grid' ? 'default' : 'ghost'}
                   size="sm"
                   onClick={() => setViewMode('grid')}
-                  className="h-8 text-xs font-semibold rounded-lg gap-1.5"
+                  className="h-8 text-xs font-bold rounded-xl gap-1.5 px-3.5"
                 >
                   <LayoutGrid size={14} /> Cards Grid
                 </Button>
               </div>
 
               {canManage && (
-                <>
-                  <Button size="sm" variant="outline" onClick={() => setIsMergeModalOpen(true)} className="gap-1.5 border-purple-500/30 text-purple-600 dark:text-purple-400">
-                    <Layers className="h-4 w-4" /> Merge Tables
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setIsMergeModalOpen(true)}
+                    className="h-10 text-xs gap-1.5 border-purple-500/40 text-purple-600 dark:text-purple-400 font-bold rounded-2xl px-4 hover:bg-purple-500/10"
+                  >
+                    <Layers className="h-4 w-4 text-purple-500" /> Merge Tables
                   </Button>
-                  <Button size="sm" onClick={() => navigate('/restaurant/tables/new')}>
-                    <Plus className="mr-1.5 h-4 w-4" /> Add Table
+                  <Button
+                    size="sm"
+                    onClick={() => navigate('/restaurant/tables/new')}
+                    className="h-10 text-xs gap-1.5 font-bold rounded-2xl px-4 shadow-sm"
+                  >
+                    <Plus className="h-4 w-4" /> Add Table
                   </Button>
-                </>
+                </div>
               )}
             </div>
           </CardHeader>

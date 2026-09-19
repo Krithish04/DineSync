@@ -71,135 +71,105 @@ export default function KitchenTicketCard({
     ? new Date(ticket.targetReadyTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     : null;
 
-  // Dynamic visual SLA escalation card themes (Phase 1 & 2)
-  const getSlaTheme = () => {
-    if (isLeadTicket) {
-      return 'border-l-[24px] border-l-rose-600 bg-gradient-to-br from-rose-500/20 via-rose-950/30 to-amber-950/20 border-rose-500 ring-8 ring-rose-500/60 shadow-[0_0_40px_rgba(225,29,72,0.5)] scale-[1.01]';
-    }
-    if (ticket.status === 'Ready' || ticket.status === 'Served') {
-      return 'border-l-[16px] border-l-emerald-500 bg-emerald-500/10 dark:bg-emerald-950/30 border-emerald-500/30';
-    }
-    if (flag === 'late' || ticket.status === 'Delayed') {
-      return 'border-l-[20px] border-l-rose-600 bg-rose-500/15 dark:bg-rose-950/40 border-rose-500/50 ring-4 ring-rose-500/40 shadow-[0_0_25px_rgba(225,29,72,0.35)] animate-pulse';
-    }
-    if (flag === 'at-risk') {
-      return 'border-l-[16px] border-l-amber-500 bg-amber-500/15 dark:bg-amber-950/35 border-amber-500/40 shadow-[0_0_20px_rgba(245,158,11,0.25)]';
-    }
-    return 'border-l-[16px] border-l-primary bg-card border-border';
+  // Urgency Top Stripe Color
+  const getTopStripeColor = () => {
+    if (flag === 'late' || ticket.status === 'Delayed') return 'bg-rose-500';
+    if (flag === 'at-risk') return 'bg-amber-500';
+    if (ticket.status === 'Ready' || ticket.status === 'Served') return 'bg-emerald-500';
+    return 'bg-primary';
   };
 
   return (
     <Card
       draggable={canDrag}
       onDragStart={handleDragStart}
-      className={`relative overflow-hidden transition-all duration-300 border-3 shadow-xl rounded-3xl animate-in slide-in-from-top-4 fade-in duration-300 ${getSlaTheme()} ${
-        canDrag ? 'cursor-grab active:cursor-grabbing' : ''
-      }`}
+      className={`relative overflow-hidden transition-all border shadow-xs rounded-xl bg-card animate-in slide-in-from-top-2 fade-in duration-200 ${
+        isLeadTicket
+          ? 'border-amber-500/80 ring-2 ring-amber-500/30 shadow-sm'
+          : flag === 'late' || ticket.status === 'Delayed'
+          ? 'border-rose-500/50'
+          : flag === 'at-risk'
+          ? 'border-amber-500/40'
+          : 'border-border/80'
+      } ${canDrag ? 'cursor-grab active:cursor-grabbing' : ''}`}
     >
-      <CardContent className={`space-y-4 ${isLeadTicket ? 'p-6 sm:p-8 space-y-6' : isPeakMode ? 'p-4' : 'p-5 sm:p-6'}`}>
-        {/* Lead Ticket Special Dominance Banner */}
-        {isLeadTicket && (
-          <div className="bg-rose-600 text-white p-3 rounded-2xl flex items-center justify-between font-mono font-black text-sm sm:text-base tracking-wider uppercase shadow-xl animate-pulse">
-            <span className="flex items-center gap-2">
-              🚨 MOST URGENT TICKET — IMMEDIATE KITCHEN PRIORITY
-            </span>
-            <span className="bg-white text-rose-950 px-3 py-1 rounded-xl font-mono text-xs font-black">
-              1-SECOND GLANCE LEAD
-            </span>
-          </div>
-        )}
-        {/* SLA Priority Flag Banner */}
-        <div className="flex items-center justify-between gap-2 flex-wrap text-xs sm:text-sm font-black uppercase tracking-wider">
-          <div className="flex items-center gap-2">
-            {flag === 'late' && (
-              <span className="px-3 py-1 rounded-full bg-rose-600 text-white font-mono shadow-md animate-bounce flex items-center gap-1.5 text-xs sm:text-sm font-black">
-                🚨 OVERDUE SLA
-              </span>
-            )}
-            {flag === 'at-risk' && (
-              <span className="px-3 py-1 rounded-full bg-amber-500 text-slate-955 font-mono shadow-md flex items-center gap-1.5 text-xs sm:text-sm font-black">
-                ⚠️ AT-RISK SLA (-3m)
-              </span>
-            )}
-            {flag === 'on-track' && (
-              <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-800 dark:text-emerald-200 font-mono border border-emerald-500/40 flex items-center gap-1.5 text-xs sm:text-sm font-extrabold">
-                ✓ ON TRACK
-              </span>
-            )}
-          </div>
+      {/* Urgency Top Edge Stripe */}
+      <div className={`h-1.5 w-full ${getTopStripeColor()}`} />
 
-          {targetReadyStr && (
-            <span className="text-xs font-mono text-muted-foreground bg-muted/80 px-2.5 py-1 rounded-lg border font-bold">
-              Target: {targetReadyStr}
-            </span>
-          )}
-        </div>
-
-        {/* Ticket Header: Prominent 32px+ Table # & Ticking Age Timer */}
-        <div className="flex items-start justify-between gap-3 border-b-2 border-border/80 pb-3">
-          <div className="cursor-pointer flex-1" onClick={() => onSelectTicket && onSelectTicket(ticket)}>
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-sm font-mono font-black text-foreground bg-muted border-2 border-border rounded-xl px-2.5 py-1">
-                #{ticket.ticketNumber || ticket._id?.slice(-4)}
-              </span>
-              {queuePosition && (
-                <span className="text-sm font-extrabold font-mono text-amber-900 dark:text-amber-100 bg-amber-500/20 border border-amber-500/50 rounded-xl px-2.5 py-1">
-                  #{queuePosition} Queue
+      <CardContent className="p-3 space-y-2.5">
+        {/* Ticket Header: Table # / Order Type, Order ID, Priority Chip & Compact Timer Badge */}
+        <div className="flex items-start justify-between gap-2 border-b border-border/60 pb-2">
+          <div className="cursor-pointer flex-1 min-w-0" onClick={() => onSelectTicket && onSelectTicket(ticket)}>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <h3 className="font-extrabold text-sm sm:text-base text-foreground tracking-tight truncate">
+                {tableNum ? `Table #${tableNum}` : ticket.orderType || 'General Order'}
+              </h3>
+              {custName && <span className="text-xs text-muted-foreground font-semibold truncate">({custName})</span>}
+              {isLeadTicket && (
+                <span className="text-[10px] font-extrabold bg-amber-500 text-slate-950 px-1.5 py-0.5 rounded uppercase shrink-0">
+                  🔥 Priority #1
                 </span>
               )}
             </div>
 
-            {/* Distance-Readable 32px+ Header */}
-            <h3 className={`font-black text-foreground mt-1.5 tracking-tight font-display leading-tight ${isPeakMode ? 'text-2xl' : 'text-3xl sm:text-4xl'}`}>
-              {tableNum ? `Table #${tableNum}` : ticket.orderType || 'General Order'}
-              {custName && <span className="text-base sm:text-lg text-muted-foreground font-extrabold ml-2">({custName})</span>}
-            </h3>
+            <div className="flex items-center gap-1.5 text-xs font-mono text-muted-foreground mt-0.5">
+              <span>#{ticket.ticketNumber || ticket._id?.slice(-4)}</span>
+              {queuePosition && <span className="text-amber-700 dark:text-amber-300 font-bold">• #{queuePosition} Queue</span>}
+            </div>
           </div>
 
-          <div className="flex flex-col items-end gap-1.5 shrink-0">
+          <div className="flex flex-col items-end gap-1 shrink-0">
+            {/* Compact Timer Badge */}
             <span
-              className={`flex items-center gap-1.5 font-black font-mono ${isPeakMode ? 'text-xl' : 'text-2xl sm:text-3xl'} ${
-                flag === 'late' ? 'text-rose-600 animate-bounce' : flag === 'at-risk' ? 'text-amber-600' : 'text-primary'
+              className={`px-2 py-0.5 rounded text-xs font-mono font-black border flex items-center gap-1 ${
+                flag === 'late'
+                  ? 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/40 animate-pulse'
+                  : flag === 'at-risk'
+                  ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/40'
+                  : 'bg-muted text-foreground border-border/80'
               }`}
-              title="Time elapsed since order placed"
+              title="Time elapsed"
             >
-              <Clock className="h-6 w-6 shrink-0 animate-pulse" />
+              <Clock size={12} className="shrink-0" />
               {elapsed}
             </span>
+
+            {/* Status Pill */}
             <span
-              className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs sm:text-sm font-black uppercase border-2 shadow-xs ${
-                ticket.status === 'Pending' ? 'bg-amber-500/20 text-amber-900 dark:text-amber-200 border-amber-500/50' :
-                ticket.status === 'Preparing' ? 'bg-orange-500/20 text-orange-900 dark:text-orange-200 border-orange-500/50' :
-                ticket.status === 'Ready' ? 'bg-emerald-500/20 text-emerald-900 dark:text-emerald-200 border-emerald-500/50' :
-                'bg-purple-500/20 text-purple-900 dark:text-purple-200 border-purple-500/50'
+              className={`text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded border ${
+                ticket.status === 'Pending' ? 'bg-amber-500/15 text-amber-800 dark:text-amber-200 border-amber-500/30' :
+                ticket.status === 'Preparing' ? 'bg-orange-500/15 text-orange-800 dark:text-orange-200 border-orange-500/30' :
+                ticket.status === 'Ready' ? 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-200 border-emerald-500/30' :
+                'bg-purple-500/15 text-purple-800 dark:text-purple-200 border-purple-500/30'
               }`}
             >
-              {ticket.status === 'Pending' && '⏳ Pending'}
-              {ticket.status === 'Preparing' && '🔥 Preparing'}
-              {ticket.status === 'Ready' && '✅ Ready'}
-              {ticket.status === 'Delayed' && '🚨 Delayed'}
-              {ticket.status === 'Served' && '🍽️ Served'}
+              {ticket.status}
             </span>
           </div>
         </div>
 
-        {/* Ticket Items Grid: Distance-Readable 20px+ Item Names & Quantities */}
-        <div className="space-y-3 cursor-pointer" onClick={() => onSelectTicket && onSelectTicket(ticket)}>
+        {/* Ticket Items List & Allergy/Dietary Note Strip */}
+        <div className="space-y-1.5 cursor-pointer" onClick={() => onSelectTicket && onSelectTicket(ticket)}>
           {ticket.items.map((item) => {
             const hasModifiers = item.modifiers?.length > 0 || item.specialInstructions;
             return (
-              <div key={item._id} className="space-y-1.5 border-b-2 border-border/40 pb-3 last:border-none last:pb-0">
-                <div className="flex justify-between items-center gap-3">
-                  <span className={`font-black text-foreground leading-snug ${isPeakMode ? 'text-lg' : 'text-xl sm:text-2xl'}`}>
-                    {item.itemName} <span className="font-mono text-primary font-black text-2xl sm:text-3xl ml-2">x{item.quantity}</span>
+              <div key={item._id} className="space-y-1 border-b border-border/30 pb-1.5 last:border-none last:pb-0">
+                <div className="flex justify-between items-center gap-2">
+                  <span className="text-xs sm:text-sm font-extrabold text-foreground leading-snug flex items-center flex-wrap">
+                    {item.itemName} <span className="font-mono text-primary font-black text-xs sm:text-sm ml-1">x{item.quantity}</span>
+                    {(flag === 'late' || ticket.status === 'Delayed' || item.kitchenStatus === 'Delayed') && item.kitchenStatus !== 'Ready' && (
+                      <span className="ml-1.5 text-[10px] font-mono font-extrabold text-rose-600 bg-rose-500/15 border border-rose-500/40 px-1.5 py-0.5 rounded animate-pulse">
+                        🚨 DELAYED
+                      </span>
+                    )}
                   </span>
 
                   {!isReadOnly && onItemStatusChange && (
-                    <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
                       {item.kitchenStatus === 'Pending' && (
                         <button
                           onClick={() => onItemStatusChange(ticket._id, item._id, 'Preparing')}
-                          className="text-sm font-extrabold px-4 py-2 border-2 rounded-xl bg-background hover:bg-muted text-foreground touch-manipulation min-h-[48px] shadow-xs"
+                          className="h-7 px-2 text-[11px] font-bold border rounded-md bg-background hover:bg-muted text-foreground touch-manipulation cursor-pointer"
                         >
                           Accept
                         </button>
@@ -207,7 +177,7 @@ export default function KitchenTicketCard({
                       {item.kitchenStatus === 'Preparing' && (
                         <button
                           onClick={() => onItemStatusChange(ticket._id, item._id, 'Ready')}
-                          className="text-sm font-extrabold px-4 py-2 border-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white touch-manipulation min-h-[48px] shadow-xs"
+                          className="h-7 px-2 text-[11px] font-bold border border-emerald-600 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md touch-manipulation cursor-pointer"
                         >
                           Ready ✓
                         </button>
@@ -215,37 +185,27 @@ export default function KitchenTicketCard({
                       {item.kitchenStatus === 'Ready' && (
                         <button
                           onClick={() => onItemStatusChange(ticket._id, item._id, 'Preparing')}
-                          className="text-sm font-extrabold p-2.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-xl touch-manipulation min-h-[48px]"
+                          className="h-7 px-1.5 text-[11px] font-bold text-muted-foreground hover:text-foreground hover:bg-muted rounded-md touch-manipulation cursor-pointer"
                           title="Recall item"
                         >
-                          <CornerDownLeft className="h-5 w-5" />
+                          <CornerDownLeft className="h-3.5 w-3.5" />
                         </button>
                       )}
                     </div>
                   )}
                 </div>
 
-                {/* Modifiers & Special Instructions — Bold Alert Highlight Box */}
-                {hasModifiers && isPeakMode && !showPeakModifiers ? (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowPeakModifiers(true);
-                    }}
-                    className="text-xs font-black text-primary hover:underline bg-primary/10 px-3 py-1 rounded-lg border border-primary/30"
-                  >
-                    + Modifiers / Custom Notes
-                  </button>
-                ) : (
-                  <div className="space-y-1 mt-1">
+                {/* Modifiers & Special Allergy/Dietary Instructions Strip */}
+                {hasModifiers && (
+                  <div className="space-y-0.5">
                     {item.modifiers?.length > 0 && (
-                      <p className="text-sm sm:text-base font-black text-primary pl-3 border-l-4 border-primary">
+                      <p className="text-[11px] font-semibold text-primary pl-2 border-l-2 border-primary">
                         • {item.modifiers.map((m) => m.optionName).join(', ')}
                       </p>
                     )}
                     {item.specialInstructions && (
-                      <div className="text-sm sm:text-base text-amber-950 dark:text-amber-100 font-black pl-3 bg-amber-500/25 border-l-4 border-amber-500 p-2 rounded-r-xl shadow-xs">
-                        ⚠️ NOTE: <span className="underline">{item.specialInstructions}</span>
+                      <div className="text-[11px] text-amber-950 dark:text-amber-200 font-bold px-2 py-0.5 bg-amber-500/15 border-l-2 border-amber-500 rounded-r shadow-2xs">
+                        ⚠️ NOTE: <span>{item.specialInstructions}</span>
                       </div>
                     )}
                   </div>
@@ -255,62 +215,62 @@ export default function KitchenTicketCard({
           })}
         </div>
 
-        {/* Footer Actions: Generous Minimum 56px Touch Target Buttons with Clear Separation */}
+        {/* Compact Footer Actions */}
         {!isReadOnly && onStatusChange && (
-          <div className="flex items-center gap-3 border-t-2 border-border/80 pt-3" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center gap-2 border-t border-border/60 pt-2" onClick={(e) => e.stopPropagation()}>
             {ticket.status === 'Pending' && (
               <Button
-                size="lg"
-                className="w-full text-lg font-black min-h-[56px] gap-2 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg active:scale-[0.98] touch-manipulation"
+                size="sm"
+                className="w-full h-8 text-xs font-bold gap-1 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground touch-manipulation cursor-pointer"
                 onClick={() => onStatusChange(ticket._id, 'Preparing')}
               >
-                <Play className="h-6 w-6" /> Start Cooking
+                <Play className="h-3.5 w-3.5" /> Start Cooking
               </Button>
             )}
 
             {ticket.status === 'Preparing' && (
               <>
                 <Button
-                  size="lg"
-                  className="flex-1 text-lg font-black min-h-[56px] gap-2 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg active:scale-[0.98] touch-manipulation"
+                  size="sm"
+                  className="flex-1 h-8 text-xs font-bold gap-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white touch-manipulation cursor-pointer"
                   onClick={() => onStatusChange(ticket._id, 'Ready')}
                 >
-                  <CheckCircle2 className="h-6 w-6" /> Mark Ready ✓
+                  <CheckCircle2 className="h-3.5 w-3.5" /> Mark Ready ✓
                 </Button>
                 <Button
-                  size="lg"
+                  size="sm"
                   variant="outline"
-                  className="text-base sm:text-lg font-black min-h-[56px] gap-2 rounded-2xl border-2 border-rose-600/50 text-rose-600 hover:bg-rose-500/15 touch-manipulation px-4 shadow-xs"
+                  className="h-8 px-2.5 text-xs font-bold gap-1 rounded-lg border-rose-600/40 text-rose-600 hover:bg-rose-500/10 touch-manipulation cursor-pointer"
                   onClick={() => onStatusChange(ticket._id, 'Delayed')}
                 >
-                  <AlertTriangle className="h-6 w-6" /> Delay
+                  <AlertTriangle className="h-3.5 w-3.5" /> Delay
                 </Button>
               </>
             )}
 
             {ticket.status === 'Delayed' && (
               <Button
-                size="lg"
-                className="w-full text-lg font-black min-h-[56px] gap-2 rounded-2xl bg-amber-600 hover:bg-amber-700 text-white shadow-lg active:scale-[0.98] touch-manipulation"
+                size="sm"
+                className="w-full h-8 text-xs font-bold gap-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white touch-manipulation cursor-pointer"
                 onClick={() => onStatusChange(ticket._id, 'Preparing')}
               >
-                <Play className="h-6 w-6" /> Resume Cooking
+                <Play className="h-3.5 w-3.5" /> Resume Cooking
               </Button>
             )}
 
             {ticket.status === 'Ready' && (
               <>
                 <Button
-                  size="lg"
-                  className="flex-1 text-lg font-black min-h-[56px] gap-2 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white shadow-lg active:scale-[0.98] touch-manipulation"
+                  size="sm"
+                  className="flex-1 h-8 text-xs font-bold gap-1 rounded-lg bg-purple-600 hover:bg-purple-700 text-white touch-manipulation cursor-pointer"
                   onClick={() => onStatusChange(ticket._id, 'Served')}
                 >
-                  <UserCheck className="h-6 w-6" /> Mark Served
+                  <UserCheck className="h-3.5 w-3.5" /> Mark Served
                 </Button>
                 <Button
-                  size="lg"
+                  size="sm"
                   variant="ghost"
-                  className="text-base font-extrabold min-h-[56px] rounded-2xl touch-manipulation px-4"
+                  className="h-8 px-2 text-xs font-bold rounded-lg touch-manipulation cursor-pointer"
                   onClick={() => onStatusChange(ticket._id, 'Preparing')}
                 >
                   Recall

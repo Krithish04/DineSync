@@ -85,7 +85,12 @@ export default function DashboardPage() {
     let pendingReservations = 0;
     let lowStockCount = 0;
 
-    const branchParam = selectedBranchId && selectedBranchId !== 'all' ? selectedBranchId : undefined;
+    const userBranchId = user?.branch?._id || user?.branch || user?.assignedBranch;
+    const effectiveBranchId = !isAdmin
+      ? (userBranchId || (selectedBranchId !== 'all' ? selectedBranchId : undefined))
+      : (selectedBranchId && selectedBranchId !== 'all' ? selectedBranchId : undefined);
+
+    const branchParam = effectiveBranchId ? String(effectiveBranchId) : undefined;
     const now = new Date();
     const last7Days = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
@@ -202,7 +207,7 @@ export default function DashboardPage() {
     });
 
     setIsLoading(false);
-  }, [restaurantId, selectedBranchId]);
+  }, [restaurantId, selectedBranchId, user, isAdmin]);
 
   useEffect(() => {
     loadDashboardData();
@@ -542,6 +547,20 @@ export default function DashboardPage() {
                   <CardContent className="pt-0">
                     <Button variant="outline" size="sm" className="w-full text-xs">
                       View Sales Reports <ArrowRight className="h-3.5 w-3.5 ml-1.5" />
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                <Card className="hover:border-primary/40 transition-colors cursor-pointer" onClick={() => navigate('/restaurant/notifications/center')}>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                      <Bell className="h-4 w-4 text-sky-500" /> Notification Center
+                    </CardTitle>
+                    <CardDescription className="text-xs">Central workspace alerts, real-time activity logs & warnings</CardDescription>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    <Button variant="outline" size="sm" className="w-full text-xs">
+                      Open Notification Center <ArrowRight className="h-3.5 w-3.5 ml-1.5" />
                     </Button>
                   </CardContent>
                 </Card>

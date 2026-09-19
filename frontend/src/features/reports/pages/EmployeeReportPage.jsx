@@ -7,6 +7,8 @@ import KpiCard from '../components/KpiCard';
 import ChartWidget from '../components/ChartWidget';
 import ReportFilters from '../components/ReportFilters';
 import ExportToolbar from '../components/ExportToolbar';
+import useBranchStore from '@/store/branch.store';
+import BranchContextBadge from '@/features/restaurant/components/BranchContextBadge';
 import * as reportsApi from '../api/reports.api';
 
 const today = new Date();
@@ -14,7 +16,17 @@ const defaultStart = new Date(today.getFullYear(), today.getMonth(), 1).toISOStr
 const defaultEnd = today.toISOString().slice(0, 10);
 
 export default function EmployeeReportPage() {
-  const restaurantId = useAuthStore((s) => s.restaurant?._id);
+  const { user, restaurant } = useAuthStore();
+  const restaurantId = restaurant?._id;
+  const selectedBranchId = useBranchStore((s) => s.selectedBranchId);
+
+  const role = user?.role || 'manager';
+  const isAdmin = ['owner', 'super_admin'].includes(role);
+  const userBranchId = user?.branch?._id || user?.branch || user?.assignedBranch;
+  const effectiveBranch = !isAdmin
+    ? (userBranchId || (selectedBranchId !== 'all' ? selectedBranchId : undefined))
+    : (selectedBranchId !== 'all' ? selectedBranchId : undefined);
+  const branchParam = effectiveBranch ? String(effectiveBranch) : undefined;
 
   const [filters, setFilters] = useState({ startDate: defaultStart, endDate: defaultEnd });
   const [attendance, setAttendance] = useState(null);
@@ -27,7 +39,7 @@ export default function EmployeeReportPage() {
     if (!restaurantId) return;
     setIsLoading(true);
     setError('');
-    const params = { startDate: filters.startDate, endDate: filters.endDate };
+    const params = { startDate: filters.startDate, endDate: filters.endDate, branch: branchParam };
     try {
       const [attRes, whRes, leaveRes] = await Promise.all([
         reportsApi.getAttendanceSummary(restaurantId, params),
@@ -42,7 +54,7 @@ export default function EmployeeReportPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [restaurantId, filters]);
+  }, [restaurantId, filters, branchParam]);
 
   useEffect(() => { loadData(); }, [loadData]);
 

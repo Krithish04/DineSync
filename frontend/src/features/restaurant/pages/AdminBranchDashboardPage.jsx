@@ -8,6 +8,8 @@ import useAuthStore from '@/features/auth/store/auth.store';
 import useBranchStore from '@/store/branch.store';
 import * as branchApi from '../api/branch.api';
 import CreateBranchModal from '../components/CreateBranchModal';
+import OwnerManagerSection from '../components/OwnerManagerSection';
+import ManagerAccountSection from '../components/ManagerAccountSection';
 
 export default function AdminBranchDashboardPage() {
   const navigate = useNavigate();
@@ -38,30 +40,40 @@ export default function AdminBranchDashboardPage() {
     fetchSummary();
   }, [fetchSummary]);
 
+  const role = user?.role || 'manager';
+  const isAdmin = ['owner', 'super_admin'].includes(role);
+  const managerBranchId = user?.branch?._id || user?.branch || user?.assignedBranch;
+
   const branches = dashboardData?.branches || [];
 
   const filteredBranches = branches.filter((b) => {
+    if (!isAdmin && managerBranchId) {
+      return String(b.branch?._id) === String(managerBranchId);
+    }
+    if (!isAdmin && selectedBranchId !== 'all') {
+      return String(b.branch?._id) === String(selectedBranchId);
+    }
     if (!selectedBranchId || selectedBranchId === 'all') return true;
-    return b.branch?._id === selectedBranchId;
+    return String(b.branch?._id) === String(selectedBranchId);
   });
 
-  // Chain totals (Filtered by selected branch or Overall Chain)
+  // Chain / Branch totals
   const totalChainRevenue = filteredBranches.reduce((sum, b) => sum + (b.todaySnapshot?.revenue || 0), 0);
   const totalChainOrders = filteredBranches.reduce((sum, b) => sum + (b.todaySnapshot?.orderCount || 0), 0);
   const totalChainStaff = filteredBranches.reduce((sum, b) => sum + (b.todaySnapshot?.staffOnShift || 0), 0);
   const totalChainActiveTables = filteredBranches.reduce((sum, b) => sum + (b.todaySnapshot?.activeTables || 0), 0);
 
-  const isAllView = !selectedBranchId || selectedBranchId === 'all';
+  const isAllView = isAdmin && (!selectedBranchId || selectedBranchId === 'all');
 
   return (
-    <RestaurantLayout title="Multi-Branch Management" description="Chain-level overview: monitor branch health, manager assignments, and plan limits.">
+    <RestaurantLayout title={isAdmin ? "Multi-Branch Management" : "Branch Dashboard"} description={isAdmin ? "Chain-level overview: monitor branch health, manager assignments, and plan limits." : "Branch operational dashboard & live metrics."}>
       <div className="space-y-6 max-w-full">
         {/* Top Header & Actions */}
         <div className="flex flex-wrap items-center justify-between gap-4 bg-card p-4 rounded-2xl border border-border shadow-xs">
           <div>
             <h2 className="text-lg font-extrabold text-foreground flex items-center gap-2">
               <Building2 className="text-purple-600" size={22} />
-              Chain Command Center ({branches.length} {branches.length === 1 ? 'Branch' : 'Branches'})
+              {isAdmin ? `Chain Command Center (${branches.length} ${branches.length === 1 ? 'Branch' : 'Branches'})` : `Branch Overview (${filteredBranches[0]?.branch?.name || 'Assigned Branch'})`}
             </h2>
             <p className="text-xs text-muted-foreground">
               Subscription Tier: <span className="font-bold text-purple-700 uppercase">{dashboardData?.planCode || 'starter'}</span> (One subscription covering all chain locations)
@@ -69,7 +81,7 @@ export default function AdminBranchDashboardPage() {
           </div>
 
           <div className="flex items-center gap-3">
-            {branches.length > 0 && (
+            {isAdmin && branches.length > 0 && (
               <div className="flex items-center gap-2 bg-muted/60 border border-border px-3 py-1.5 rounded-xl">
                 <span className="text-xs font-semibold text-muted-foreground hidden sm:inline">Filter Branch:</span>
                 <select
@@ -87,12 +99,14 @@ export default function AdminBranchDashboardPage() {
               </div>
             )}
 
-            <Button
-              onClick={() => setIsCreateModalOpen(true)}
-              className="bg-purple-600 hover:bg-purple-700 text-white font-semibold gap-1.5 shadow-md"
-            >
-              <Plus size={16} /> Add New Branch
-            </Button>
+            {isAdmin && (
+              <Button
+                onClick={() => setIsCreateModalOpen(true)}
+                className="bg-purple-600 hover:bg-purple-700 text-white font-semibold gap-1.5 shadow-md"
+              >
+                <Plus size={16} /> Add New Branch
+              </Button>
+            )}
           </div>
         </div>
 
@@ -309,6 +323,13 @@ export default function AdminBranchDashboardPage() {
               })
             )}
           </div>
+        )}
+
+        {/* Role-Based Account & AuthLog Tracking Section */}
+        {isAdmin ? (
+          <OwnerManagerSection restaurantId={restaurantId} branches={branches} />
+        ) : (
+          <ManagerAccountSection restaurantId={restaurantId} assignedBranches={user?.assignedBranches || [user?.branch]} />
         )}
 
         {/* Create Branch Modal */}

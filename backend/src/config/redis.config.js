@@ -8,6 +8,7 @@ let isRedisConnected = false;
 const memoryLocks = new Map();
 const memoryOtp = new Map();
 const memoryRateLimit = new Map();
+const memoryCache = new Map();
 
 // Helper to sweep expired in-memory items periodically
 setInterval(() => {
@@ -20,6 +21,9 @@ setInterval(() => {
   }
   for (const [key, item] of memoryRateLimit.entries()) {
     if (item.resetAt && item.resetAt <= now) memoryRateLimit.delete(key);
+  }
+  for (const [key, item] of memoryCache.entries()) {
+    if (item.expiresAt && item.expiresAt <= now) memoryCache.delete(key);
   }
 }, 30000).unref();
 
@@ -260,6 +264,85 @@ const checkRateLimit = async (key, maxLimit, windowSeconds) => {
   };
 };
 
+/**
+ * GENERIC DATA CACHING (Redis primary, in-memory Map fallback if offline)
+ */
+const setCache = async (key, value, ttlSeconds = 3600) => {
+  if (isConnected()) {
+    try {
+      const stringVal = JSON.stringify(value);
+      await redisClient.set(key, stringVal, 'EX', ttlSeconds);
+      return true;
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn(`[Redis setCache Warning] Key ${key}:`, err.message);
+    }
+  }
+  memoryCache.set(key, { value, expiresAt: Date.now() + ttlSeconds * 1000 });
+  return true;
+};
+
+const getCache = async (key) => {
+  if (isConnected()) {
+    try {
+      const val = await redisClient.get(key);
+      if (val) {
+        try {
+          return JSON.parse(val);
+        } catch (_) {
+          return val;
+        }
+      }
+      return null;
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn(`[Redis getCache Warning] Key ${key}:`, err.message);
+    }
+  }
+  const item = memoryCache.get(key);
+  if (!item) return null;
+  if (item.expiresAt <= Date.now()) {
+    memoryCache.delete(key);
+    return null;
+  }
+  return item.value;
+};
+
+const delCache = async (key) => {
+  if (isConnected()) {
+    try {
+      await redisClient.del(key);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn(`[Redis delCache Warning] Key ${key}:`, err.message);
+    }
+  }
+  memoryCache.delete(key);
+  return true;
+};
+
+const clearCachePattern = async (pattern) => {
+  if (isConnected()) {
+    try {
+      const keys = await redisClient.keys(pattern);
+      if (keys && keys.length > 0) {
+        await redisClient.del(...keys);
+      }
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn(`[Redis clearCachePattern Warning] Pattern ${pattern}:`, err.message);
+    }
+  }
+  // Convert glob pattern (e.g. "menu:123:*") to regex for in-memory cleanup
+  const regexPattern = new RegExp(`^${pattern.replace(/\*/g, '.*')}$`);
+  for (const key of memoryCache.keys()) {
+    if (regexPattern.test(key)) {
+      memoryCache.delete(key);
+    }
+  }
+  return true;
+};
+
 const closeRedis = async () => {
   if (redisClient) {
     await redisClient.quit().catch(() => {});
@@ -277,5 +360,9 @@ module.exports = {
   getOtp,
   deleteOtp,
   checkRateLimit,
+  setCache,
+  getCache,
+  delCache,
+  clearCachePattern,
   closeRedis,
 };

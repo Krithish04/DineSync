@@ -14,8 +14,18 @@ import { Button } from '@/components/ui/button';
 import * as reportsApi from '../api/reports.api';
 
 export default function ExecutiveDashboardPage() {
-  const restaurantId = useAuthStore((s) => s.restaurant?._id);
+  const { user, restaurant } = useAuthStore();
+  const restaurantId = restaurant?._id;
   const selectedBranchId = useBranchStore((s) => s.selectedBranchId);
+
+  const role = user?.role || 'manager';
+  const isAdmin = ['owner', 'super_admin'].includes(role);
+  const userBranchId = user?.branch?._id || user?.branch || user?.assignedBranch;
+  const effectiveBranch = !isAdmin
+    ? (userBranchId || (selectedBranchId !== 'all' ? selectedBranchId : undefined))
+    : (selectedBranchId !== 'all' ? selectedBranchId : undefined);
+  const branchParam = effectiveBranch ? String(effectiveBranch) : undefined;
+
   const [data, setData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -30,15 +40,14 @@ export default function ExecutiveDashboardPage() {
     setIsLoading(true);
     setError('');
     try {
-      const branchIdParam = selectedBranchId !== 'all' ? selectedBranchId : undefined;
-      const result = await reportsApi.getExecutiveDashboard(restaurantId, { branchId: branchIdParam });
+      const result = await reportsApi.getExecutiveDashboard(restaurantId, { branchId: branchParam, branch: branchParam });
       setData(result);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load dashboard data.');
     } finally {
       setIsLoading(false);
     }
-  }, [restaurantId, selectedBranchId]);
+  }, [restaurantId, branchParam]);
 
   const loadRevenueData = useCallback(async (groupBy) => {
     if (!restaurantId) return;
@@ -55,12 +64,12 @@ export default function ExecutiveDashboardPage() {
         startDate = new Date(now.getTime() - 5 * 365 * 24 * 60 * 60 * 1000).toISOString();
       }
 
-      const branchIdParam = selectedBranchId !== 'all' ? selectedBranchId : undefined;
       const summary = await reportsApi.getSalesSummary(restaurantId, {
         startDate,
         endDate: now.toISOString(),
         groupBy,
-        branchId: branchIdParam,
+        branchId: branchParam,
+        branch: branchParam,
       });
       setRevenueSummary(summary);
     } catch (err) {
@@ -68,7 +77,7 @@ export default function ExecutiveDashboardPage() {
     } finally {
       setIsRevenueLoading(false);
     }
-  }, [restaurantId, selectedBranchId]);
+  }, [restaurantId, branchParam]);
 
   useEffect(() => {
     loadDashboard();

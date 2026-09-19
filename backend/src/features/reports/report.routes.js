@@ -1,14 +1,14 @@
 const express = require('express');
 const reportController = require('./report.controller');
-const { protect, authorize, enforceTenantIsolation } = require('../../middlewares/auth.middleware');
+const { protect, authorize, enforceTenantIsolation, enforceBranchIsolation } = require('../../middlewares/auth.middleware');
 const { ROLES } = require('../../constants/roles.constant');
 
 const router = express.Router({ mergeParams: true });
 
 const canView = authorize(ROLES.SUPER_ADMIN, ROLES.OWNER, ROLES.MANAGER);
 
-// All report routes require authentication + tenant isolation + manager+ role
-router.use(protect, enforceTenantIsolation, canView);
+// All report routes require authentication + tenant isolation + branch isolation + manager+ role
+router.use(protect, enforceTenantIsolation, enforceBranchIsolation, canView);
 
 // Executive Dashboard
 router.get('/executive', reportController.getExecutiveDashboard);

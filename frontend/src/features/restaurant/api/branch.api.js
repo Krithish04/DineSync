@@ -24,3 +24,45 @@ export const deleteBranch = async (restaurantId, branchId) => {
   const { data } = await api.delete(`/restaurants/${restaurantId}/branches/${branchId}`);
   return data.data;
 };
+
+// --- Owner Capabilities ---
+export const createOwnerManager = async (restaurantId, payload) => {
+  const { data } = await api.post(`/restaurants/${restaurantId}/branches/owner-managers`, payload);
+  return data.data;
+};
+
+export const listOwnerManagers = async (restaurantId) => {
+  const { data } = await api.get(`/restaurants/${restaurantId}/branches/owner-managers`);
+  return data.data;
+};
+
+export const getOwnerManagerLogs = async (restaurantId) => {
+  const { data } = await api.get(`/restaurants/${restaurantId}/branches/owner-logs/managers`);
+  return data.data;
+};
+
+export const getOwnerBranchLogs = async (restaurantId, branchId, accountType = 'staff') => {
+  const { data } = await api.get(`/restaurants/${restaurantId}/branches/owner-logs/branch/${branchId}`, { params: { accountType } });
+  return data.data;
+};
+
+// --- Manager Capabilities ---
+export const createScopedStaff = async (restaurantId, payload) => {
+  const { data } = await api.post(`/restaurants/${restaurantId}/branches/scoped-staff`, payload);
+  return data.data;
+};
+
+export const createScopedKitchen = async (restaurantId, payload) => {
+  const { data } = await api.post(`/restaurants/${restaurantId}/branches/scoped-kitchen`, payload);
+  return data.data;
+};
+
+export const listScopedAccounts = async (restaurantId, params = {}) => {
+  const { data } = await api.get(`/restaurants/${restaurantId}/branches/scoped-accounts`, { params });
+  return data.data;
+};
+
+export const getScopedLogs = async (restaurantId, params = {}) => {
+  const { data } = await api.get(`/restaurants/${restaurantId}/branches/scoped-logs`, { params });
+  return data.data;
+};

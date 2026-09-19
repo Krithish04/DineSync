@@ -113,30 +113,61 @@ const enforceTenantIsolation = (req, res, next) => {
   next();
 };
 
+const Branch = require('../features/branch/branch.model');
+
 /**
  * Ensures a branch-scoped user (Manager, Staff, Chef) can only access resources
  * within their own assigned branch. Super Admin and Restaurant Owner (Admin) bypass this.
  */
-const enforceBranchIsolation = (req, res, next) => {
+const enforceBranchIsolation = asyncHandler(async (req, res, next) => {
   if (req.user.role === ROLES.SUPER_ADMIN || req.user.role === ROLES.OWNER) {
     req.branchId = req.params.branchId || req.body.branch || req.body.branchId || req.query.branch || req.query.branchId || null;
     return next();
   }
 
-  const userBranchId = req.user.branch ? req.user.branch.toString() : null;
+  let userBranchId = req.user.branch ? req.user.branch.toString() : null;
+
+  // Fallback: If manager/staff account has no branch explicitly assigned, assign restaurant's main branch
+  if (!userBranchId && (req.tenantId || req.user.restaurant)) {
+    const tenantId = req.tenantId || req.user.restaurant;
+    let mainBranch = await Branch.findOne({ restaurant: tenantId }).select('_id').lean();
+    if (!mainBranch) {
+      mainBranch = await Branch.create({
+        restaurant: tenantId,
+        name: 'Main Branch',
+        code: 'MAIN',
+        isActive: true,
+      });
+    }
+    if (mainBranch) {
+      userBranchId = mainBranch._id.toString();
+      req.user.branch = mainBranch._id;
+    }
+  }
+
   if (!userBranchId) {
     throw ApiError.forbidden('Your account is not assigned to any branch.');
   }
 
   const targetBranchId = req.params.branchId || req.body.branch || req.body.branchId || req.query.branch || req.query.branchId;
 
-  if (targetBranchId && targetBranchId !== userBranchId) {
+  if (targetBranchId && targetBranchId !== 'all' && targetBranchId !== userBranchId) {
     throw ApiError.forbidden('You cannot access or modify resources belonging to another branch.');
   }
 
   req.branchId = userBranchId;
+
+  // Auto-inject branch parameters for report/analytics queries
+  if (!req.query.branch && !req.query.branchId) {
+    req.query.branch = userBranchId;
+    req.query.branchId = userBranchId;
+  } else if (req.query.branch === 'all' || req.query.branchId === 'all') {
+    req.query.branch = userBranchId;
+    req.query.branchId = userBranchId;
+  }
+
   next();
-};
+});
 
 /**
  * Authorizes menu catalog modification.
