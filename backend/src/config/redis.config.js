@@ -27,9 +27,16 @@ setInterval(() => {
   }
 }, 30000).unref();
 
+const getCleanRedisUri = () => {
+  const rawUri = env.REDIS_URI || 'redis://127.0.0.1:6379';
+  const match = rawUri.match(/rediss?:\/\/[^\s'"]+/);
+  return match ? match[0] : rawUri;
+};
+
 const getRedisOptions = (extraOptions = {}) => {
   const options = { ...extraOptions };
-  if (env.REDIS_URI && (env.REDIS_URI.startsWith('rediss://') || env.REDIS_URI.includes('upstash.io'))) {
+  const cleanUri = getCleanRedisUri();
+  if (cleanUri && (cleanUri.startsWith('rediss://') || cleanUri.includes('upstash.io'))) {
     options.tls = options.tls || { rejectUnauthorized: false };
   }
   return options;
@@ -39,6 +46,7 @@ const initRedis = () => {
   if (redisClient) return redisClient;
 
   try {
+    const cleanUri = getCleanRedisUri();
     const redisOptions = getRedisOptions({
       maxRetriesPerRequest: 1,
       enableOfflineQueue: false,
@@ -51,7 +59,7 @@ const initRedis = () => {
       },
     });
 
-    redisClient = new Redis(env.REDIS_URI, redisOptions);
+    redisClient = new Redis(cleanUri, redisOptions);
 
     redisClient.on('connect', () => {
       isRedisConnected = true;
@@ -97,6 +105,7 @@ const isConnected = () => isRedisConnected && redisClient && redisClient.status 
  * Creates a duplicate client for pub/sub (e.g. Socket.IO adapter)
  */
 const createDuplicateClient = () => {
+  const cleanUri = getCleanRedisUri();
   const options = getRedisOptions({
     maxRetriesPerRequest: 1,
     enableOfflineQueue: false,
@@ -108,7 +117,7 @@ const createDuplicateClient = () => {
       return Math.min(times * 150, 1000);
     },
   });
-  const client = new Redis(env.REDIS_URI, options);
+  const client = new Redis(cleanUri, options);
   client.on('error', () => {});
   return client;
 };
