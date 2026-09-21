@@ -1,12 +1,13 @@
 const DevConsoleNotificationProvider = require('./DevConsoleNotificationProvider');
 const FirebaseNotificationProvider = require('./FirebaseNotificationProvider');
 const TwilioNotificationProvider = require('./TwilioNotificationProvider');
+const SmsGatewayNotificationProvider = require('./SmsGatewayNotificationProvider');
 
 let instance = null;
 
 /**
  * Returns active NotificationProvider singleton based on process.env.NOTIFICATION_PROVIDER.
- * Supported options: 'dev' (default) | 'firebase' | 'twilio' | 'whatsapp'
+ * Supported options: 'dev' (default) | 'gateway' | 'firebase' | 'twilio'
  */
 const getNotificationProvider = () => {
   if (instance) return instance;
@@ -14,6 +15,12 @@ const getNotificationProvider = () => {
   const providerType = (process.env.NOTIFICATION_PROVIDER || 'dev').toLowerCase().trim();
 
   switch (providerType) {
+    case 'gateway':
+    case 'smsgateway':
+    case 'custom':
+    case 'cloudflare':
+      instance = new SmsGatewayNotificationProvider();
+      break;
     case 'firebase':
       instance = new FirebaseNotificationProvider();
       break;

@@ -22,6 +22,14 @@ describe('Reservation Lock Timeline & Swappable Notification Provider Unit Tests
     resetNotificationProvider();
   });
 
+  it('should initialize SmsGatewayNotificationProvider when set to gateway or custom', () => {
+    resetNotificationProvider();
+    process.env.NOTIFICATION_PROVIDER = 'gateway';
+    const provider = getNotificationProvider();
+    assert.strictEqual(provider.constructor.name, 'SmsGatewayNotificationProvider');
+    resetNotificationProvider();
+  });
+
   it('should fallback gracefully in DevConsoleNotificationProvider without throwing errors', async () => {
     const provider = getNotificationProvider();
     const otpRes = await provider.sendOtp({ phone: '+919876543210', code: '123456', purpose: 'CUSTOMER_LOGIN' });
