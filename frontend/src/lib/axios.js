@@ -11,7 +11,16 @@ const isProductionEnv =
   (typeof window !== 'undefined' &&
     (window.location.hostname.includes('vercel.app') || window.location.hostname.includes('onrender.com')));
 
-const baseURL = import.meta.env.VITE_API_BASE_URL || (isProductionEnv ? defaultProdUrl : defaultDevUrl);
+let rawEnvUrl = import.meta.env.VITE_API_BASE_URL;
+
+// Prevent misconfigured AI microservice URL from breaking authentication & Node backend API calls
+if (rawEnvUrl && rawEnvUrl.includes('ai-service')) {
+  rawEnvUrl = defaultProdUrl;
+}
+
+export const getApiBaseUrl = () => rawEnvUrl || (isProductionEnv ? defaultProdUrl : defaultDevUrl);
+
+const baseURL = getApiBaseUrl();
 
 /**
  * Reads the persisted staff auth store directly from localStorage.

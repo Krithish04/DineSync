@@ -1,7 +1,10 @@
 import { create } from 'zustand';
 import { io } from 'socket.io-client';
+import { getApiBaseUrl } from '@/lib/axios';
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
+const apiBase = getApiBaseUrl();
+const defaultSocketHost = apiBase ? apiBase.replace(/\/api\/v1\/?$/, '').replace(/\/api\/?$/, '') : 'http://localhost:5000';
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || defaultSocketHost;
 
 const useSocketStore = create((set, get) => ({
   socket: null,
