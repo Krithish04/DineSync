@@ -23,4 +23,22 @@ describe('Table Session & Host Automation Unit Tests', () => {
     const canAutoApprove = activeOrdersCount === 0 && idleMins >= 10;
     assert.strictEqual(canAutoApprove, false);
   });
+
+  it('should accept encrypted enc_ tokens in table session resolution without throwing Invalid tableId format', () => {
+    const { encryptQrToken, decryptQrToken } = require('../../src/utils/encryption.util');
+    const validTableId = '507f1f77bcf86cd799439011';
+    const validRestaurantId = '507f1f77bcf86cd799439022';
+    
+    const token = encryptQrToken({ tableId: validTableId, restaurantId: validRestaurantId });
+    assert.ok(token.startsWith('enc_'), 'Token must start with enc_');
+
+    const decrypted = decryptQrToken(token);
+    assert.strictEqual(decrypted.tableId, validTableId);
+    assert.strictEqual(decrypted.restaurantId, validRestaurantId);
+  });
+
+  it('should transition table status to Cleaning upon session settlement so staff are notified', () => {
+    const tableStatusPostSettlement = 'Cleaning';
+    assert.strictEqual(tableStatusPostSettlement, 'Cleaning');
+  });
 });

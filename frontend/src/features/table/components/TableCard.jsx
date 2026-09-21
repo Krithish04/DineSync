@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pencil, Trash2, QrCode, Users, ClipboardList, LogOut, Eye, ChevronDown, User, CheckSquare, Square, MapPin } from 'lucide-react';
+import { Pencil, Trash2, QrCode, Users, ClipboardList, LogOut, Eye, ChevronDown, User, CheckSquare, Square, MapPin, Sparkles } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
@@ -296,6 +296,30 @@ export default function TableCard({
               >
                 <Eye size={14} />
                 <span>View Order</span>
+              </Button>
+            )}
+
+            {canManage && table.status === 'Cleaning' && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={async (e) => {
+                  e.stopPropagation();
+                  setIsUpdatingStatus(true);
+                  try {
+                    await onStatusChange(table._id, 'Available');
+                  } catch {
+                    // Handled by parent
+                  } finally {
+                    setIsUpdatingStatus(false);
+                  }
+                }}
+                disabled={isUpdatingStatus}
+                className="h-8 text-xs font-bold text-emerald-700 border-emerald-300 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-300 gap-1.5 px-3 rounded-xl shadow-xs"
+                title="Accept cleaning done & mark table as Available"
+              >
+                <Sparkles size={14} className="text-emerald-600 dark:text-emerald-400" />
+                <span>Complete Cleaning</span>
               </Button>
             )}
 

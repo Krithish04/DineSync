@@ -141,12 +141,17 @@ export default function TableListPage() {
       loadTables(true); // Silent update — preserves canvas mount & prevents snap-back/loader flash!
     };
 
+    const handleCleaningRequired = (data) => {
+      loadTables(true);
+    };
+
     socket.on('table:updated', handleTableUpdate);
     socket.on('tables:layout_updated', handleLayoutUpdate);
     socket.on('table:claimed', handleTableUpdate);
     socket.on('table:released', handleTableUpdate);
     socket.on('order:placed', handleTableUpdate);
     socket.on('session:updated', handleTableUpdate);
+    socket.on('staff:cleaning-required', handleCleaningRequired);
 
     return () => {
       socket.off('table:updated', handleTableUpdate);
@@ -155,6 +160,7 @@ export default function TableListPage() {
       socket.off('table:released', handleTableUpdate);
       socket.off('order:placed', handleTableUpdate);
       socket.off('session:updated', handleTableUpdate);
+      socket.off('staff:cleaning-required', handleCleaningRequired);
     };
   }, [socket, loadTables]);
 

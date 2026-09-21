@@ -4,6 +4,8 @@ const ApiError = require('../../utils/ApiError');
 const env = require('../../config/env.config');
 const socketConfig = require('../../config/socket.config');
 const { encryptQrToken } = require('../../utils/encryption.util');
+const Restaurant = require('../tenant/tenant.model');
+const { evaluateOperatingStatus } = require('../../utils/schedule.util');
 
 /**
  * Loads a table by ID and verifies it belongs to the given restaurant tenant.
@@ -81,7 +83,7 @@ const listTables = async (restaurantId, { page = 1, limit = 20, status, search =
 
   const skip = (page - 1) * limit;
 
-  const [items, total] = await Promise.all([
+  const [items, total, restaurant] = await Promise.all([
     Table.find(query)
       .populate('mergedTables', 'tableNumber tableName capacity status')
       .populate('mergedInto', 'tableNumber tableName')
@@ -89,10 +91,20 @@ const listTables = async (restaurantId, { page = 1, limit = 20, status, search =
       .skip(skip)
       .limit(limit),
     Table.countDocuments(query),
+    Restaurant.findById(restaurantId).select('openingHours').lean(),
   ]);
 
+  const operatingStatus = restaurant ? evaluateOperatingStatus(restaurant.openingHours || []) : { isClosed: false };
+  const formattedItems = items.map((t) => {
+    const tableObj = t.toObject();
+    if (operatingStatus.isClosed) {
+      tableObj.status = 'Maintenance';
+    }
+    return tableObj;
+  });
+
   return {
-    items,
+    items: formattedItems,
     pagination: {
       page,
       limit,
@@ -112,7 +124,15 @@ const getTable = async (restaurantId, tableId) => {
   if (!table) {
     throw ApiError.notFound('Table not found.');
   }
-  return table;
+
+  const restaurant = await Restaurant.findById(restaurantId).select('openingHours').lean();
+  const operatingStatus = restaurant ? evaluateOperatingStatus(restaurant.openingHours || []) : { isClosed: false };
+  const tableObj = table.toObject();
+  if (operatingStatus.isClosed) {
+    tableObj.status = 'Maintenance';
+  }
+
+  return tableObj;
 };
 
 /**

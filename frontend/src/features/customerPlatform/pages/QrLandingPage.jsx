@@ -129,7 +129,7 @@ export default function QrLandingPage() {
         {!isLoading && !error && session && (
           <>
             {isRestaurantClosed ? (
-              /* ONLY WHEN RESTAURANT IS CLOSED: Display Closed notice & Browse Menu button */
+              /* ONLY WHEN RESTAURANT IS CLOSED: Display Closed notice, Under Maintenance status & Browse Menu button */
               <div className="space-y-5 py-2">
                 <div className="w-16 h-16 rounded-full bg-rose-500/10 text-rose-600 flex items-center justify-center mx-auto shrink-0 shadow-xs">
                   <Clock size={32} />
@@ -140,13 +140,26 @@ export default function QrLandingPage() {
                     {session.restaurant?.name || 'DineSync AI'}
                   </h2>
                   <p className="text-xs text-rose-600 dark:text-rose-400 font-bold mt-1">
-                    Restaurant is Currently Closed
+                    Restaurant Closed — Under Maintenance
                   </p>
                 </div>
 
+                {(session.table || session.tableNumber) && (
+                  <div className="bg-rose-500/10 border border-rose-500/20 text-rose-700 dark:text-rose-400 rounded-xl p-3.5 space-y-2 text-center">
+                    <div className="flex items-center justify-center gap-2 text-sm font-bold text-foreground">
+                      <TableIcon size={16} className="text-rose-600 dark:text-rose-400" />
+                      <span>Table #{session.table?.tableNumber || session.tableNumber}</span>
+                    </div>
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/20 text-rose-800 dark:text-rose-300 text-xs font-bold">
+                      <AlertTriangle size={14} className="shrink-0 text-rose-600 dark:text-rose-400" />
+                      <span>Status: Maintenance (Hotel Closed)</span>
+                    </div>
+                  </div>
+                )}
+
                 <div className="bg-rose-500/10 border border-rose-500/20 text-rose-700 dark:text-rose-400 rounded-xl p-3.5 text-xs text-left space-y-1">
                   <p className="text-[11px] leading-relaxed">
-                    {session.operatingStatus?.statusMessage || 'The kitchen is currently closed and not accepting orders right now. You can still browse our digital menu and explore items.'}
+                    {session.operatingStatus?.statusMessage || 'The restaurant and kitchen are currently closed. All table ordering is under maintenance right now. You can still browse our digital menu and explore items.'}
                   </p>
                 </div>
 
@@ -155,7 +168,7 @@ export default function QrLandingPage() {
                   className="w-full h-11 gap-2 text-xs font-bold rounded-xl active:scale-[0.99] touch-manipulation min-h-[44px]"
                 >
                   <Utensils size={16} />
-                  <span>Browse Menu</span>
+                  <span>Browse Digital Menu</span>
                   <ArrowRight size={16} />
                 </Button>
               </div>

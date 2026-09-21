@@ -78,20 +78,25 @@ const resolveQrCode = async (restaurantId, { tableId, type }) => {
   const restaurantObj = table?.restaurant || defaultRestaurant;
   const operatingStatus = evaluateOperatingStatus(restaurantObj?.openingHours || []);
 
+  const isClosed = Boolean(operatingStatus?.isClosed);
+  const derivedTableStatus = isClosed
+    ? 'Maintenance'
+    : (isInactive ? 'Inactive' : (table ? table.status : 'Available'));
+
   return {
     restaurantId,
     tableId: table ? table._id : null,
     tableNumber: table ? table.tableNumber : null,
-    tableStatus: isInactive ? 'Inactive' : (table ? table.status : 'Available'),
-    isInactive,
+    tableStatus: derivedTableStatus,
+    isInactive: isInactive || isClosed,
     currentHostName: activeSession ? activeSession.hostName : (table ? table.currentHostName : ''),
     activeSessionId: activeSession ? activeSession._id : null,
     table: table ? {
       _id: table._id,
       tableNumber: table.tableNumber,
       tableName: table.tableName,
-      status: isInactive ? 'Inactive' : table.status,
-      isActive: table.isActive,
+      status: derivedTableStatus,
+      isActive: table.isActive && !isClosed,
       currentHostName: activeSession ? activeSession.hostName : table.currentHostName,
     } : null,
     restaurant: restaurantObj || null,
@@ -150,6 +155,14 @@ const getPublicMenu = async (restaurantId, { categoryId, dietary, search, isPopu
 // ==========================================
 const getActiveTableSession = async (restaurantId, tableId, callerHostToken = null, callerPhone = null) => {
   if (!tableId) return { session: null, orders: [], orderSummary: [], reservation: null };
+
+  if (tableId && typeof tableId === 'string' && tableId.startsWith('enc_')) {
+    const decrypted = decryptQrToken(tableId);
+    if (decrypted) {
+      if (typeof decrypted === 'object' && decrypted.tableId) tableId = decrypted.tableId;
+      else if (typeof decrypted === 'string') tableId = decrypted;
+    }
+  }
 
   const tableObj = await Table.findById(tableId);
   const targetTableId = (tableObj && tableObj.mergedInto) ? tableObj.mergedInto : tableId;
@@ -600,7 +613,7 @@ const settleTableSession = async (restaurantId, sessionId, payload = {}) => {
     await redisConfig.releaseTableLock(session.table.toString());
     const table = await Table.findById(session.table);
     if (table) {
-      table.status = 'Available';
+      table.status = 'Cleaning';
       table.currentHostName = '';
       table.currentHostPhone = '';
       await table.save();
@@ -627,10 +640,17 @@ const settleTableSession = async (restaurantId, sessionId, payload = {}) => {
       socketConfig.broadcastEvent(restaurantId, 'table:updated', {
         tableId: table._id,
         tableNumber: table.tableNumber,
-        status: 'Available',
+        status: 'Cleaning',
         currentHostName: '',
         currentHostPhone: '',
         forceLogout: true,
+      });
+
+      socketConfig.broadcastEvent(restaurantId, 'staff:cleaning-required', {
+        tableId: table._id,
+        tableNumber: table.tableNumber,
+        message: `Table #${table.tableNumber} requires cleaning following bill payment.`,
+        timestamp: new Date(),
       });
     }
   }
@@ -724,7 +744,7 @@ const releaseTableSession = async (restaurantId, payload = {}) => {
 
   if (table) {
     await redisConfig.releaseTableLock(table._id.toString());
-    table.status = 'Available';
+    table.status = 'Cleaning';
     table.currentHostName = '';
     table.currentHostPhone = '';
     await table.save();
@@ -739,10 +759,17 @@ const releaseTableSession = async (restaurantId, payload = {}) => {
     socketConfig.broadcastEvent(restaurantId, 'table:updated', {
       tableId: table._id,
       tableNumber: table.tableNumber,
-      status: 'Available',
+      status: 'Cleaning',
       currentHostName: '',
       currentHostPhone: '',
       forceLogout: true,
+    });
+
+    socketConfig.broadcastEvent(restaurantId, 'staff:cleaning-required', {
+      tableId: table._id,
+      tableNumber: table.tableNumber,
+      message: `Table #${table.tableNumber} requires cleaning following session end.`,
+      timestamp: new Date(),
     });
   }
 

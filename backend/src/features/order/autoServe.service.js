@@ -55,7 +55,7 @@ const cleanupStaleTableSessions = async (restaurantId = null) => {
             continue;
           }
         } else {
-          table.status = 'Available';
+          table.status = 'Cleaning';
           table.currentHostName = '';
           table.currentHostPhone = '';
           await table.save();
@@ -64,10 +64,17 @@ const cleanupStaleTableSessions = async (restaurantId = null) => {
           socketConfig.broadcastEvent(table.restaurant, 'table:updated', {
             tableId: table._id,
             tableNumber: table.tableNumber,
-            status: 'Available',
+            status: 'Cleaning',
             currentHostName: '',
             currentHostPhone: '',
             forceLogout: true,
+          });
+
+          socketConfig.broadcastEvent(table.restaurant, 'staff:cleaning-required', {
+            tableId: table._id,
+            tableNumber: table.tableNumber,
+            message: `Table #${table.tableNumber} requires cleaning.`,
+            timestamp: new Date(),
           });
         }
       }
