@@ -3,7 +3,15 @@ import axios from 'axios';
 const AUTH_STORAGE_KEY = 'dinesync-auth';
 const CUSTOMER_AUTH_STORAGE_KEY = 'dinesync_customer_auth';
 
-const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api/v1';
+const defaultProdUrl = 'https://backend-ykax.onrender.com/api/v1';
+const defaultDevUrl = 'http://localhost:5000/api/v1';
+
+const isProductionEnv =
+  import.meta.env.PROD ||
+  (typeof window !== 'undefined' &&
+    (window.location.hostname.includes('vercel.app') || window.location.hostname.includes('onrender.com')));
+
+const baseURL = import.meta.env.VITE_API_BASE_URL || (isProductionEnv ? defaultProdUrl : defaultDevUrl);
 
 /**
  * Reads the persisted staff auth store directly from localStorage.

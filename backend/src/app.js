@@ -67,8 +67,9 @@ app.get('/', (req, res) => {
   });
 });
 
-// Versioned API routes
+// Versioned API routes (supports both /api/v1 and legacy /api prefix)
 app.use('/api/v1', routes);
+app.use('/api', routes);
 
 // 404 + global error handler (must be last)
 app.use(notFoundMiddleware);

@@ -26,6 +26,8 @@ const isAllowedOrigin = (origin, callback) => {
   const isLocalOrTunnel =
     origin.includes('localhost') ||
     origin.includes('127.0.0.1') ||
+    origin.endsWith('.vercel.app') ||
+    origin.endsWith('.onrender.com') ||
     origin.endsWith('.devtunnels.ms') ||
     origin.endsWith('.ngrok-free.app') ||
     origin.endsWith('.ngrok.io') ||

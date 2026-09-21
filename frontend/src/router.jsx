@@ -129,16 +129,48 @@ const router = createBrowserRouter([
     element: <LoginChooserPage />,
   },
   {
+    path: '/signin',
+    element: <Navigate to="/login" replace />,
+  },
+  {
+    path: '/log-in',
+    element: <Navigate to="/login" replace />,
+  },
+  {
     path: '/login/restaurant',
     element: <RestaurantLoginPage />,
+  },
+  {
+    path: '/login/staff',
+    element: <Navigate to="/login/restaurant" replace />,
+  },
+  {
+    path: '/login/manager',
+    element: <Navigate to="/login/restaurant" replace />,
+  },
+  {
+    path: '/login/owner',
+    element: <Navigate to="/login/restaurant" replace />,
   },
   {
     path: '/login/kitchen',
     element: <KitchenLoginPage />,
   },
   {
+    path: '/login/chef',
+    element: <Navigate to="/login/kitchen" replace />,
+  },
+  {
     path: '/login/admin',
     element: <AdminLoginPage />,
+  },
+  {
+    path: '/login/superadmin',
+    element: <Navigate to="/login/admin" replace />,
+  },
+  {
+    path: '/login/super-admin',
+    element: <Navigate to="/login/admin" replace />,
   },
   {
     path: '/register',
