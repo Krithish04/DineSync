@@ -419,6 +419,17 @@ const claimTableHost = async (restaurantId, payload, authenticatedUser = null) =
 
   const effectiveTableId = table._id;
 
+  const targetRestId = restaurantId || table.restaurant;
+  if (targetRestId) {
+    const restDoc = await Restaurant.findById(targetRestId).select('openingHours').lean();
+    if (restDoc?.openingHours && restDoc.openingHours.length > 0) {
+      const operatingStatus = evaluateOperatingStatus(restDoc.openingHours);
+      if (operatingStatus.isClosed) {
+        throw ApiError.badRequest(operatingStatus.statusMessage || 'The restaurant is currently closed. Table ordering and logins are unavailable during off-hours.');
+      }
+    }
+  }
+
   if (table.isActive === false || table.status === 'Inactive') {
     throw ApiError.badRequest('This dining table is currently inactive and cannot be claimed.');
   }

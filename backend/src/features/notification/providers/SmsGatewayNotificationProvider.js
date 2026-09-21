@@ -59,7 +59,7 @@ class SmsGatewayNotificationProvider extends NotificationProvider {
         success: isSuccess,
         provider: 'custom_gateway',
         gatewayUrl,
-        response: response.data,
+        response: response.data || { status: 'queued', httpStatus: response.status },
         timestamp: new Date().toISOString(),
       };
     } catch (error) {
@@ -113,7 +113,7 @@ class SmsGatewayNotificationProvider extends NotificationProvider {
         success: response.status >= 200 && response.status < 300,
         provider: 'custom_gateway',
         gatewayUrl,
-        response: response.data,
+        response: response.data || { status: 'queued', httpStatus: response.status },
         timestamp: new Date().toISOString(),
       };
     } catch (error) {

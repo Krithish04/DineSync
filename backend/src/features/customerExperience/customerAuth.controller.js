@@ -5,6 +5,9 @@ const ApiError = require('../../utils/ApiError');
 const Customer = require('../customer/customer.model');
 const Order = require('../order/order.model');
 const Table = require('../table/table.model');
+const TableSession = require('../table/tableSession.model');
+const Restaurant = require('../tenant/tenant.model');
+const { evaluateOperatingStatus } = require('../../utils/schedule.util');
 const otpService = require('../auth/otp.service');
 const { signToken } = require('../../utils/jwt.util');
 const { ROLES } = require('../../constants/roles.constant');
@@ -31,14 +34,39 @@ const sendCustomerOtp = asyncHandler(async (req, res) => {
 
   const cleanPhone = otpService.normalizePhone(phone) || phone.trim();
 
+  // Operating hours check: Block login & OTP when restaurant is closed
+  let targetRestId = restaurantId;
+  if (!targetRestId && tableId) {
+    const tDoc = await Table.findById(tableId).select('restaurant').lean();
+    if (tDoc) targetRestId = tDoc.restaurant;
+  }
+  if (targetRestId) {
+    const restDoc = await Restaurant.findById(targetRestId).select('openingHours').lean();
+    if (restDoc?.openingHours && restDoc.openingHours.length > 0) {
+      const operatingStatus = evaluateOperatingStatus(restDoc.openingHours);
+      if (operatingStatus.isClosed) {
+        throw ApiError.badRequest(operatingStatus.statusMessage || 'The restaurant is currently closed. Table ordering and logins are unavailable during off-hours.');
+      }
+    }
+  }
+
   if (tableId) {
     const table = await Table.findOne({ _id: tableId, isDeleted: false });
     if (table) {
       if (table.isActive === false || table.status === 'Inactive') {
         throw ApiError.badRequest('This dining table is currently inactive and not accepting logins.');
       }
-      if (table.status === 'Occupied' && table.currentHostPhone && table.currentHostPhone !== cleanPhone) {
-        throw ApiError.badRequest(`Table #${table.tableNumber} is currently occupied by ${table.currentHostName || 'another diner'}. You can view the menu in View-Only mode.`);
+      if (table.status === 'Occupied') {
+        const activeSession = await TableSession.findOne({ table: table._id, status: 'active' });
+        if (!activeSession) {
+          // Stale table status: Auto-clear stale occupied status since no active session exists
+          table.status = 'Available';
+          table.currentHostName = '';
+          table.currentHostPhone = '';
+          await table.save();
+        } else if (activeSession.hostPhone && activeSession.hostPhone !== cleanPhone && table.currentHostPhone && table.currentHostPhone !== cleanPhone) {
+          throw ApiError.badRequest(`Table #${table.tableNumber} is currently occupied by ${activeSession.hostName || table.currentHostName || 'another diner'}. You can view the menu in View-Only mode.`);
+        }
       }
     }
   }
@@ -70,14 +98,39 @@ const verifyCustomerOtp = asyncHandler(async (req, res) => {
 
   const cleanPhone = otpService.normalizePhone(phone) || phone.trim();
 
+  // Operating hours check: Block login & OTP when restaurant is closed
+  let targetRestId = restaurantId;
+  if (!targetRestId && tableId) {
+    const tDoc = await Table.findById(tableId).select('restaurant').lean();
+    if (tDoc) targetRestId = tDoc.restaurant;
+  }
+  if (targetRestId) {
+    const restDoc = await Restaurant.findById(targetRestId).select('openingHours').lean();
+    if (restDoc?.openingHours && restDoc.openingHours.length > 0) {
+      const operatingStatus = evaluateOperatingStatus(restDoc.openingHours);
+      if (operatingStatus.isClosed) {
+        throw ApiError.badRequest(operatingStatus.statusMessage || 'The restaurant is currently closed. Table ordering and logins are unavailable during off-hours.');
+      }
+    }
+  }
+
   if (tableId) {
     const table = await Table.findOne({ _id: tableId, isDeleted: false });
     if (table) {
       if (table.isActive === false || table.status === 'Inactive') {
         throw ApiError.badRequest('This dining table is currently inactive and not accepting logins.');
       }
-      if (table.status === 'Occupied' && table.currentHostPhone && table.currentHostPhone !== cleanPhone) {
-        throw ApiError.badRequest(`Table #${table.tableNumber} is currently occupied by ${table.currentHostName || 'another diner'}. You can view the menu in View-Only mode.`);
+      if (table.status === 'Occupied') {
+        const activeSession = await TableSession.findOne({ table: table._id, status: 'active' });
+        if (!activeSession) {
+          // Stale table status: Auto-clear stale occupied status since no active session exists
+          table.status = 'Available';
+          table.currentHostName = '';
+          table.currentHostPhone = '';
+          await table.save();
+        } else if (activeSession.hostPhone && activeSession.hostPhone !== cleanPhone && table.currentHostPhone && table.currentHostPhone !== cleanPhone) {
+          throw ApiError.badRequest(`Table #${table.tableNumber} is currently occupied by ${activeSession.hostName || table.currentHostName || 'another diner'}. You can view the menu in View-Only mode.`);
+        }
       }
     }
   }
