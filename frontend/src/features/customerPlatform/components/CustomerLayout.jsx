@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { ShoppingBag, Menu as MenuIcon, User, Star, Lock, LogOut, CheckCircle2, ChevronRight, UserCheck, ShieldCheck, Receipt, Award, Clock } from 'lucide-react';
+import { ShoppingBag, Menu as MenuIcon, User, Star, Lock, LogOut, CheckCircle2, ChevronRight, UserCheck, ShieldCheck, Receipt, Award, Clock, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import useCartStore from '../store/cart.store';
 import useCustomerAuthStore from '../store/customerAuth.store';
@@ -661,54 +661,77 @@ export default function CustomerLayout({ title, children }) {
         </div>
       )}
 
-      {/* SIGN OUT FEEDBACK BANNER FOR CUSTOMER */}
+      {/* SIGN OUT FEEDBACK POP-UP MODAL */}
       {showSignOutToast && (
-        <div className="bg-emerald-600 text-white px-4 py-2.5 text-xs flex items-center justify-between shadow-sm animate-in slide-in-from-top duration-200">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 size={16} className="shrink-0 text-white" />
-            <div>
-              <p className="font-bold">Signed out successfully!</p>
-              <p className="text-[11px] text-emerald-100">Thank you for dining with us. Share your experience to help us improve!</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <Button
-              size="sm"
-              onClick={() => {
-                setShowSignOutToast(false);
-                navigate('/menu/feedback');
-              }}
-              className="h-8 text-[11px] font-bold bg-white text-emerald-800 hover:bg-emerald-50 px-2.5 rounded-lg shadow-xs min-h-[36px]"
-            >
-              Rate Experience
-            </Button>
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-card border border-border rounded-2xl p-6 max-w-sm w-full shadow-2xl space-y-4 text-center animate-in zoom-in-95 duration-200 relative">
             <button
               onClick={() => setShowSignOutToast(false)}
-              className="text-emerald-200 hover:text-white font-bold text-sm px-1.5 py-1"
+              className="absolute top-3 right-3 text-muted-foreground hover:text-foreground p-1 rounded-lg transition"
             >
-              ✕
+              <X size={18} />
             </button>
+            <div className="w-14 h-14 rounded-full bg-emerald-500/10 text-emerald-600 flex items-center justify-center mx-auto">
+              <CheckCircle2 size={32} />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-lg font-bold font-display text-foreground">Signed Out Successfully</h3>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Thank you for dining with us. Share your experience to help us improve!
+              </p>
+            </div>
+            <div className="flex flex-col gap-2 pt-2">
+              <Button
+                size="sm"
+                onClick={() => {
+                  setShowSignOutToast(false);
+                  navigate('/menu/feedback');
+                }}
+                className="w-full text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white h-11 rounded-xl shadow-xs"
+              >
+                Rate Experience
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setShowSignOutToast(false)}
+                className="w-full text-xs font-bold h-10 rounded-xl"
+              >
+                Close
+              </Button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* CLEAN RESERVATION SIGN OUT THANK YOU TOAST (NO MODAL, NO FEEDBACK SURVEY) */}
+      {/* CLEAN RESERVATION SIGN OUT THANK YOU POP-UP MODAL */}
       {showReservationSignOutToast && (
-        <div className="bg-emerald-600 text-white px-4 py-3 text-xs flex items-center justify-between shadow-md animate-in slide-in-from-top duration-200">
-          <div className="flex items-center gap-2.5">
-            <CheckCircle2 size={18} className="shrink-0 text-white" />
-            <div>
-              <p className="font-bold text-sm leading-snug">Signed Out Successfully</p>
-              <p className="text-xs text-emerald-100 leading-tight">Thank you for visiting!</p>
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-card border border-border rounded-2xl p-6 max-w-sm w-full shadow-2xl space-y-4 text-center animate-in zoom-in-95 duration-200 relative">
+            <button
+              onClick={() => setShowReservationSignOutToast(false)}
+              className="absolute top-3 right-3 text-muted-foreground hover:text-foreground p-1 rounded-lg transition"
+              aria-label="Close thank you modal"
+            >
+              <X size={18} />
+            </button>
+            <div className="w-14 h-14 rounded-full bg-emerald-500/10 text-emerald-600 flex items-center justify-center mx-auto">
+              <CheckCircle2 size={32} />
             </div>
+            <div className="space-y-1">
+              <h3 className="text-lg font-bold font-display text-foreground">Signed Out Successfully</h3>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Thank you for visiting! We look forward to serving you again soon.
+              </p>
+            </div>
+            <Button
+              size="sm"
+              onClick={() => setShowReservationSignOutToast(false)}
+              className="w-full text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white h-11 rounded-xl shadow-xs"
+            >
+              Got it
+            </Button>
           </div>
-          <button
-            onClick={() => setShowReservationSignOutToast(false)}
-            className="text-white/80 hover:text-white font-bold text-base px-2 py-1"
-            aria-label="Close thank you note"
-          >
-            ✕
-          </button>
         </div>
       )}
 

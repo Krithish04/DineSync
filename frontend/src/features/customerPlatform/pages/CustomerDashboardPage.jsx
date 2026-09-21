@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, ShoppingBag, Award, ChevronRight, Utensils, ShieldCheck, Clock, LogOut, Calendar, CheckCircle2 } from 'lucide-react';
+import { User, ShoppingBag, Award, ChevronRight, Utensils, ShieldCheck, Clock, LogOut, Calendar, CheckCircle2, X } from 'lucide-react';
 import CustomerLayout from '../components/CustomerLayout';
 import NoOrderExitModal from '../components/NoOrderExitModal';
 import { Button } from '@/components/ui/button';
@@ -102,21 +102,34 @@ export default function CustomerDashboardPage() {
   return (
     <CustomerLayout title="Diner Profile & Orders">
       <div className="space-y-4">
+        {/* THANK YOU POP-UP MODAL */}
         {showThankYouToast && (
-          <div className="bg-emerald-600 text-white px-4 py-3 text-xs flex items-center justify-between shadow-md rounded-xl animate-in slide-in-from-top duration-200">
-            <div className="flex items-center gap-2.5">
-              <CheckCircle2 size={18} className="shrink-0 text-white" />
-              <div>
-                <p className="font-bold text-sm leading-snug">Signed Out Successfully</p>
-                <p className="text-xs text-emerald-100 leading-tight">Thank you for visiting!</p>
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+            <div className="bg-card border border-border rounded-2xl p-6 max-w-sm w-full shadow-2xl space-y-4 text-center animate-in zoom-in-95 duration-200 relative">
+              <button
+                onClick={() => setShowThankYouToast(false)}
+                className="absolute top-3 right-3 text-muted-foreground hover:text-foreground p-1 rounded-lg transition"
+                aria-label="Close thank you modal"
+              >
+                <X size={18} />
+              </button>
+              <div className="w-14 h-14 rounded-full bg-emerald-500/10 text-emerald-600 flex items-center justify-center mx-auto">
+                <CheckCircle2 size={32} />
               </div>
+              <div className="space-y-1">
+                <h3 className="text-lg font-bold font-display text-foreground">Signed Out Successfully</h3>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Thank you for visiting! We look forward to serving you again soon.
+                </p>
+              </div>
+              <Button
+                size="sm"
+                onClick={() => setShowThankYouToast(false)}
+                className="w-full text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white h-11 rounded-xl shadow-xs"
+              >
+                Got it
+              </Button>
             </div>
-            <button
-              onClick={() => setShowThankYouToast(false)}
-              className="text-white/80 hover:text-white font-bold text-base px-2 py-1"
-            >
-              ✕
-            </button>
           </div>
         )}
 

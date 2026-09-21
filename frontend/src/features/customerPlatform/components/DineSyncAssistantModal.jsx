@@ -287,10 +287,25 @@ export default function DineSyncAssistantModal() {
               ))}
             </div>
 
-            {/* Added Item Toast Notice */}
+            {/* Added Item Pop-up Notice Modal */}
             {addedItemNotice && (
-              <div className="absolute top-16 left-4 right-4 z-40 p-2.5 rounded-xl bg-emerald-600 text-white text-xs font-bold text-center shadow-lg backdrop-blur-md animate-in fade-in slide-in-from-top-2">
-                🛒 {addedItemNotice}
+              <div className="absolute inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
+                <div className="bg-card border border-border rounded-2xl p-5 max-w-xs w-full shadow-2xl text-center space-y-3 animate-in zoom-in-95 duration-200">
+                  <div className="w-12 h-12 rounded-full bg-emerald-500/10 text-emerald-600 flex items-center justify-center mx-auto text-xl">
+                    🛒
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold font-display text-foreground">Item Added to Cart</h4>
+                    <p className="text-xs text-muted-foreground mt-1">{addedItemNotice}</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() => setAddedItemNotice(null)}
+                    className="w-full text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white h-9 rounded-xl"
+                  >
+                    Continue
+                  </Button>
+                </div>
               </div>
             )}
 
