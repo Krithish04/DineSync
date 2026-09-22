@@ -117,6 +117,7 @@ const SubscriptionPlansPage = lazyLoad(() => import('@/features/superAdmin/pages
 const FeatureFlagsPage = lazyLoad(() => import('@/features/superAdmin/pages/FeatureFlagsPage'));
 const AuditLogsPage = lazyLoad(() => import('@/features/superAdmin/pages/AuditLogsPage'));
 const PlatformAnalyticsPage = lazyLoad(() => import('@/features/superAdmin/pages/PlatformAnalyticsPage'));
+const MonitoringDashboardPage = lazyLoad(() => import('@/features/superAdmin/pages/MonitoringDashboardPage'));
 import PublicRoute from '@/components/common/PublicRoute';
 import useAuthStore from '@/features/auth/store/auth.store';
 
