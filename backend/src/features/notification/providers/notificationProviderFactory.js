@@ -4,16 +4,24 @@ const TwilioNotificationProvider = require('./TwilioNotificationProvider');
 const SmsGatewayNotificationProvider = require('./SmsGatewayNotificationProvider');
 const Fast2SmsNotificationProvider = require('./Fast2SmsNotificationProvider');
 
+const env = require('../../../config/env.config');
+
 let instance = null;
 
 /**
  * Returns active NotificationProvider singleton based on process.env.NOTIFICATION_PROVIDER.
- * Supported options: 'dev' (default) | 'gateway' | 'fast2sms' | 'firebase' | 'twilio'
+ * Supported options: 'fast2sms' (prioritized if FAST2SMS_API_KEY present) | 'dev' | 'gateway' | 'firebase' | 'twilio'
  */
 const getNotificationProvider = () => {
   if (instance) return instance;
 
-  const providerType = (process.env.NOTIFICATION_PROVIDER || 'dev').toLowerCase().trim();
+  let providerType = (process.env.NOTIFICATION_PROVIDER || process.env.SMS_PROVIDER || '').toLowerCase().trim();
+
+  // Default to Fast2SMS if FAST2SMS_API_KEY is available or provider is unset
+  const fast2SmsKey = process.env.FAST2SMS_API_KEY || (env && env.FAST2SMS_API_KEY);
+  if (!providerType) {
+    providerType = fast2SmsKey ? 'fast2sms' : 'dev';
+  }
 
   switch (providerType) {
     case 'fast2sms':
