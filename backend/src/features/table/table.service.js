@@ -91,10 +91,11 @@ const listTables = async (restaurantId, { page = 1, limit = 20, status, search =
       .skip(skip)
       .limit(limit),
     Table.countDocuments(query),
-    Restaurant.findById(restaurantId).select('openingHours').lean(),
+    Restaurant.findById(restaurantId).select('openingHours settings.timezone').lean(),
   ]);
 
-  const operatingStatus = restaurant ? evaluateOperatingStatus(restaurant.openingHours || []) : { isClosed: false };
+  const tz = restaurant?.settings?.timezone || 'Asia/Kolkata';
+  const operatingStatus = restaurant ? evaluateOperatingStatus(restaurant.openingHours || [], new Date(), tz) : { isClosed: false };
   const formattedItems = items.map((t) => {
     const tableObj = t.toObject();
     if (operatingStatus.isClosed) {
@@ -125,8 +126,9 @@ const getTable = async (restaurantId, tableId) => {
     throw ApiError.notFound('Table not found.');
   }
 
-  const restaurant = await Restaurant.findById(restaurantId).select('openingHours').lean();
-  const operatingStatus = restaurant ? evaluateOperatingStatus(restaurant.openingHours || []) : { isClosed: false };
+  const restaurant = await Restaurant.findById(restaurantId).select('openingHours settings.timezone').lean();
+  const tz = restaurant?.settings?.timezone || 'Asia/Kolkata';
+  const operatingStatus = restaurant ? evaluateOperatingStatus(restaurant.openingHours || [], new Date(), tz) : { isClosed: false };
   const tableObj = table.toObject();
   if (operatingStatus.isClosed) {
     tableObj.status = 'Maintenance';

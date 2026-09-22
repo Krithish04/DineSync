@@ -51,7 +51,7 @@ const buildDefaultSchedule = (defaultOpen = '09:00', defaultClose = '22:00') =>
  * Evaluates whether a restaurant/branch is currently OPEN or CLOSED
  * based on its configured opening/operating hours schedule.
  */
-const evaluateOperatingStatus = (schedule, referenceDate = new Date()) => {
+const evaluateOperatingStatus = (schedule, referenceDate = new Date(), timeZone = 'Asia/Kolkata') => {
   if (!schedule || !Array.isArray(schedule) || schedule.length === 0) {
     return {
       isOpen: true,
@@ -63,7 +63,30 @@ const evaluateOperatingStatus = (schedule, referenceDate = new Date()) => {
   }
 
   const daysOfWeek = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-  const currentDayName = daysOfWeek[referenceDate.getDay()];
+  let currentDayName;
+  let currentMins;
+
+  try {
+    const tz = timeZone || 'Asia/Kolkata';
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz,
+      weekday: 'lowercase',
+      hour: 'numeric',
+      minute: 'numeric',
+      hour12: false,
+    });
+    const parts = formatter.formatToParts(referenceDate);
+    const partMap = {};
+    parts.forEach((p) => { partMap[p.type] = p.value; });
+    currentDayName = partMap.weekday ? partMap.weekday.toLowerCase() : daysOfWeek[referenceDate.getDay()];
+    let hour = parseInt(partMap.hour, 10);
+    if (hour === 24) hour = 0;
+    const minute = parseInt(partMap.minute, 10);
+    currentMins = hour * 60 + minute;
+  } catch {
+    currentDayName = daysOfWeek[referenceDate.getDay()];
+    currentMins = referenceDate.getHours() * 60 + referenceDate.getMinutes();
+  }
 
   const daySchedule = schedule.find(
     (d) => d && d.day && d.day.toLowerCase() === currentDayName
@@ -78,8 +101,6 @@ const evaluateOperatingStatus = (schedule, referenceDate = new Date()) => {
       formattedHours: 'Closed Today',
     };
   }
-
-  const currentMins = referenceDate.getHours() * 60 + referenceDate.getMinutes();
 
   const formatTime12h = (timeStr) => {
     if (!timeStr) return '';
