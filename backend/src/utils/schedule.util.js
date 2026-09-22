@@ -70,7 +70,7 @@ const evaluateOperatingStatus = (schedule, referenceDate = new Date(), timeZone 
     const tz = timeZone || 'Asia/Kolkata';
     const formatter = new Intl.DateTimeFormat('en-US', {
       timeZone: tz,
-      weekday: 'lowercase',
+      weekday: 'long',
       hour: 'numeric',
       minute: 'numeric',
       hour12: false,

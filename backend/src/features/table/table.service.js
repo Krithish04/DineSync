@@ -100,7 +100,10 @@ const listTables = async (restaurantId, { page = 1, limit = 20, status, search =
     const tableObj = t.toObject();
     if (operatingStatus.isClosed) {
       tableObj.status = 'Maintenance';
+    } else if (tableObj.status === 'Maintenance') {
+      tableObj.status = 'Available';
     }
+    tableObj.operatingStatus = operatingStatus;
     return tableObj;
   });
 
@@ -132,7 +135,10 @@ const getTable = async (restaurantId, tableId) => {
   const tableObj = table.toObject();
   if (operatingStatus.isClosed) {
     tableObj.status = 'Maintenance';
+  } else if (tableObj.status === 'Maintenance') {
+    tableObj.status = 'Available';
   }
+  tableObj.operatingStatus = operatingStatus;
 
   return tableObj;
 };
