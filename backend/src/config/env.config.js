@@ -59,6 +59,7 @@ const env = {
     (process.env.NODE_ENV === 'development' ? 10 : 60),
   SMS_GATEWAY_URL: process.env.SMS_GATEWAY_URL || '',
   SMS_GATEWAY_API_KEY: process.env.SMS_GATEWAY_API_KEY || '',
+  FAST2SMS_API_KEY: process.env.FAST2SMS_API_KEY || '',
   SMS_GATEWAY_TIMEOUT_MS: parseInt(process.env.SMS_GATEWAY_TIMEOUT_MS, 10) || 5000,
 
   // Password reset

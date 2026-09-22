@@ -30,6 +30,14 @@ describe('Reservation Lock Timeline & Swappable Notification Provider Unit Tests
     resetNotificationProvider();
   });
 
+  it('should initialize Fast2SmsNotificationProvider when set to fast2sms', () => {
+    resetNotificationProvider();
+    process.env.NOTIFICATION_PROVIDER = 'fast2sms';
+    const provider = getNotificationProvider();
+    assert.strictEqual(provider.constructor.name, 'Fast2SmsNotificationProvider');
+    resetNotificationProvider();
+  });
+
   it('should fallback gracefully in DevConsoleNotificationProvider without throwing errors', async () => {
     const provider = getNotificationProvider();
     const otpRes = await provider.sendOtp({ phone: '+919876543210', code: '123456', purpose: 'CUSTOMER_LOGIN' });
