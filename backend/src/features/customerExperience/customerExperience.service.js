@@ -16,6 +16,14 @@ const redisConfig = require('../../config/redis.config');
 const aiService = require('../ai/ai.service');
 const { decryptQrToken, encryptQrToken } = require('../../utils/encryption.util');
 
+const isMatchingPhone = (phone1, phone2) => {
+  if (!phone1 || !phone2) return false;
+  const p1 = String(phone1).replace(/\D/g, '').slice(-10);
+  const p2 = String(phone2).replace(/\D/g, '').slice(-10);
+  return Boolean(p1 && p2 && p1 === p2);
+};
+
+
 // ==========================================
 // 1. RESOLVE QR CODE TARGET & CONTEXT
 // ==========================================
@@ -208,7 +216,10 @@ const getActiveTableSession = async (restaurantId, tableId, callerHostToken = nu
   }));
 
   const cleanPhone = callerPhone ? callerPhone.trim() : null;
-  const isHost = Boolean((callerHostToken && session.hostToken === callerHostToken) || (cleanPhone && session.hostPhone === cleanPhone));
+  const isHost = Boolean(
+    (callerHostToken && session.hostToken === callerHostToken) ||
+    (cleanPhone && isMatchingPhone(session.hostPhone, cleanPhone))
+  );
   const isCoOrderer = Boolean(cleanPhone && (session.coOrderers || []).some((c) => c.phone === cleanPhone));
 
   return {
@@ -273,8 +284,8 @@ const placeCustomerOrder = async (restaurantId, payload, authenticatedUserId = n
     // HOST OR APPROVED CO-ORDERER AUTHORIZATION CHECK
     const cleanPhone = customerPhone ? customerPhone.trim() : '';
     const isHostTokenValid = Boolean(providedHostToken && providedHostToken === activeSession.hostToken);
-    const isHostPhoneValid = Boolean(cleanPhone && activeSession.hostPhone === cleanPhone);
-    const isCoOrdererApproved = Boolean(cleanPhone && (activeSession.coOrderers || []).some((c) => c.phone === cleanPhone));
+    const isHostPhoneValid = Boolean(cleanPhone && isMatchingPhone(activeSession.hostPhone, cleanPhone));
+    const isCoOrdererApproved = Boolean(cleanPhone && (activeSession.coOrderers || []).some((c) => isMatchingPhone(c.phone, cleanPhone)));
 
     if (!isHostTokenValid && !isHostPhoneValid && !isCoOrdererApproved) {
       throw ApiError.forbidden(
@@ -436,9 +447,25 @@ const claimTableHost = async (restaurantId, payload, authenticatedUser = null) =
 
   let activeSession = await TableSession.findOne({ table: effectiveTableId, status: 'active' });
 
+  // If table is marked Available or Cleaning, any pre-existing active session is stale from a prior customer and MUST be released
+  if (activeSession && (table.status === 'Available' || table.status === 'Cleaning')) {
+    activeSession.status = 'released';
+    activeSession.endedAt = new Date();
+    await activeSession.save();
+    activeSession = null;
+  }
+
+  // Auto-release orphaned session missing both hostPhone and customer profile
+  if (activeSession && !activeSession.hostPhone && !activeSession.customer) {
+    activeSession.status = 'released';
+    activeSession.endedAt = new Date();
+    await activeSession.save();
+    activeSession = null;
+  }
+
   if (activeSession) {
     const isSameHost =
-      (hostPhone && activeSession.hostPhone === hostPhone) ||
+      (hostPhone && isMatchingPhone(activeSession.hostPhone, hostPhone)) ||
       (authenticatedUser && String(activeSession.customer) === String(authenticatedUser.id || authenticatedUser._id));
 
     if (isSameHost) {
@@ -1430,7 +1457,7 @@ const requestHostHandoff = async (restaurantId, payload, authenticatedUser = nul
     return claimTableHost(restaurantId, { tableId, hostName: requesterName, hostPhone: cleanPhone }, authenticatedUser);
   }
 
-  if (activeSession.hostPhone === cleanPhone) {
+  if (isMatchingPhone(activeSession.hostPhone, cleanPhone)) {
     return { status: 'already_host', message: 'You are already the active host of this table.', session: activeSession };
   }
 

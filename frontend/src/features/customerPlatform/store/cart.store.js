@@ -22,6 +22,13 @@ export function isValidMongoId(id) {
   return typeof id === 'string' && /^[0-9a-fA-F]{24}$/.test(id.trim());
 }
 
+export function isMatchingPhone(phone1, phone2) {
+  if (!phone1 || !phone2) return false;
+  const p1 = String(phone1).replace(/\D/g, '').slice(-10);
+  const p2 = String(phone2).replace(/\D/g, '').slice(-10);
+  return Boolean(p1 && p2 && p1 === p2);
+}
+
 const useCartStore = create(
   persist(
     (set, get) => ({
@@ -80,7 +87,7 @@ const useCartStore = create(
           // Check if table is occupied by a different diner host or if diner lacks host token for validTableId
           const hostPhone = currentHostPhone || (validTableId ? state.activeTableSessions[validTableId]?.hostPhone : null);
           const isOccupiedByOther = nextTableStatus === 'Occupied' &&
-            (!state.tableHost || (hostPhone && state.tableHost.phone !== hostPhone));
+            (!state.tableHost || (hostPhone && !isMatchingPhone(state.tableHost.phone, hostPhone)));
           
           // URL edit check: If diner manually edited URL tableId away from their claimed table session, force view-only mode
           const isTamperedTableId = state.tableId && validTableId && String(state.tableId) !== String(validTableId) && !state.activeTableSessions[validTableId];
@@ -143,7 +150,7 @@ const useCartStore = create(
               isViewOnly = false;
             } else if (state.tableId && state.activeTableSessions[state.tableId]) {
               const activeSession = state.activeTableSessions[state.tableId];
-              if (state.tableHost?.phone !== activeSession.hostPhone) {
+              if (!isMatchingPhone(state.tableHost?.phone, activeSession.hostPhone)) {
                 isViewOnly = true;
               }
             } else if (state.tableStatus === 'Occupied' && !state.tableHost) {

@@ -180,6 +180,26 @@ const updateTable = async (restaurantId, tableId, updates) => {
     updates.isActive = true;
   }
 
+  if (updates.status && updates.status !== 'Occupied') {
+    updates.currentHostName = '';
+    updates.currentHostPhone = '';
+    const redisConfig = require('../../config/redis.config');
+    await redisConfig.releaseTableLock(tableId.toString());
+    const TableSession = require('./tableSession.model');
+    const activeSession = await TableSession.findOne({ table: tableId, status: 'active' });
+    if (activeSession) {
+      activeSession.status = 'released';
+      activeSession.endedAt = new Date();
+      await activeSession.save();
+      socketConfig.broadcastEvent(restaurantId, 'table:session-ended', {
+        sessionId: activeSession._id,
+        tableId: table._id,
+        tableNumber: table.tableNumber,
+        status: 'released',
+      });
+    }
+  }
+
   Object.assign(table, updates);
   await table.save();
 

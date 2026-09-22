@@ -64,8 +64,6 @@ const sendCustomerOtp = asyncHandler(async (req, res) => {
           table.currentHostName = '';
           table.currentHostPhone = '';
           await table.save();
-        } else if (activeSession.hostPhone && activeSession.hostPhone !== cleanPhone && table.currentHostPhone && table.currentHostPhone !== cleanPhone) {
-          throw ApiError.badRequest(`Table #${table.tableNumber} is currently occupied by ${activeSession.hostName || table.currentHostName || 'another diner'}. You can view the menu in View-Only mode.`);
         }
       }
     }
@@ -128,8 +126,6 @@ const verifyCustomerOtp = asyncHandler(async (req, res) => {
           table.currentHostName = '';
           table.currentHostPhone = '';
           await table.save();
-        } else if (activeSession.hostPhone && activeSession.hostPhone !== cleanPhone && table.currentHostPhone && table.currentHostPhone !== cleanPhone) {
-          throw ApiError.badRequest(`Table #${table.tableNumber} is currently occupied by ${activeSession.hostName || table.currentHostName || 'another diner'}. You can view the menu in View-Only mode.`);
         }
       }
     }

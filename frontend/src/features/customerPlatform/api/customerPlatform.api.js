@@ -20,6 +20,17 @@ export const getActiveTableSession = async (restaurantId, tableId, callerPhone =
   if (callerPhone) {
     headers['x-caller-phone'] = callerPhone;
   }
+  try {
+    const cartState = localStorage.getItem('cart-storage');
+    if (cartState) {
+      const parsed = JSON.parse(cartState);
+      if (parsed?.state?.hostToken) {
+        headers['x-host-token'] = parsed.state.hostToken;
+      }
+    }
+  } catch {
+    // Ignore localStorage parse error
+  }
   const { data } = await api.get(`${publicUrl(restaurantId)}/tables/${tableId}/session`, {
     headers,
     params: callerPhone ? { phone: callerPhone } : {},
