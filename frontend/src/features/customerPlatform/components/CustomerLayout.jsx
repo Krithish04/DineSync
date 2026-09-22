@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { NavLink, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { ShoppingBag, Menu as MenuIcon, User, Star, Lock, LogOut, CheckCircle2, ChevronRight, UserCheck, ShieldCheck, Receipt, Award, Clock, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import useCartStore from '../store/cart.store';
@@ -20,6 +20,10 @@ import * as customerApi from '../api/customerPlatform.api';
 export default function CustomerLayout({ title, children }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
+
+  const urlTableId = searchParams.get('tableId');
+  const urlRestaurantId = searchParams.get('restaurantId');
 
   const isTableOrderingRoute = location.pathname.startsWith('/menu') ||
     location.pathname.startsWith('/table') ||
@@ -63,6 +67,16 @@ export default function CustomerLayout({ title, children }) {
   const { customer, clearCustomerSession } = useCustomerAuthStore();
   const [showSignOutToast, setShowSignOutToast] = useState(false);
   const [showReservationSignOutToast, setShowReservationSignOutToast] = useState(false);
+
+  // Ensure tab's active route parameters override any stale store state on refresh
+  useEffect(() => {
+    if (urlTableId || urlRestaurantId) {
+      setSessionContext({
+        tableId: urlTableId || undefined,
+        restaurantId: urlRestaurantId || undefined,
+      });
+    }
+  }, [urlTableId, urlRestaurantId, setSessionContext]);
 
   useEffect(() => {
     if (showReservationSignOutToast) {

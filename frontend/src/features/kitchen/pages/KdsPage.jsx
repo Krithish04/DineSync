@@ -43,6 +43,7 @@ export default function KdsPage() {
     atRiskCount,
     lateCount,
     restaurantId,
+    retrySocket,
   } = useKitchenTickets();
 
   const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'preparing' | 'ready' | 'delayed'
@@ -81,6 +82,7 @@ export default function KdsPage() {
       socketConnected={socketConnected}
       isFullscreen={isFullscreen}
       onToggleFullscreen={toggleFullscreen}
+      onRetrySocket={retrySocket}
     >
       <div className="space-y-4 select-none">
         {/* Hearing-Impaired Accessibility Visual Flash Alert Banner */}

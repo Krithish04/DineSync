@@ -7,7 +7,7 @@ const { ROLES } = require('../../constants/roles.constant');
 
 const router = express.Router({ mergeParams: true });
 
-const canManage = authorize(ROLES.SUPER_ADMIN, ROLES.OWNER, ROLES.MANAGER, ROLES.STAFF, ROLES.CHEF);
+const canManage = authorize(ROLES.SUPER_ADMIN, ROLES.OWNER, ROLES.MANAGER, ROLES.STAFF, ROLES.CHEF, ROLES.KITCHEN);
 
 // All routes require authentication and tenant-isolation
 router.use(protect, enforceTenantIsolation);

@@ -9,7 +9,7 @@ import * as authApi from '@/features/auth/api/auth.api';
  * Does not render the main admin sidebar. Displays a slim top bar with logo,
  * real-time socket status indicator, fullscreen toggle, chef info, and logout action.
  */
-export default function KdsShell({ socketConnected, isFullscreen, onToggleFullscreen, children }) {
+export default function KdsShell({ socketConnected, isFullscreen, onToggleFullscreen, onRetrySocket, children }) {
   const navigate = useNavigate();
   const { user, restaurant, clearSession } = useAuthStore();
 
@@ -26,9 +26,20 @@ export default function KdsShell({ socketConnected, isFullscreen, onToggleFullsc
     <div className="min-h-screen bg-muted/20 flex flex-col font-sans select-none">
       {/* Persistent Socket Reconnecting Strip */}
       {!socketConnected && (
-        <div className="bg-amber-500 text-slate-950 px-4 py-2 text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shadow-md animate-pulse sticky top-0 z-50">
-          <span className="w-2.5 h-2.5 rounded-full bg-slate-950 animate-ping shrink-0" />
-          <span>Reconnecting to Kitchen Socket Server... Visual display stays active.</span>
+        <div className="bg-amber-500 text-slate-950 px-4 py-2 text-xs sm:text-sm font-bold flex items-center justify-between shadow-md sticky top-0 z-50">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-slate-950 animate-ping shrink-0" />
+            <span>Reconnecting to Kitchen Socket Server... Visual display stays active.</span>
+          </div>
+          {onRetrySocket && (
+            <Button
+              size="xs"
+              onClick={onRetrySocket}
+              className="bg-slate-950 hover:bg-slate-800 text-amber-400 font-extrabold text-xs h-7 px-3 rounded-lg shrink-0 cursor-pointer"
+            >
+              Retry Now ⚡
+            </Button>
+          )}
         </div>
       )}
 
@@ -61,6 +72,14 @@ export default function KdsShell({ socketConnected, isFullscreen, onToggleFullsc
           <span>
             {socketConnected ? '⚡ KDS Online (Live)' : '⚠️ Reconnecting...'}
           </span>
+          {!socketConnected && onRetrySocket && (
+            <button
+              onClick={onRetrySocket}
+              className="ml-1 text-[11px] underline font-extrabold hover:text-amber-700 dark:hover:text-amber-300"
+            >
+              Retry
+            </button>
+          )}
         </div>
 
         {/* Right Action Controls */}

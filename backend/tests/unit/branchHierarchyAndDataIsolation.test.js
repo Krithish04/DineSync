@@ -112,7 +112,7 @@ describe('Branch Entity & 3-Tier Account Hierarchy Unit Tests', () => {
     assert.strictEqual(req.branchId, branchId);
   });
 
-  it('Phase 4: enforceBranchIsolation rejects cross-branch access attempt with 403 Forbidden', () => {
+  it('Phase 4: enforceBranchIsolation rejects cross-branch access attempt with 403 Forbidden', async () => {
     const branchIdA = new mongoose.Types.ObjectId().toString();
     const branchIdB = new mongoose.Types.ObjectId().toString();
 
@@ -130,32 +130,28 @@ describe('Branch Entity & 3-Tier Account Hierarchy Unit Tests', () => {
       params: {},
     };
 
-    try {
-      enforceBranchIsolation(req, {}, () => {});
-      assert.fail('Should have thrown 403 Forbidden');
-    } catch (err) {
-      assert.strictEqual(err.statusCode, 403);
-      assert.ok(err.message.includes('another branch'));
-    }
+    let thrownError;
+    await enforceBranchIsolation(req, {}, (err) => { thrownError = err; });
+    assert.ok(thrownError, 'Should have passed error to next()');
+    assert.strictEqual(thrownError.statusCode, 403);
+    assert.ok(thrownError.message.includes('another branch'));
   });
 
-  it('Phase 4: enforceBranchIsolation rejects Manager/Staff without assigned branch with 403 Forbidden', () => {
+  it('Phase 4: enforceBranchIsolation rejects Manager/Staff without assigned branch with 403 Forbidden', async () => {
     const unassignedStaff = {
       _id: new mongoose.Types.ObjectId(),
       role: ROLES.STAFF,
-      restaurant: new mongoose.Types.ObjectId(),
+      restaurant: null,
       branch: null,
     };
 
     const req = { user: unassignedStaff, query: {}, body: {}, params: {} };
 
-    try {
-      enforceBranchIsolation(req, {}, () => {});
-      assert.fail('Should have thrown 403 Forbidden');
-    } catch (err) {
-      assert.strictEqual(err.statusCode, 403);
-      assert.ok(err.message.includes('not assigned to any branch'));
-    }
+    let thrownError;
+    await enforceBranchIsolation(req, {}, (err) => { thrownError = err; });
+    assert.ok(thrownError, 'Should have passed error to next()');
+    assert.strictEqual(thrownError.statusCode, 403);
+    assert.ok(thrownError.message.includes('not assigned to any branch'));
   });
 
   it('Data Migration: migrateBranchData function is exported and ready for execution', () => {

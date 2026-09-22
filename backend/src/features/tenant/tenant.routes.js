@@ -14,6 +14,7 @@ const router = express.Router();
 
 const canManage = authorize(ROLES.SUPER_ADMIN, ROLES.OWNER, ROLES.MANAGER);
 const canManageFinancials = authorize(ROLES.SUPER_ADMIN, ROLES.OWNER);
+const canViewSettings = authorize(ROLES.SUPER_ADMIN, ROLES.OWNER, ROLES.MANAGER, ROLES.STAFF, ROLES.CHEF, ROLES.KITCHEN);
 
 // Public: fetch a restaurant's public profile (used to render its storefront)
 router.get('/public/:slug', tenantController.getPublicBySlug);
@@ -36,7 +37,7 @@ router.patch(
 );
 
 // --- Settings ---
-router.get('/:restaurantId/settings', protect, canManage, tenantController.getSettings);
+router.get('/:restaurantId/settings', protect, canViewSettings, tenantController.getSettings);
 router.patch(
   '/:restaurantId/settings',
   protect,

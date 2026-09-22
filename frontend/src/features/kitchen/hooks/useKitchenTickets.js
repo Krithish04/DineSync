@@ -6,6 +6,8 @@ import * as kitchenApi from '../api/kitchen.api';
 
 import * as restaurantApi from '@/features/restaurant/api/restaurant.api';
 
+import { getApiBaseUrl } from '@/lib/axios';
+
 const DEFAULT_STATIONS = ['Main Kitchen', 'Tandoor', 'Bar', 'Dessert', 'Beverage'];
 
 /**
@@ -24,6 +26,7 @@ export function useKitchenTickets() {
   const [error, setError] = useState('');
   const [socketConnected, setSocketConnected] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [socketRef, setSocketRef] = useState(null);
 
   // Load configured stations from restaurant settings
   useEffect(() => {
@@ -126,23 +129,44 @@ export function useKitchenTickets() {
   useEffect(() => {
     if (!restaurantId) return;
 
-    const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api/v1';
-    const socketURL = baseURL.replace('/api/v1', '');
+    const apiBase = getApiBaseUrl();
+    const socketURL = apiBase
+      ? apiBase.replace(/\/api\/v1\/?$/, '').replace(/\/api\/?$/, '')
+      : (import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000');
 
     const socket = io(socketURL, {
       withCredentials: true,
-      transports: ['websocket'],
-      reconnectionAttempts: 10,
-      reconnectionDelay: 2000,
+      transports: ['websocket', 'polling'],
+      timeout: 5000,
+      reconnectionAttempts: 15,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 3000,
     });
+
+    setSocketRef(socket);
 
     socket.on('connect', () => {
       setSocketConnected(true);
+      setError('');
       socket.emit('join:restaurant', restaurantId);
+      socket.emit('join:tenant', restaurantId);
     });
 
-    socket.on('disconnect', () => {
+    socket.on('disconnect', (reason) => {
       setSocketConnected(false);
+      // eslint-disable-next-line no-console
+      console.warn(`[KDS Socket] Disconnected (${reason}).`);
+    });
+
+    socket.on('connect_error', (err) => {
+      setSocketConnected(false);
+      // eslint-disable-next-line no-console
+      console.warn(`[KDS Socket Connect Error] ${err.message}`);
+    });
+
+    socket.on('reconnect_failed', () => {
+      setSocketConnected(false);
+      setError('Kitchen Socket Server unreachable after retries. Click Retry to reconnect.');
     });
 
     socket.on('restaurant:settings_updated', (updatedSettings) => {
@@ -300,6 +324,13 @@ export function useKitchenTickets() {
     };
   }, [tickets]);
 
+  const retrySocket = useCallback(() => {
+    if (socketRef) {
+      socketRef.connect();
+    }
+    loadKDSData();
+  }, [socketRef, loadKDSData]);
+
   return {
     stations,
     selectedStation,
@@ -325,6 +356,7 @@ export function useKitchenTickets() {
     atRiskCount: slaCounts.atRiskCount,
     lateCount: slaCounts.lateCount,
     refreshData: loadKDSData,
+    retrySocket,
   };
 }
 

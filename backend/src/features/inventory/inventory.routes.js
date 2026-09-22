@@ -36,7 +36,7 @@ router
   .post(canManage, validateBody(createIngredientSchema), inventoryController.createIngredient)
   .get(inventoryController.listIngredients);
 
-const canStaff = authorize(ROLES.SUPER_ADMIN, ROLES.OWNER, ROLES.MANAGER, ROLES.STAFF, ROLES.CHEF);
+const canStaff = authorize(ROLES.SUPER_ADMIN, ROLES.OWNER, ROLES.MANAGER, ROLES.STAFF, ROLES.CHEF, ROLES.KITCHEN);
 
 router
   .route('/ingredients/:ingredientId')

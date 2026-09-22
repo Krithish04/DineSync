@@ -117,76 +117,102 @@ const SubscriptionPlansPage = lazyLoad(() => import('@/features/superAdmin/pages
 const FeatureFlagsPage = lazyLoad(() => import('@/features/superAdmin/pages/FeatureFlagsPage'));
 const AuditLogsPage = lazyLoad(() => import('@/features/superAdmin/pages/AuditLogsPage'));
 const PlatformAnalyticsPage = lazyLoad(() => import('@/features/superAdmin/pages/PlatformAnalyticsPage'));
-const MonitoringDashboardPage = lazyLoad(() => import('@/features/superAdmin/pages/MonitoringDashboardPage'));
+import PublicRoute from '@/components/common/PublicRoute';
+import useAuthStore from '@/features/auth/store/auth.store';
+
+function RootRedirect() {
+  const { isAuthenticated, user } = useAuthStore();
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (user?.role === 'chef') {
+    return <Navigate to="/kds" replace />;
+  }
+  if (user?.role === 'staff') {
+    return <Navigate to="/restaurant/staff-orders" replace />;
+  }
+  if (user?.role === 'super_admin') {
+    return <Navigate to="/super-admin/dashboard" replace />;
+  }
+
+  return <Navigate to="/dashboard" replace />;
+}
 
 const router = createBrowserRouter([
   {
     path: '/',
-    element: <Navigate to="/dashboard" replace />,
+    element: <RootRedirect />,
   },
   {
-    path: '/login',
-    element: <LoginChooserPage />,
-  },
-  {
-    path: '/signin',
-    element: <Navigate to="/login" replace />,
-  },
-  {
-    path: '/log-in',
-    element: <Navigate to="/login" replace />,
-  },
-  {
-    path: '/login/restaurant',
-    element: <RestaurantLoginPage />,
-  },
-  {
-    path: '/login/staff',
-    element: <Navigate to="/login/restaurant" replace />,
-  },
-  {
-    path: '/login/manager',
-    element: <Navigate to="/login/restaurant" replace />,
-  },
-  {
-    path: '/login/owner',
-    element: <Navigate to="/login/restaurant" replace />,
-  },
-  {
-    path: '/login/kitchen',
-    element: <KitchenLoginPage />,
-  },
-  {
-    path: '/login/chef',
-    element: <Navigate to="/login/kitchen" replace />,
-  },
-  {
-    path: '/login/admin',
-    element: <AdminLoginPage />,
-  },
-  {
-    path: '/login/superadmin',
-    element: <Navigate to="/login/admin" replace />,
-  },
-  {
-    path: '/login/super-admin',
-    element: <Navigate to="/login/admin" replace />,
-  },
-  {
-    path: '/register',
-    element: <RegisterPage />,
-  },
-  {
-    path: '/verify-otp',
-    element: <VerifyOtpPage />,
-  },
-  {
-    path: '/forgot-password',
-    element: <ForgotPasswordPage />,
-  },
-  {
-    path: '/reset-password',
-    element: <ResetPasswordPage />,
+    element: <PublicRoute />,
+    children: [
+      {
+        path: '/login',
+        element: <LoginChooserPage />,
+      },
+      {
+        path: '/signin',
+        element: <Navigate to="/login" replace />,
+      },
+      {
+        path: '/log-in',
+        element: <Navigate to="/login" replace />,
+      },
+      {
+        path: '/login/restaurant',
+        element: <RestaurantLoginPage />,
+      },
+      {
+        path: '/login/staff',
+        element: <Navigate to="/login/restaurant" replace />,
+      },
+      {
+        path: '/login/manager',
+        element: <Navigate to="/login/restaurant" replace />,
+      },
+      {
+        path: '/login/owner',
+        element: <Navigate to="/login/restaurant" replace />,
+      },
+      {
+        path: '/login/kitchen',
+        element: <KitchenLoginPage />,
+      },
+      {
+        path: '/login/chef',
+        element: <Navigate to="/login/kitchen" replace />,
+      },
+      {
+        path: '/login/admin',
+        element: <AdminLoginPage />,
+      },
+      {
+        path: '/login/superadmin',
+        element: <Navigate to="/login/admin" replace />,
+      },
+      {
+        path: '/login/super-admin',
+        element: <Navigate to="/login/admin" replace />,
+      },
+      {
+        path: '/register',
+        element: <RegisterPage />,
+      },
+      {
+        path: '/verify-otp',
+        element: <VerifyOtpPage />,
+      },
+      {
+        path: '/forgot-password',
+        element: <ForgotPasswordPage />,
+      },
+      {
+        path: '/reset-password',
+        element: <ResetPasswordPage />,
+      },
+    ],
   },
   {
     path: '/unauthorized',

@@ -34,8 +34,10 @@ class Fast2SmsNotificationProvider extends NotificationProvider {
       return this.fallbackProvider.sendOtp({ phone, code, purpose });
     }
 
+    const messageText = `Your DineSync AI verification code is: ${code}. Valid for 10 minutes.`;
+
     try {
-      const response = await axios.post(
+      let response = await axios.post(
         this.apiUrl,
         {
           route: 'otp',
@@ -47,11 +49,30 @@ class Fast2SmsNotificationProvider extends NotificationProvider {
             authorization: apiKey,
             'Content-Type': 'application/json',
           },
-          timeout: env.SMS_GATEWAY_TIMEOUT_MS || 10000,
+          timeout: Math.max(env.SMS_GATEWAY_TIMEOUT_MS || 5000, 15000),
         }
       );
 
-      const isSuccess = response.data && (response.data.return === true || response.data.status_code === 200);
+      let isSuccess = response.data && (response.data.return === true || response.data.status_code === 200);
+
+      if (!isSuccess && response.data?.message?.toLowerCase().includes('verification')) {
+        // eslint-disable-next-line no-console
+        console.warn('[FAST2SMS OTP ROUTE] OTP route requires website verification. Attempting Quick SMS route...');
+        response = await axios.post(
+          this.apiUrl,
+          {
+            route: 'q',
+            message: messageText,
+            language: 'english',
+            numbers: cleanPhone,
+          },
+          {
+            headers: { authorization: apiKey, 'Content-Type': 'application/json' },
+            timeout: Math.max(env.SMS_GATEWAY_TIMEOUT_MS || 5000, 15000),
+          }
+        );
+        isSuccess = response.data && (response.data.return === true || response.data.status_code === 200);
+      }
 
       if (isSuccess) {
         // eslint-disable-next-line no-console
@@ -61,6 +82,7 @@ class Fast2SmsNotificationProvider extends NotificationProvider {
           provider: 'fast2sms',
           requestId: response.data.request_id,
           response: response.data,
+          otpCode: code,
           timestamp: new Date().toISOString(),
         };
       }
@@ -69,6 +91,41 @@ class Fast2SmsNotificationProvider extends NotificationProvider {
       console.warn(`[FAST2SMS WARNING] Fast2SMS returned non-success response: ${JSON.stringify(response.data)}. Falling back to DevConsole.`);
       return this.fallbackProvider.sendOtp({ phone, code, purpose });
     } catch (error) {
+      if (error.response?.data?.message?.toLowerCase().includes('verification')) {
+        try {
+          // eslint-disable-next-line no-console
+          console.warn('[FAST2SMS OTP ROUTE] OTP route requires website verification. Attempting Quick SMS route...');
+          const fallbackRes = await axios.post(
+            this.apiUrl,
+            {
+              route: 'q',
+              message: messageText,
+              language: 'english',
+              numbers: cleanPhone,
+            },
+            {
+              headers: { authorization: apiKey, 'Content-Type': 'application/json' },
+              timeout: Math.max(env.SMS_GATEWAY_TIMEOUT_MS || 5000, 15000),
+            }
+          );
+          if (fallbackRes.data && (fallbackRes.data.return === true || fallbackRes.data.status_code === 200)) {
+            // eslint-disable-next-line no-console
+            console.log(`[FAST2SMS SUCCESS] Sent OTP via Quick SMS to ${cleanPhone} (Request ID: ${fallbackRes.data.request_id || 'N/A'})`);
+            return {
+              success: true,
+              provider: 'fast2sms',
+              requestId: fallbackRes.data.request_id,
+              response: fallbackRes.data,
+              otpCode: code,
+              timestamp: new Date().toISOString(),
+            };
+          }
+        } catch (fallbackErr) {
+          // eslint-disable-next-line no-console
+          console.error(`[FAST2SMS QUICK ROUTE ERROR] ${fallbackErr.response?.data?.message || fallbackErr.message}`);
+        }
+      }
+
       // eslint-disable-next-line no-console
       console.error(`[FAST2SMS ERROR] Failed to send OTP via Fast2SMS: ${error.response?.data?.message || error.message}. Falling back to DevConsole.`);
       return this.fallbackProvider.sendOtp({ phone, code, purpose });

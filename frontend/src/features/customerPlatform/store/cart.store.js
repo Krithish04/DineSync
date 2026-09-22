@@ -333,6 +333,17 @@ const useCartStore = create(
     }),
     {
       name: 'dinesync-customer-cart',
+      partialize: (state) => ({
+        items: state.items,
+        specialInstructions: state.specialInstructions,
+        appliedCoupon: state.appliedCoupon,
+        loyaltyPointsRedeemed: state.loyaltyPointsRedeemed,
+        tableHost: state.tableHost,
+        hostToken: state.hostToken,
+        userLocation: state.userLocation,
+        activeTableSessions: state.activeTableSessions,
+        placedOrders: state.placedOrders,
+      }),
     }
   )
 );

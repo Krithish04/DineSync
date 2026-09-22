@@ -16,7 +16,7 @@ const router = express.Router({ mergeParams: true });
 
 const canManage = authorize(ROLES.SUPER_ADMIN, ROLES.OWNER, ROLES.MANAGER);
 const canCreateOrder = authorize(ROLES.SUPER_ADMIN, ROLES.OWNER, ROLES.MANAGER, ROLES.STAFF);
-const canUpdateStatus = authorize(ROLES.SUPER_ADMIN, ROLES.OWNER, ROLES.MANAGER, ROLES.STAFF, ROLES.CHEF);
+const canUpdateStatus = authorize(ROLES.SUPER_ADMIN, ROLES.OWNER, ROLES.MANAGER, ROLES.STAFF, ROLES.CHEF, ROLES.KITCHEN);
 
 // All routes require authentication and tenant-isolation
 router.use(protect, enforceTenantIsolation);

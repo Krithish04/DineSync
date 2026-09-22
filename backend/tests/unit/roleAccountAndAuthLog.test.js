@@ -59,4 +59,22 @@ describe('Role-Based Account Creation & Login-Tracking (AuthLog) Unit Tests', ()
     assert.strictEqual(log.eventType, 'login');
     assert.ok(log.loginAt);
   });
+
+  it('4. Should authorize KITCHEN role for tenant settings read & kitchen ticket updates', () => {
+    const { authorize } = require('../../src/middlewares/auth.middleware');
+    const canViewSettings = authorize(ROLES.SUPER_ADMIN, ROLES.OWNER, ROLES.MANAGER, ROLES.STAFF, ROLES.CHEF, ROLES.KITCHEN);
+    const canManageKitchen = authorize(ROLES.SUPER_ADMIN, ROLES.OWNER, ROLES.MANAGER, ROLES.STAFF, ROLES.CHEF, ROLES.KITCHEN);
+
+    const kitchenReq = {
+      user: { role: ROLES.KITCHEN, restaurant: testRestaurantId },
+    };
+
+    let settingsNextCalled = false;
+    canViewSettings(kitchenReq, {}, () => { settingsNextCalled = true; });
+    assert.ok(settingsNextCalled, 'KITCHEN role should be authorized to read tenant settings');
+
+    let kitchenNextCalled = false;
+    canManageKitchen(kitchenReq, {}, () => { kitchenNextCalled = true; });
+    assert.ok(kitchenNextCalled, 'KITCHEN role should be authorized to manage kitchen ticket status');
+  });
 });
